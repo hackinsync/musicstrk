@@ -1,5 +1,5 @@
 use starknet::ContractAddress;
-use contract_::balnce::HelloStarknet; 
+use contract_::balnce::HelloStarknet;
 
 use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
 
