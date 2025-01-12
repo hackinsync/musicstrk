@@ -2,11 +2,12 @@ use starknet::{ContractAddress, get_caller_address};
 
 #[starknet::interface]
 pub trait Ierc20<ContractState>{
-    fn name(self: ContractState) -> felt252;
-    fn symbol(self: ContractState) -> felt252;
-    fn decimal(self: ContractState, dec: u64) -> u64;
-    fn transfer(ref self: ContractState, amount: u256, to: ContractAddress);
-    fn transferFrom(ref self: ContractState, from: ContractAddress, to: ContractAddress);
+    fn name(self: @ContractState) -> felt252;
+    fn symbol(self: @ContractState) -> felt252;
+    fn decimal(self: @ContractState, dec: u64) -> u64;
+    fn balance_of(self: @ContractState, account: ContractAddress) -> u256;
+    fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress);
+    fn transferFrom(ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256);
     fn approve(ref self: ContractState, spender: ContractAddress);
     fn allowance(ref self: ContractState, owner: ContractAddress, spender: ContractAddress);
     fn mint();
@@ -17,6 +18,8 @@ pub trait Ierc20<ContractState>{
 pub mod TokenContract {
 
     use starknet::{ContractAddress, get_caller_address};
+    use starknet::contract_address_const;
+
     #[storage]
     struct Storage {
         erc20_token: u256,
@@ -24,6 +27,9 @@ pub mod TokenContract {
         token_symbol: felt252,
         token_decimal: u64,
         owner: ContractAddress,
+        from: ContractAddress,
+        to: ContractAddress,
+        balances: LegacyMap<ContractAddress, u256>,
     }
 
     #[event]
@@ -54,28 +60,77 @@ pub mod TokenContract {
             self.token_decimal.read();
         }
 
-        fn transfer(ref self: ContractState, amount: u256, to: ContractAddress){
+        fn balance_of(self: @ContractState, account: ContractAddress) -> u256{
+            self.balances.read(account);
+        }
+
+        fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress){
             //get owners address
             let owner: ContractAddress = self.owner.read();
 
-            // get caller
+            // get caller address
             let caller: ContractAddress = get_caller_address();
 
             // ensure owner is not address zero
+            assert(owner != zero_address(), "owner can't be address zero");
+
+            // ensure caller is not address zero
+            assert(caller != zero_address(), "caller can't be address zero")
+
+            // ensure to address is not zero address
+            assert(to_ != zero_address(), "to_address can't be address zero")
 
             // ensure only owner can transfer
             assert(owner == caller, "caller not owner");
 
             // ensure owners balance is => amount to transfer
-            
+            let owner_balance: u256 = self.balances.read(owner);
 
-            // ensure to address is not zero address
+            // ensure owner's balance is => amount
+            assert(owner_balance => amount, "insufficient balance");
 
-            // transfer amount to address to
+            // get the current balance of to_address
+            let to_current_balance = self.balances.read(to_);
+
+            // transfer amount to to_address
+            self.owner.write(to_, to_current_balance += amount)
 
         }
 
+        fn transferFrom(ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256){
+            //get caller address
+            let caller: ContractAddress = get_caller_address();
 
+            // ensure caller is not address zero
+            assert(caller != zero_address(), "caller can't be address zero");
+
+            //ensure from is not address zero
+            assert(from_ != zero_address(), "from can't be address zero");
+
+            //ensure to is not address zero
+            assert(to_ != zero_address(), "to can't be address zero");
+
+            // ensure owners balance is => amount to transfer
+            let from_balance: u256 = self.balances.read(from_);
+
+            // ensure owner's balance is => amount
+            assert(from_balance => amount, "insufficient balance");
+
+            // get the current balance of to_address
+            let to_current_balance = self.balances.read(to_);
+
+            // transfer amount from from_address to to_address
+            self.from.write(to_, to_current_balance += amount)
+        }
+
+
+    }
+
+    #[generate_trait]
+    impl internalImpl of internalTrait{
+        fn zero_address() -> ContractAddress {
+            contract_address_const::<0x0>()
+        }
     }
 
 }
