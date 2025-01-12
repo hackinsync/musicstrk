@@ -23,6 +23,7 @@ pub mod TokenContract {
         token_name: felt252,
         token_symbol: felt252,
         token_decimal: u64,
+        owner: ContractAddress,
     }
 
     #[event]
@@ -32,9 +33,11 @@ pub mod TokenContract {
 
     #[constructor]
     fn constructor(ref self: ContractState, token_name_: felt252, token_symbol_: felt252, token_decimal_: u64) {
+        let owner: ContractAddress = get_caller_address();
         self.token_name.write(token_name_);
         self.token_symbol.write(token_symbol_);
         self.token_decimal.write(token_decimal_);
+        self.owner.write(owner);
     }
 
     #[abi(embed_v0)]
@@ -53,19 +56,26 @@ pub mod TokenContract {
 
         fn transfer(ref self: ContractState, amount: u256, to: ContractAddress){
             //get owners address
-            let owner: ContractAddress = ;
+            let owner: ContractAddress = self.owner.read();
+
+            // get caller
+            let caller: ContractAddress = get_caller_address();
 
             // ensure owner is not address zero
 
             // ensure only owner can transfer
+            assert(owner == caller, "caller not owner");
 
             // ensure owners balance is => amount to transfer
+            
 
             // ensure to address is not zero address
 
             // transfer amount to address to
 
         }
+
+
     }
 
 }
