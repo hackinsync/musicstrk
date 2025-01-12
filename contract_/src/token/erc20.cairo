@@ -27,6 +27,7 @@ pub mod TokenContract {
         token_symbol: felt252,
         token_decimal: u64,
         owner: ContractAddress,
+        sender: ContractAddress,
         from: ContractAddress,
         to: ContractAddress,
         balances: LegacyMap<ContractAddress, u256>,
@@ -65,35 +66,32 @@ pub mod TokenContract {
         }
 
         fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress){
-            //get owners address
-            let owner: ContractAddress = self.owner.read();
-
-            // get caller address
-            let caller: ContractAddress = get_caller_address();
+            //get sender/caller address
+            let sender: ContractAddress = get_caller_address();
 
             // ensure owner is not address zero
-            assert(owner != zero_address(), "owner can't be address zero");
-
-            // ensure caller is not address zero
-            assert(caller != zero_address(), "caller can't be address zero")
+            assert(sender != zero_address(), "sender can't be address zero");
 
             // ensure to address is not zero address
             assert(to_ != zero_address(), "to_address can't be address zero")
 
-            // ensure only owner can transfer
-            assert(owner == caller, "caller not owner");
-
             // ensure owners balance is => amount to transfer
-            let owner_balance: u256 = self.balances.read(owner);
+            let sender_balance: u256 = self.balances.read(sender);
 
             // ensure owner's balance is => amount
-            assert(owner_balance => amount, "insufficient balance");
+            assert(sender_balance >= amount, "insufficient balance");
+
+            // remove amount from sender
+            self.balances.write(sender, sender_balance - amount);
 
             // get the current balance of to_address
             let to_current_balance = self.balances.read(to_);
 
+            //add amount to to_current_balance 
+            let to_new_balance = to_current_balance + amount;
+
             // transfer amount to to_address
-            self.owner.write(to_, to_current_balance += amount)
+            self.balances.write(to_, to_new_balance)
 
         }
 
@@ -114,13 +112,16 @@ pub mod TokenContract {
             let from_balance: u256 = self.balances.read(from_);
 
             // ensure owner's balance is => amount
-            assert(from_balance => amount, "insufficient balance");
+            assert(from_balance >= amount, "insufficient balance");
+
+            //remove amount from from_ balance
+            self.balances.write(from_, from_balance - amount);
 
             // get the current balance of to_address
             let to_current_balance = self.balances.read(to_);
 
             // transfer amount from from_address to to_address
-            self.from.write(to_, to_current_balance += amount)
+            self.from.write(to_, to_current_balance + amount)
         }
 
 
