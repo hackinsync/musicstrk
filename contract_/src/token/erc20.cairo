@@ -11,8 +11,8 @@ pub trait Ierc20<ContractState>{
     fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool;
     fn transferFrom(ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256) -> bool;
     fn getAllowance(ref self: ContractState, spender: ContractAddress) -> u256;
-    fn mint();
-    fn burn();
+    fn mint(ref self: ContractState, to_: ContractAddress, amount: u256);
+    fn burn(ref self: ContractState, amount: u256);
 }
 
 #[starknet::contract]
@@ -151,6 +151,57 @@ pub mod TokenContract {
 
         fn getAllowance(ref self: ContractState, owner: ContractAddress, spender: ContractAddress) -> u256{
             self.allowances.read(owner, spender);
+        }
+
+        fn mint(ref self: ContractState, to_: ContractAddress, amount: u256){
+            //get caller
+            let caller: ContractAddress = get_caller_address();
+
+            //get owner
+            let owner: ContractAddress = self.owner.read();
+
+            //ensure to_ is not address zero
+            assert(to_ != zero_address(), "recipient can't be address zero")
+            //ensure caller is not address zero
+            assert(caller != zero_address(), "caller can't be address zero")
+
+            //ensure caller is the owner
+            assert(caller == owner, "caller not owner");
+
+            //get current ballance
+            let to_current_balance = self.balances.read(to_);
+            //increase to_ balance with amount
+            self.balances.write(to_current_balance + amount);
+
+            //get the current total supply
+            let current_supply = self.totalSupply.read();
+            //increase total supply with amount
+            self.totalSupply.write(current_supply + amount)
+        }
+
+        fn burn(ref self: ContractState, amount: u256){
+            //get caller
+            let caller: ContractAddress = get_caller_address();
+
+            //get owner
+            let owner: ContractAddress = self.owner.read();
+
+            //ensure caller is not address zero
+            assert(caller != zero_address(), "caller can't be address zero")
+
+            //ensure caller is the owner
+            assert(caller == owner, "caller not owner");
+
+            //get callers current balance
+            let caller_balance = self.balances.read(caller);
+            //reduce callers balance with amount 
+            self.balances.write(caller, caller_balance - amount);
+
+            //get the current total supply
+            let current_supply = self.totalSupply.read();
+            //substract amount from current total supply
+            self.totalSupply.write(current_supply - amount)
+
         }
 
     }
