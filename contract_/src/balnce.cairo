@@ -13,7 +13,7 @@ pub trait IHelloStarknet<TContractState> {
 pub mod HelloStarknet {
     use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
 
-    #[storage] 
+    #[storage]
     struct Storage {
         balance: felt252,
     }
