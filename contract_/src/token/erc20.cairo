@@ -6,10 +6,11 @@ pub trait Ierc20<ContractState>{
     fn symbol(self: @ContractState) -> felt252;
     fn decimal(self: @ContractState, dec: u64) -> u64;
     fn balance_of(self: @ContractState, account: ContractAddress) -> u256;
-    fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress);
-    fn transferFrom(ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256);
-    fn approve(ref self: ContractState, spender: ContractAddress);
-    fn allowance(ref self: ContractState, owner: ContractAddress, spender: ContractAddress);
+    fn totalSupply(self: @ContractAddress) -> u256;
+    fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool;
+    fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool;
+    fn transferFrom(ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256) -> bool;
+    fn getAllowance(ref self: ContractState, spender: ContractAddress) -> u256;
     fn mint();
     fn burn();
 }
@@ -26,11 +27,13 @@ pub mod TokenContract {
         token_name: felt252,
         token_symbol: felt252,
         token_decimal: u64,
+        totalSupply: u256,
         owner: ContractAddress,
         sender: ContractAddress,
         from: ContractAddress,
         to: ContractAddress,
         balances: LegacyMap<ContractAddress, u256>,
+        allowances: LegacyMap<(ContractAddress, ContractAddress), u256>,
     }
 
     #[event]
@@ -65,7 +68,23 @@ pub mod TokenContract {
             self.balances.read(account);
         }
 
-        fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress){
+        fn totalSupply(self: @ContractAddress) -> u256{
+            self.totalSupply.read();
+        }
+
+        fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool{
+            let owner: ContractAddress = get_caller_address();
+
+            asser(owner != contract_address_const<0x0>, "owner can't be address zero")
+
+            assert(spender != contract_address_const<0x0>, "invalid spender");
+
+            self.allowances.write((owner, spender), amount);
+
+            true
+        }
+
+        fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool{
             //get sender/caller address
             let sender: ContractAddress = get_caller_address();
 
@@ -93,37 +112,46 @@ pub mod TokenContract {
             // transfer amount to to_address
             self.balances.write(to_, to_new_balance)
 
+            true
+
         }
 
-        fn transferFrom(ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256){
+        fn transferFrom(ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256) -> bool{
             //get caller address
             let caller: ContractAddress = get_caller_address();
 
             // ensure caller is not address zero
             assert(caller != zero_address(), "caller can't be address zero");
 
-            //ensure from is not address zero
-            assert(from_ != zero_address(), "from can't be address zero");
+            //check allowance
+            let allowance = self.allowances.read(from, caller);
 
-            //ensure to is not address zero
-            assert(to_ != zero_address(), "to can't be address zero");
+            //ensure allowance is greater/equal to amount
+            assert(allowance >= amount, 'insufficient allowance');
 
-            // ensure owners balance is => amount to transfer
-            let from_balance: u256 = self.balances.read(from_);
 
-            // ensure owner's balance is => amount
+            //check balanace
+            let from_balance = self.balances.read(from_);
             assert(from_balance >= amount, "insufficient balance");
 
-            //remove amount from from_ balance
-            self.balances.write(from_, from_balance - amount);
+            //update allowance
+            self.allowances.write((from_, caller), from_balance - amount);
 
-            // get the current balance of to_address
+            //update balance, taking amount from from_
+            self.balanaces.write(from_, from_balance - amount);
+
+            //grt recipient balance
             let to_current_balance = self.balances.read(to_);
 
-            // transfer amount from from_address to to_address
-            self.from.write(to_, to_current_balance + amount)
+            //update to_ balance
+            self.balanaces.write(to_, to_current_balance + amount);
+
+            true
         }
 
+        fn getAllowance(ref self: ContractState, owner: ContractAddress, spender: ContractAddress) -> u256{
+            self.allowances.read(owner, spender);
+        }
 
     }
 
