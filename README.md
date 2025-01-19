@@ -105,3 +105,5 @@ We are actively seeking:
 For inquiries and collaboration, reach out to buidl@musicstrk.fun.
 
 Let’s build the future of music. As we pump talents on Starknet! 🎵
+
+### Bringing music onchain and on starknet
