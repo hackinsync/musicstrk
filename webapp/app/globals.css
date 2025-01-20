@@ -3,8 +3,34 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Trebuchet MS, Helvetica, sans-serif;
 }
+
+.rethink-400 {
+  font-family: "Rethink Sans", Trebuchet MS;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+}
+.rethink-800 {
+  font-family: "Rethink Sans", Trebuchet MS;
+  font-optical-sizing: auto;
+  font-weight: 800;
+  font-style: normal;
+}
+
+.baskervville-regular {
+  font-family: "Baskervville", Garamond;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.baskervville-regular-italic {
+  font-family: "Baskervville", Garamond;
+  font-weight: 400;
+  font-style: italic;
+}
+
 
 @layer utilities {
   .text-balance {
@@ -66,6 +92,13 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+}
+
+.aurora {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(120deg, #112c71, #0a2353);
 }
 
 @layer base {
