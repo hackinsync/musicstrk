@@ -35,7 +35,7 @@ export default function Hero() {
 
         setLoading(true)
         try {
-            const response = await fetch("http://156.232.88.143:5000/api/waitlist", {
+            const response = await fetch("https://vm-71179753.truehost.dev/musicstrk-api/api/waitlist", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
