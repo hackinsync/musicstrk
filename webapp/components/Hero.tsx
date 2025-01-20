@@ -72,7 +72,7 @@ export default function Hero() {
             <div className="relative container mx-auto px-4 py-20">
                 <div className="text-center max-w-3xl mx-auto space-y-8">
                     {/* Logo */}
-                    <div className="flex justify-between w-full items-center mb-8">
+                    <div className="flex flex-col md:flex-row items-center md:justify-between w-full mb-8">
                         <Image src={logo} className="mx-auto" alt="Logo" width={283} />
                         <div className="flex space-x-4">
                                 <SocialIcon url="https://t.me/jedshock" />
