@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
-import logo from '../assets/images/LogoText-W.png'
+import logo from '../app/assets/images/LogoText-W.png'
 import { FeatureCarousel } from "./FeatureComponent"
 import Link from "next/link"
 import { FileText, Mail } from "lucide-react"
@@ -27,8 +27,8 @@ export default function Hero() {
     const handleSubmit = async () => {
         if (!validateEmail(email)) {
             toast({
-            variant: "destructive",
-            title: "Invalid email address. Please try again."
+                variant: "destructive",
+                title: "Invalid email address. Please try again."
             })
             return
         }
@@ -73,10 +73,14 @@ export default function Hero() {
                 <div className="text-center max-w-3xl mx-auto space-y-8">
                     {/* Logo */}
                     <div className="flex flex-col md:flex-row items-center md:justify-between w-full mb-8">
-                        <Image src={logo} className="mx-auto" alt="Logo" width={283} />
+                        <Image src={logo} className="mx-auto" alt="Logo" width={230} />
                         <div className="flex space-x-4">
-                                <SocialIcon url="https://t.me/jedshock" />
+                            <div className="w-4 h-4">
+                            <SocialIcon url="https://t.me/jedshock" />
+                            </div>
+                            <div className="w-4 h-4">
                                 <SocialIcon url="https://github.com/hackinsync/musicstrk" />
+                            </div>
                         </div>
                     </div>
 

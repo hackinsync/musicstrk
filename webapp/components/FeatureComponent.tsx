@@ -141,8 +141,8 @@ export function FeatureCarousel() {
                 onClick={scrollNext}
             />
             {/* Fade edges */}
-            <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#112c71] to-transparent pointer-events-none" />
-            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#112c71] to-transparent pointer-events-none" />
+            {/* <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#112c71] to-transparent pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#112c71] to-transparent pointer-events-none" /> */}
         </div>
     )
 }
