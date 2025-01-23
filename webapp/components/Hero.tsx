@@ -7,9 +7,10 @@ import logo from '../app/assets/images/LogoText-W.png'
 import { FeatureCarousel } from "./FeatureComponent"
 import Link from "next/link"
 import { FileText, Mail } from "lucide-react"
-import { SocialIcon } from "react-social-icons"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
+import Telegram from "./icons/Telegram"
+import Github from "./icons/Github"
 
 
 export default function Hero() {
@@ -72,15 +73,15 @@ export default function Hero() {
             <div className="relative container mx-auto px-4 py-20">
                 <div className="text-center max-w-3xl mx-auto space-y-8">
                     {/* Logo */}
-                    <div className="flex flex-col md:flex-row items-center md:justify-between w-full mb-8">
+                    <div className="flex items-center justify-between w-full mb-8">
                         <Image src={logo} className="mx-auto" alt="Logo" width={230} />
                         <div className="flex space-x-4">
-                            <div className="w-4 h-4">
-                            <SocialIcon url="https://t.me/jedshock" />
-                            </div>
-                            <div className="w-4 h-4">
-                                <SocialIcon url="https://github.com/hackinsync/musicstrk" />
-                            </div>
+                            <Link href={"https://t.me/jedshock"} className="w-4 h-4">
+                                <Telegram />
+                            </Link>
+                            <Link href={"https://github.com/hackinsync/musicstrk"} className="w-4 h-4">
+                                <Github />
+                            </Link>
                         </div>
                     </div>
 
@@ -88,20 +89,20 @@ export default function Hero() {
                     <h1 className="text-4xl md:text-5xl rowdies-bold text-white">
                         We&apos;re BUIDLING a <del>Pump.Fun</del> for musical talents on Starknet
                         <span className="block">
-                            Joining The Pack{' '}
-                            <span className="baskervville-regular-italic text-blue-500">Waitlist!</span>
+                            Join The 
+                            <span className="baskervville-regular-italic text-blue-500"> Pack!</span>
                         </span>
                     </h1>
 
                     {/* Feature Cards */}
                     <div className="mt-16">
-                        <p className="text-gray-400 mb-4">Some features to expect from MusicStrk🐺</p>
+                        <p className="text-gray-400 mb-4">Some features to expect from MusicStrk 🐺</p>
                         <FeatureCarousel />
                     </div>
 
                     {/* Email Form */}
                     <div className="mt-12">
-                        <p className="text-gray-400 mb-4">Get notified when we ship 🚀</p>
+                        <p className="text-gray-400 mb-4">Get notified wen shipped 🚀</p>
                         <div className="flex gap-4 max-w-md mx-auto">
                             <Input
                                 type="email"
@@ -119,7 +120,7 @@ export default function Hero() {
                             </Button>
                         </div>
                     </div>
-                    <div className="mt-8 flex justify-center items-center space-x-8">
+                    <div className="mt-8 flex flex-col md:flex-row justify-center items-center space-x-8">
                         <Link
                             href="https://github.com/hackinsync/musicstrk/"
                             className="flex items-center text-blue-500 hover:text-blue-400 transition-colors"
@@ -129,10 +130,10 @@ export default function Hero() {
                             <FileText className="w-5 h-5 mr-2" />
                             Read our Litepaper
                         </Link>
-                        <div className="flex items-center text-white">
+                        <div className="flex relative right-2 items-center text-white">
                             <Mail className="w-5 h-5 mr-2 text-blue-500" />
-                            <a href="mailto:buidl@musicstrk.com" className="hover:text-blue-500 transition-colors">
-                                buidl@musicstrk.com
+                            <a href="mailto:buidl@musicstrk.fun" className="hover:text-blue-500 transition-colors">
+                                buidl@musicstrk.fun
                             </a>
                         </div>
                     </div>
