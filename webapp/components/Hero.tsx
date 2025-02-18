@@ -76,7 +76,7 @@ export default function Hero() {
                     <div className="flex items-center justify-between w-full mb-8">
                         <Image src={logo} className="mx-auto" alt="Logo" width={230} />
                         <div className="flex space-x-4">
-                            <Link href={"https://t.me/jedshock"} className="w-4 h-4">
+                            <Link href={"https://t.me/+2tMYFpOpU-1jYmY0"} className="w-4 h-4">
                                 <Telegram />
                             </Link>
                             <Link href={"https://github.com/hackinsync/musicstrk"} className="w-4 h-4">
