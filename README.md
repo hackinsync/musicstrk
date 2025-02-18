@@ -102,6 +102,6 @@ We are actively seeking:
 
 ## Contact Us
 
-For inquiries and collaboration, reach out to [buidl@musicstrk.fun] (mailto:buidl@musicstrk.fun). Here's our [TG community] (https://t.me/+2tMYFpOpU-1jYmY0)
+For inquiries and collaboration, reach out to [buidl@musicstrk.fun](mailto:buidl@musicstrk.fun). Here's our [TG community](https://t.me/+2tMYFpOpU-1jYmY0)
 
 Let’s build the future of music. As we pump talents on Starknet! 🎵
