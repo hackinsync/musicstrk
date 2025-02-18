@@ -1,4 +1,4 @@
-<img src="https://camo.githubusercontent.com/91cbeec87268e803fed3e0bc4c2aeafaa53c4e46d0748fce0fb7c4307e74b140/68747470733a2f2f7265732e636c6f7564696e6172792e636f6d2f64676b7977696a36772f696d6167652f75706c6f61642f76313733373330333431382f4c6f676f546578742d575f74766c316c6c2e706e67">
+<img src="https://raw.githubusercontent.com/hackinsync/musicstrk/refs/heads/main/webapp/app/assets/images/LogoText-W.png">
 
 # MusicStrk: Autonomous On-Chain Record Label Solution (on Starknet)
 
