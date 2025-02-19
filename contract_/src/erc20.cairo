@@ -1,4 +1,4 @@
-use starknet::{ContractAddress, get_caller_address};
+use starknet::{ContractAddress};
 
 #[starknet::interface]
 pub trait Ierc20<ContractState> {
@@ -24,7 +24,9 @@ pub mod TokenContract {
     use starknet::{ContractAddress, get_caller_address};
     use starknet::contract_address_const;
     use super::Ierc20;
-    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map};
+    use core::starknet::storage::{
+        StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map
+    };
 
     #[storage]
     struct Storage {
@@ -99,16 +101,16 @@ pub mod TokenContract {
 
             let zero_address = contract_address_const::<0x0>();
             // ensure owner is not address zero
-            assert(sender != zero_address, "sender can't be address zero");
+            assert(sender != zero_address, 'sender can not be address zero');
 
             // ensure to address is not zero address
-            assert(to_ != zero_address, "to_address can't be address zero");
+            assert(to_ != zero_address, 'to_ address can not be address zero');
 
             // ensure owners balance is => amount to transfer
             let sender_balance: u256 = self.balances.entry(sender).read();
 
             // ensure owner's balance is => amount
-            assert(sender_balance >= amount, "insufficient balance");
+            assert(sender_balance >= amount, 'insufficient balance');
 
             // remove amount from sender
             self.balances.write(sender, sender_balance - amount);
@@ -175,7 +177,7 @@ pub mod TokenContract {
             let owner: ContractAddress = self.owner.read();
 
             //ensure to_ is not address zero
-            assert(to_ != zero_address, 'recipient can not be address zero');
+            assert(to_ != zero_address, 'recipient is be address zero');
             //ensure caller is not address zero
             assert(caller != zero_address, 'caller can not be address zero');
 
@@ -185,7 +187,7 @@ pub mod TokenContract {
             //get current ballance
             let to_current_balance = self.balances.entry(to_).read();
             //increase to_ balance with amount
-            self.balances.write(to_current_balance + amount);
+            self.balances.entry(to_).write(to_current_balance + amount);
 
             //get the current total supply
             let current_supply = self.totalSupply.read();
