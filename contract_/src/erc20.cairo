@@ -24,6 +24,7 @@ pub mod TokenContract {
     use starknet::{ContractAddress, get_caller_address};
     use starknet::contract_address_const;
     use super::Ierc20;
+    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map};
 
     #[storage]
     struct Storage {
@@ -36,8 +37,8 @@ pub mod TokenContract {
         sender: ContractAddress,
         from: ContractAddress,
         to: ContractAddress,
-        balances: LegacyMap<ContractAddress, u256>,
-        allowances: LegacyMap<(ContractAddress, ContractAddress), u256>,
+        balances: Map<ContractAddress, u256>,
+        allowances: Map<(ContractAddress, ContractAddress), u256>,
     }
 
     #[event]
@@ -71,7 +72,7 @@ pub mod TokenContract {
         }
 
         fn balance_of(self: @ContractState, account: ContractAddress) -> u256 {
-            self.balances.read(account)
+            self.balances.entry(account).read()
         }
 
         fn total_supply(self: @ContractState) -> u256 {
@@ -87,7 +88,7 @@ pub mod TokenContract {
 
             assert(spender != zero_address, 'invalid spender');
 
-            self.allowances.write((owner, spender), amount);
+            self.allowances.entry(owner, spender).write(amount);
 
             true
         }
@@ -104,7 +105,7 @@ pub mod TokenContract {
             assert(to_ != zero_address, "to_address can't be address zero");
 
             // ensure owners balance is => amount to transfer
-            let sender_balance: u256 = self.balances.read(sender);
+            let sender_balance: u256 = self.balances.entry(sender).read();
 
             // ensure owner's balance is => amount
             assert(sender_balance >= amount, "insufficient balance");
