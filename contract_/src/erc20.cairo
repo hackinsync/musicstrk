@@ -114,7 +114,7 @@ pub mod TokenContract {
             self.balances.write(sender, sender_balance - amount);
 
             // get the current balance of to_address
-            let to_current_balance = self.balances.read(to_);
+            let to_current_balance = self.balances.entry(to_).read();
 
             //add amount to to_current_balance
             let to_new_balance = to_current_balance + amount;
@@ -142,7 +142,7 @@ pub mod TokenContract {
             assert(allowance >= amount, 'insufficient allowance');
 
             //check balanace
-            let from_balance = self.balances.read(from_);
+            let from_balance = self.balances.entry(from_).read();
             assert(from_balance >= amount, "insufficient balance");
 
             //update allowance
@@ -152,7 +152,7 @@ pub mod TokenContract {
             self.balances.write(from_, from_balance - amount);
 
             //grt recipient balance
-            let to_current_balance = self.balances.read(to_);
+            let to_current_balance = self.balances.entry(to_).read();
 
             //update to_ balance
             self.balances.write(to_, to_current_balance + amount);
@@ -183,7 +183,7 @@ pub mod TokenContract {
             assert(caller == owner, 'caller not owner');
 
             //get current ballance
-            let to_current_balance = self.balances.read(to_);
+            let to_current_balance = self.balances.entry(to_).read();
             //increase to_ balance with amount
             self.balances.write(to_current_balance + amount);
 
@@ -208,7 +208,7 @@ pub mod TokenContract {
             assert(caller == owner, 'caller not owner');
 
             //get callers current balance
-            let caller_balance = self.balances.read(caller);
+            let caller_balance = self.balances.entry(caller).read();
             //reduce callers balance with amount
             self.balances.write(caller, caller_balance - amount);
 
