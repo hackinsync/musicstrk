@@ -166,65 +166,62 @@ pub mod TokenContract {
             // get sender/caller address
             let sender: ContractAddress = get_caller_address();
             let zero_address = contract_address_const::<0x0>();
-            
+
             // ensure sender is not address zero
             assert(sender != zero_address, 'sender can not be address zero');
-            
+
             // ensure to address is not zero address
-            assert(to_ != zero_address, 'to_ address can not be address zero');
-        
+            assert(to_ != zero_address, 'to_ address is address zero');
+
             // get sender's balance using entry()
             let sender_balance: u256 = self.balances.entry(sender).read();
-            
+
             // ensure sender's balance is >= amount
             assert(sender_balance >= amount, 'insufficient balance');
-        
+
             // remove amount from sender using entry()
             self.balances.entry(sender).write(sender_balance - amount);
-        
+
             // get the current balance of to_address using entry()
             let to_current_balance = self.balances.entry(to_).read();
-            
+
             // transfer amount to to_address using entry()
             self.balances.entry(to_).write(to_current_balance + amount);
-        
+
             true
         }
 
         fn transferFrom(
-            ref self: ContractState, 
-            from_: ContractAddress, 
-            to_: ContractAddress, 
-            amount: u256
+            ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
         ) -> bool {
             let caller: ContractAddress = get_caller_address();
             let zero_address = contract_address_const::<0x0>();
-            
-            assert(caller != zero_address, "caller can't be address zero");
-        
+
+            assert(caller != zero_address, 'caller is address zero');
+
             // Using entry() for compound key Map
             let allowance = self.allowances.entry((from_, caller)).read();
             assert(allowance >= amount, 'insufficient allowance');
-        
+
             let from_balance = self.balances.entry(from_).read();
             assert(from_balance >= amount, 'insufficient balance');
-        
+
             // Update allowance using entry()
             self.allowances.entry((from_, caller)).write(allowance - amount);
-        
+
             // Update balances using entry()
             self.balances.entry(from_).write(from_balance - amount);
             let to_balance = self.balances.entry(to_).read();
             self.balances.entry(to_).write(to_balance + amount);
-        
+
             true
         }
-        
-        
+
+
         fn get_allowance(
             self: @ContractState, owner: ContractAddress, spender: ContractAddress
         ) -> u256 {
-            self.allowances.read((owner, spender))
+            self.allowances.entry((owner, spender)).read()
         }
 
         fn mint(ref self: ContractState, to_: ContractAddress, amount: u256) {
@@ -271,7 +268,7 @@ pub mod TokenContract {
             //get callers current balance
             let caller_balance = self.balances.entry(caller).read();
             //reduce callers balance with amount
-            self.balances.write(caller, caller_balance - amount);
+            self.balances.entry(caller).write(caller_balance - amount);
 
             //get the current total supply
             let current_supply = self.totalSupply.read();
