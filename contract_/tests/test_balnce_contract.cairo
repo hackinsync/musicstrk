@@ -1,13 +1,12 @@
 use starknet::ContractAddress;
-use contract_::balnce::HelloStarknet;
+// use contract_::balnce::HelloStarknet;
 
 use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
 
-use contract_::balnce::HelloStarknet::IHelloStarknetDispatcher;
-use contract_::IHelloStarknetSafeDispatcher;
-use contract_::IHelloStarknetSafeDispatcherTrait;
-use contract_::IHelloStarknetDispatcher;
-use contract_::IHelloStarknetDispatcherTrait;
+use contract_::balnce::IHelloStarknetDispatcher;
+use contract_::balnce::IHelloStarknetSafeDispatcher;
+use contract_::balnce::IHelloStarknetSafeDispatcherTrait;
+use contract_::balnce::IHelloStarknetDispatcherTrait;
 
 fn deploy_contract(name: ByteArray) -> ContractAddress {
     let contract = declare(name).unwrap().contract_class();
