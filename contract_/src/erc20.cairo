@@ -21,7 +21,8 @@ pub trait Ierc20<ContractState> {
 
 #[starknet::contract]
 pub mod TokenContract {
-    use starknet::{ContractAddress, get_caller_address};
+    use starknet::event::EventEmitter;
+use starknet::{ContractAddress, get_caller_address};
     use starknet::contract_address_const;
     use super::Ierc20;
     use core::starknet::storage::{
@@ -45,7 +46,38 @@ pub mod TokenContract {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {}
+    enum Event {
+        Transfer: TransferEvent,
+        Approval: ApprovalEvent,
+        Mint: MintEvent,
+        Burn: BurnEvent,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct TransferEvent {
+        from: ContractAddress,
+        to: ContractAddress,
+        value: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct ApprovalEvent {
+        owner: ContractAddress,
+        spender: ContractAddress,
+        value: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct MintEvent {
+        to: ContractAddress,
+        value: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct BurnEvent {
+        from: ContractAddress,
+        value: u256,
+    }
 
     #[constructor]
     fn constructor(
@@ -91,6 +123,12 @@ pub mod TokenContract {
             assert(spender != zero_address, 'invalid spender');
 
             self.allowances.entry((owner, spender)).write(amount);
+
+            self.emit(Event::Approval(ApprovalEvent {
+                owner: owner,
+                spender: spender,
+                value: amount,
+            }));
 
             true
         }
@@ -188,6 +226,12 @@ pub mod TokenContract {
             // transfer amount to to_address using entry()
             self.balances.entry(to_).write(to_current_balance + amount);
 
+            self.emit(Event::Transfer(TransferEvent {
+                from: sender,
+                to: to_,
+                value: amount,
+            }));
+
             true
         }
 
@@ -213,6 +257,12 @@ pub mod TokenContract {
             self.balances.entry(from_).write(from_balance - amount);
             let to_balance = self.balances.entry(to_).read();
             self.balances.entry(to_).write(to_balance + amount);
+
+            self.emit(Event::Transfer(TransferEvent {
+                from: from_,
+                to: to_,
+                value: amount
+            }));
 
             true
         }
@@ -248,7 +298,12 @@ pub mod TokenContract {
             //get the current total supply
             let current_supply = self.totalSupply.read();
             //increase total supply with amount
-            self.totalSupply.write(current_supply + amount)
+            self.totalSupply.write(current_supply + amount);
+
+            self.emit(Event::Mint(MintEvent {
+                to: to_,
+                value: amount,
+            }));
         }
 
         fn burn(ref self: ContractState, amount: u256) {
@@ -273,7 +328,12 @@ pub mod TokenContract {
             //get the current total supply
             let current_supply = self.totalSupply.read();
             //substract amount from current total supply
-            self.totalSupply.write(current_supply - amount)
+            self.totalSupply.write(current_supply - amount);
+
+            self.emit(Event::Burn(BurnEvent {
+                from: caller,
+                value: amount,
+            }));
         }
     }
 
