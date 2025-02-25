@@ -29,6 +29,18 @@ use starknet::{ContractAddress, get_caller_address};
         StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map
     };
 
+
+    mod errors {
+        pub const OWNER_ZERO_ADDRESS: felt252 = 'Owner cannot be address zero';
+        pub const INVALID_SENDER: felt252 = 'Invalid spender';
+        pub const SENDER_ZERO_ADDRESS: felt252 = 'Sender cannot be address zero';
+        pub const RECIPIENT_ZERO_ADDRESS: felt252 = 'Recipient is address zero';
+        pub const INSUFFICIENT_BALANCE: felt252 = 'Insufficient balance';
+        pub const INSUFFICIENT_ALLOWANCE: felt252 = 'Insufficient allowance';
+        pub const CALLER_ZERO_ADDRESS: felt252 = 'Caller is address zero';
+        pub const CALLER_NOT_OWNER: felt252 = 'Caller is not the owner';
+    }
+
     #[storage]
     struct Storage {
         erc20_token: u256,
@@ -118,9 +130,9 @@ use starknet::{ContractAddress, get_caller_address};
 
             let zero_address = contract_address_const::<0x0>();
 
-            assert(owner != zero_address, 'owner can not be address zero');
+            assert(owner != zero_address, errors::OWNER_ZERO_ADDRESS);
 
-            assert(spender != zero_address, 'invalid spender');
+            assert(spender != zero_address, errors::INVALID_SENDER);
 
             self.allowances.entry((owner, spender)).write(amount);
 
@@ -206,16 +218,16 @@ use starknet::{ContractAddress, get_caller_address};
             let zero_address = contract_address_const::<0x0>();
 
             // ensure sender is not address zero
-            assert(sender != zero_address, 'sender can not be address zero');
+            assert(sender != zero_address, errors::SENDER_ZERO_ADDRESS);
 
             // ensure to address is not zero address
-            assert(to_ != zero_address, 'to_ address is address zero');
+            assert(to_ != zero_address, errors::RECIPIENT_ZERO_ADDRESS);
 
             // get sender's balance using entry()
             let sender_balance: u256 = self.balances.entry(sender).read();
 
             // ensure sender's balance is >= amount
-            assert(sender_balance >= amount, 'insufficient balance');
+            assert(sender_balance >= amount, errors::INSUFFICIENT_BALANCE);
 
             // remove amount from sender using entry()
             self.balances.entry(sender).write(sender_balance - amount);
@@ -241,14 +253,14 @@ use starknet::{ContractAddress, get_caller_address};
             let caller: ContractAddress = get_caller_address();
             let zero_address = contract_address_const::<0x0>();
 
-            assert(caller != zero_address, 'caller is address zero');
+            assert(caller != zero_address, errors::CALLER_ZERO_ADDRESS);
 
             // Using entry() for compound key Map
             let allowance = self.allowances.entry((from_, caller)).read();
-            assert(allowance >= amount, 'insufficient allowance');
+            assert(allowance >= amount, errors::INSUFFICIENT_ALLOWANCE);
 
             let from_balance = self.balances.entry(from_).read();
-            assert(from_balance >= amount, 'insufficient balance');
+            assert(from_balance >= amount, errors::INSUFFICIENT_BALANCE);
 
             // Update allowance using entry()
             self.allowances.entry((from_, caller)).write(allowance - amount);
@@ -283,12 +295,12 @@ use starknet::{ContractAddress, get_caller_address};
             let owner: ContractAddress = self.owner.read();
 
             //ensure to_ is not address zero
-            assert(to_ != zero_address, 'recipient is be address zero');
+            assert(to_ != zero_address, errors::RECIPIENT_ZERO_ADDRESS);
             //ensure caller is not address zero
-            assert(caller != zero_address, 'caller can not be address zero');
+            assert(caller != zero_address, errors::CALLER_ZERO_ADDRESS);
 
             //ensure caller is the owner
-            assert(caller == owner, 'caller not owner');
+            assert(caller == owner, errors::CALLER_NOT_OWNER);
 
             //get current ballance
             let to_current_balance = self.balances.entry(to_).read();
@@ -315,10 +327,10 @@ use starknet::{ContractAddress, get_caller_address};
             let owner: ContractAddress = self.owner.read();
 
             //ensure caller is not address zero
-            assert(caller != zero_address, 'caller can not be address zero');
+            assert(caller != zero_address, errors::CALLER_ZERO_ADDRESS);
 
             //ensure caller is the owner
-            assert(caller == owner, 'caller not owner');
+            assert(caller == owner, errors::CALLER_NOT_OWNER);
 
             //get callers current balance
             let caller_balance = self.balances.entry(caller).read();
