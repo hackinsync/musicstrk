@@ -1,5 +1,5 @@
 use starknet::{ContractAddress};
-
+use super::errors;
 #[starknet::interface]
 pub trait Ierc20<ContractState> {
     fn name(self: @ContractState) -> felt252;
@@ -28,6 +28,10 @@ pub mod TokenContract {
     use core::starknet::storage::{
         StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map
     };
+    use super::errors::errors;
+
+
+
 
     #[storage]
     struct Storage {
@@ -118,9 +122,9 @@ pub mod TokenContract {
 
             let zero_address = contract_address_const::<0x0>();
 
-            assert(owner != zero_address, 'owner can not be address zero');
+            assert(owner != zero_address, errors::OWNER_ZERO_ADDRESS);
 
-            assert(spender != zero_address, 'invalid spender');
+            assert(spender != zero_address, errors::INVALID_SENDER);
 
             self.allowances.entry((owner, spender)).write(amount);
 
@@ -140,16 +144,16 @@ pub mod TokenContract {
             let zero_address = contract_address_const::<0x0>();
 
             // ensure sender is not address zero
-            assert(sender != zero_address, 'sender can not be address zero');
+            assert(sender != zero_address, errors::SENDER_ZERO_ADDRESS);
 
             // ensure to address is not zero address
-            assert(to_ != zero_address, 'to_ address is address zero');
+            assert(to_ != zero_address, errors::RECIPIENT_ZERO_ADDRESS);
 
             // get sender's balance using entry()
             let sender_balance: u256 = self.balances.entry(sender).read();
 
             // ensure sender's balance is >= amount
-            assert(sender_balance >= amount, 'insufficient balance');
+            assert(sender_balance >= amount, errors::INSUFFICIENT_BALANCE);
 
             // remove amount from sender using entry()
             self.balances.entry(sender).write(sender_balance - amount);
@@ -171,14 +175,14 @@ pub mod TokenContract {
             let caller: ContractAddress = get_caller_address();
             let zero_address = contract_address_const::<0x0>();
 
-            assert(caller != zero_address, 'caller is address zero');
+            assert(caller != zero_address, errors::CALLER_ZERO_ADDRESS);
 
             // Using entry() for compound key Map
             let allowance = self.allowances.entry((from_, caller)).read();
-            assert(allowance >= amount, 'insufficient allowance');
+            assert(allowance >= amount, errors::INSUFFICIENT_ALLOWANCE);
 
             let from_balance = self.balances.entry(from_).read();
-            assert(from_balance >= amount, 'insufficient balance');
+            assert(from_balance >= amount, errors::INSUFFICIENT_BALANCE);
 
             // Update allowance using entry()
             self.allowances.entry((from_, caller)).write(allowance - amount);
@@ -209,12 +213,12 @@ pub mod TokenContract {
             let owner: ContractAddress = self.owner.read();
 
             //ensure to_ is not address zero
-            assert(to_ != zero_address, 'recipient is be address zero');
+            assert(to_ != zero_address, errors::RECIPIENT_ZERO_ADDRESS);
             //ensure caller is not address zero
-            assert(caller != zero_address, 'caller can not be address zero');
+            assert(caller != zero_address, errors::CALLER_ZERO_ADDRESS);
 
             //ensure caller is the owner
-            assert(caller == owner, 'caller not owner');
+            assert(caller == owner, errors::CALLER_NOT_OWNER);
 
             //get current ballance
             let to_current_balance = self.balances.entry(to_).read();
@@ -238,10 +242,10 @@ pub mod TokenContract {
             let owner: ContractAddress = self.owner.read();
 
             //ensure caller is not address zero
-            assert(caller != zero_address, 'caller can not be address zero');
+            assert(caller != zero_address, errors::CALLER_ZERO_ADDRESS);
 
             //ensure caller is the owner
-            assert(caller == owner, 'caller not owner');
+            assert(caller == owner, errors::CALLER_NOT_OWNER);
 
             //get callers current balance
             let caller_balance = self.balances.entry(caller).read();
