@@ -9,10 +9,10 @@ pub trait Ierc20<ContractState> {
     fn total_supply(self: @ContractState) -> u256;
     fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool;
     fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool;
-    fn transferFrom(
+    fn transfer_from(
         ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
     ) -> bool;
-    fn get_allowance(
+    fn allowance(
         self: @ContractState, owner: ContractAddress, spender: ContractAddress
     ) -> u256;
     fn mint(ref self: ContractState, to_: ContractAddress, amount: u256);
@@ -22,7 +22,7 @@ pub trait Ierc20<ContractState> {
 #[starknet::contract]
 pub mod TokenContract {
     use starknet::event::EventEmitter;
-use starknet::{ContractAddress, get_caller_address};
+    use starknet::{ContractAddress, get_caller_address};
     use starknet::contract_address_const;
     use super::Ierc20;
     use core::starknet::storage::{
@@ -128,81 +128,15 @@ use starknet::{ContractAddress, get_caller_address};
 
             self.allowances.entry((owner, spender)).write(amount);
 
-            self.emit(Event::Approval(ApprovalEvent {
-                owner: owner,
-                spender: spender,
-                value: amount,
-            }));
+            self
+                .emit(
+                    Event::Approval(
+                        ApprovalEvent { owner: owner, spender: spender, value: amount, }
+                    )
+                );
 
             true
         }
-
-        // fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool {
-        //     //get sender/caller address
-        //     let sender: ContractAddress = get_caller_address();
-
-        //     let zero_address = contract_address_const::<0x0>();
-        //     // ensure owner is not address zero
-        //     assert(sender != zero_address, 'sender can not be address zero');
-
-        //     // ensure to address is not zero address
-        //     assert(to_ != zero_address, 'to_ address can not be address zero');
-
-        //     // ensure owners balance is => amount to transfer
-        //     let sender_balance: u256 = self.balances.entry(sender).read();
-
-        //     // ensure owner's balance is => amount
-        //     assert(sender_balance >= amount, 'insufficient balance');
-
-        //     // remove amount from sender
-        //     self.balances.write(sender, sender_balance - amount);
-
-        //     // get the current balance of to_address
-        //     let to_current_balance = self.balances.entry(to_).read();
-
-        //     //add amount to to_current_balance
-        //     let to_new_balance = to_current_balance + amount;
-
-        //     // transfer amount to to_address
-        //     self.balances.entry(to_).write(to_, to_new_balance);
-
-        //     true
-        // }
-
-        // fn transferFrom(
-        //     ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
-        // ) -> bool {
-        //     //get caller address
-        //     let caller: ContractAddress = get_caller_address();
-
-        //     let zero_address = contract_address_const::<0x0>();
-        //     // ensure caller is not address zero
-        //     assert(caller != zero_address, "caller can't be address zero");
-
-        //     //check allowance
-        //     let allowance = self.allowances.read(from, caller);
-
-        //     //ensure allowance is greater/equal to amount
-        //     assert(allowance >= amount, 'insufficient allowance');
-
-        //     //check balanace
-        //     let from_balance = self.balances.entry(from_).read();
-        //     assert(from_balance >= amount, 'insufficient balance');
-
-        //     //update allowance
-        //     self.allowances.write((from_, caller), from_balance - amount);
-
-        //     //update balance, taking amount from from_
-        //     self.balances.write(from_, from_balance - amount);
-
-        //     //grt recipient balance
-        //     let to_current_balance = self.balances.entry(to_).read();
-
-        //     //update to_ balance
-        //     self.balances.write(to_, to_current_balance + amount);
-
-        //     true
-        // }
 
         fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool {
             // get sender/caller address
@@ -230,16 +164,12 @@ use starknet::{ContractAddress, get_caller_address};
             // transfer amount to to_address using entry()
             self.balances.entry(to_).write(to_current_balance + amount);
 
-            self.emit(Event::Transfer(TransferEvent {
-                from: sender,
-                to: to_,
-                value: amount,
-            }));
+            self.emit(Event::Transfer(TransferEvent { from: sender, to: to_, value: amount, }));
 
             true
         }
 
-        fn transferFrom(
+        fn transfer_from(
             ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
         ) -> bool {
             let caller: ContractAddress = get_caller_address();
@@ -262,17 +192,13 @@ use starknet::{ContractAddress, get_caller_address};
             let to_balance = self.balances.entry(to_).read();
             self.balances.entry(to_).write(to_balance + amount);
 
-            self.emit(Event::Transfer(TransferEvent {
-                from: from_,
-                to: to_,
-                value: amount
-            }));
+            self.emit(Event::Transfer(TransferEvent { from: from_, to: to_, value: amount }));
 
             true
         }
 
 
-        fn get_allowance(
+        fn allowance(
             self: @ContractState, owner: ContractAddress, spender: ContractAddress
         ) -> u256 {
             self.allowances.entry((owner, spender)).read()
@@ -304,10 +230,7 @@ use starknet::{ContractAddress, get_caller_address};
             //increase total supply with amount
             self.totalSupply.write(current_supply + amount);
 
-            self.emit(Event::Mint(MintEvent {
-                to: to_,
-                value: amount,
-            }));
+            self.emit(Event::Mint(MintEvent { to: to_, value: amount, }));
         }
 
         fn burn(ref self: ContractState, amount: u256) {
@@ -334,10 +257,7 @@ use starknet::{ContractAddress, get_caller_address};
             //substract amount from current total supply
             self.totalSupply.write(current_supply - amount);
 
-            self.emit(Event::Burn(BurnEvent {
-                from: caller,
-                value: amount,
-            }));
+            self.emit(Event::Burn(BurnEvent { from: caller, value: amount, }));
         }
     }
 
