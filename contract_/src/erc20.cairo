@@ -9,10 +9,10 @@ pub trait Ierc20<ContractState> {
     fn total_supply(self: @ContractState) -> u256;
     fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool;
     fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool;
-    fn transferFrom(
+    fn transfer_from(
         ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
     ) -> bool;
-    fn get_allowance(
+    fn allowance(
         self: @ContractState, owner: ContractAddress, spender: ContractAddress
     ) -> u256;
     fn mint(ref self: ContractState, to_: ContractAddress, amount: u256);
@@ -165,7 +165,7 @@ pub mod TokenContract {
             true
         }
 
-        fn transferFrom(
+        fn transfer_from(
             ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
         ) -> bool {
             let caller: ContractAddress = get_caller_address();
@@ -194,7 +194,7 @@ pub mod TokenContract {
         }
 
 
-        fn get_allowance(
+        fn allowance(
             self: @ContractState, owner: ContractAddress, spender: ContractAddress
         ) -> u256 {
             self.allowances.entry((owner, spender)).read()
