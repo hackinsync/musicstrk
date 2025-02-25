@@ -12,9 +12,7 @@ pub trait Ierc20<ContractState> {
     fn transfer_from(
         ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
     ) -> bool;
-    fn allowance(
-        self: @ContractState, owner: ContractAddress, spender: ContractAddress
-    ) -> u256;
+    fn allowance(self: @ContractState, owner: ContractAddress, spender: ContractAddress) -> u256;
     fn mint(ref self: ContractState, to_: ContractAddress, amount: u256);
     fn burn(ref self: ContractState, amount: u256);
 }
@@ -29,8 +27,6 @@ pub mod TokenContract {
         StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map
     };
     use super::errors::errors;
-
-
 
 
     #[storage]
