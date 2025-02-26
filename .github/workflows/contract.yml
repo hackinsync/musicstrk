@@ -23,9 +23,6 @@ jobs:
       - uses: software-mansion/setup-scarb@v1
         with:
           tool-versions: contract_/.tool-versions
-      - uses: foundry-rs/setup-snfoundry@v3
-        with:
-          tool-versions: contract_/.tool-versions
       - name: Check Scarb Formatting
         run: scarb fmt --check
   run-test:
@@ -37,6 +34,20 @@ jobs:
       - uses: software-mansion/setup-scarb@v1
         with:
           tool-versions: contract_/.tool-versions
+      - name: Install universal sierra compiler
+        shell: bash
+        run: |
+          curl -L https://raw.githubusercontent.com/software-mansion/universal-sierra-compiler/master/scripts/install.sh | sh
+          echo "/root/.local/bin" >> ${GITHUB_PATH}
+      - name: Check universal sierra compiler version
+        shell: bash
+        run: universal-sierra-compiler --version
+      # Rust is required by Starknet Foundry
+      - name: Set Up Stable Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
       - uses: foundry-rs/setup-snfoundry@v3
         with:
           tool-versions: contract_/.tool-versions
