@@ -36,7 +36,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 
-app.use('/api', routes);
+app.use('/api/v1', routes);
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
