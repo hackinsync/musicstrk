@@ -70,15 +70,31 @@ async function signMessage() {
 
     const signedMessage = await starknet.account.signMessage(MySNIP12Message);
     console.log("[Signature]: ", signedMessage);
+    console.log("[MsgHash]: ", await starknet.account.hashMessage(MySNIP12Message));
 
-    // try {
-    //     const msgHash = await account0.hashMessage(myTypedData);
-    //     const signature = (await account0.signMessage(myTypedData));
-    //     console.log('Message Hash:', msgHash);
-    //     console.log('Signature:', signature);
-    // } catch (error) {
-    //     console.error('Error signing message:', error);
-    // }
+    const res = await fetch("http://localhost:8080/api/v1/authenticate", {
+        method: "POST",
+        body: JSON.stringify({
+            walletAddress: await starknet.selectedAddress,
+            // signedMessage: await starknet.account.hashMessage(MySNIP12Message),
+            signedMessage: MySNIP12Message,
+            signature: signedMessage,
+        }),
+        headers: {
+            "Content-Type": "application/json",
+        },
+    });
+    const data =  await res.json();
+    console.log("[Response]: ", data);
+
+    if (res.status === 200) {
+        console.log("[+] Authenticated [+]");
+        document.getElementById("api").innerText = JSON.stringify(data);
+    } else {
+        console.log("[x] Authentication Failed [x]");
+    }
+
+    console.log(data);
 }
 
 async function connectWallet() {
