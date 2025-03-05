@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musicstrk</title>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/starknet@6.23.1/dist/index.global.js"></script> -->
+    <style>
+        html {
+            height: 100vh;
+        }
+
+        body {
+            overflow: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .center {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .center button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px;
+        }
+
+        .not-connected {
+            background-color: red;
+            color: white;
+        }
+
+        .connected {
+            background-color: green;
+            color: white;
+        }
+
+        /* #connect {
+            display: block;
+            margin-bottom: 24px;
+        } */
+    </style>
+</head>
+
+<body>
+    <header>
+        <center>
+            <h1>Welcome to Musicstrk</h1>
+        </center>
+    </header>
+    <main class="center">
+        <button id="connect" class="not-connected">Not Connected</button>
+        <button id="sign">Sign Message</button>
+    </main>
+    <footer>
+        <center>
+            <p>&copy; 2023 Musicstrk. All rights reserved.</p>
+        </center>
+    </footer>
+    <script type="module" src="./script.js"></script>
+</body>
+
+</html>
