@@ -16,14 +16,17 @@
   "license": "MIT",
   "dependencies": {
     "body-parser": "^1.20.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "fast-jwt": "^5.0.5",
+    "mongoose": "^8.12.1",
     "starknet": "^6.23.1",
     "typescript": "^5.7.3"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/isomorphic-fetch": "^0.0.39",
