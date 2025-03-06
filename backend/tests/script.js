@@ -37,65 +37,6 @@ const MySNIP12Message = {
     },
 };
 
-async function signMessage() {
-    console.log("[SiGNiNg]");
-
-    const starknet = window.starknet;
-
-    await starknet.enable();
-
-    if (starknet.isConnected === false) {
-        console.log("[x] Provider Not Connected [x]");
-        return;
-    }
-
-    console.log("[+] Connected to Starknet [+]");
-    // const myProvider = {}; // Replace with your provider
-    // const address = '0x...'; // Replace with your account address
-    // const privateKey = '0x...'; // Replace with your private key
-
-    // const account0 = new Account(myProvider, address, privateKey);
-    // Make sure we are on testnet (sepolia)
-    if (await starknet.account.getChainId() != "0x534e5f5345504f4c4941") {
-        // Request a chain switch
-        await starknet.request({
-            type: "wallet_switchStarknetChain",
-            params: {
-                chainId: "0x534e5f5345504f4c4941" // SEPOLIA
-            }
-        });
-    };
-
-    console.log("[TESTNET]: ", await starknet.account.getChainId());
-
-    const signedMessage = await starknet.account.signMessage(MySNIP12Message);
-    console.log("[Signature]: ", signedMessage);
-    console.log("[MsgHash]: ", await starknet.account.hashMessage(MySNIP12Message));
-
-    const res = await fetch("http://localhost:8080/api/v1/authenticate", {
-        method: "POST",
-        body: JSON.stringify({
-            walletAddress: await starknet.selectedAddress,
-            // signedMessage: await starknet.account.hashMessage(MySNIP12Message),
-            signedMessage: MySNIP12Message,
-            signature: signedMessage,
-        }),
-        headers: {
-            "Content-Type": "application/json",
-        },
-    });
-    const data =  await res.json();
-    console.log("[Response]: ", data);
-
-    if (res.status === 200) {
-        console.log("[+] Authenticated [+]");
-        document.getElementById("api").innerText = JSON.stringify(data);
-    } else {
-        console.log("[x] Authentication Failed [x]");
-    }
-
-    console.log(data);
-}
 
 async function connectWallet() {
     console.log("[CoNNeCTiNG]");
@@ -117,6 +58,70 @@ async function connectWallet() {
         console.log("[x] Provider Not Connected [x]");
     }
 }
+
+
+
+async function signMessage() {
+    console.log("[SiGNiNg]");
+    document.getElementById("api").innerText = "";
+
+
+    const starknet = window.starknet;
+
+    await starknet.enable();
+
+    if (starknet.isConnected === false) {
+        console.log("[x] Provider Not Connected [x]");
+        return;
+    }
+
+    console.log("[+] Connected to Starknet [+]");
+
+    // Make sure we are on testnet (sepolia)
+    if (await starknet.account.getChainId() != "0x534e5f5345504f4c4941") {
+        // Request a chain switch
+        await starknet.request({
+            type: "wallet_switchStarknetChain",
+            params: {
+                chainId: "0x534e5f5345504f4c4941" // SEPOLIA
+            }
+        });
+    };
+
+    console.log("[TESTNET]: ", await starknet.account.getChainId());
+
+    const signedMessage = await starknet.account.signMessage(MySNIP12Message);
+    console.log("[Signature]: ", signedMessage);
+    // console.log("[Signature]: ", signedMessage, signedMessage.toDERHex());
+    console.log("[MsgHash]: ", await starknet.account.hashMessage(MySNIP12Message));
+
+    const res = await fetch("http://localhost:8080/api/v1/authenticate", {
+        method: "POST",
+        body: JSON.stringify({
+            walletPubKey: await starknet.account.signer.getPubKey(),
+            walletAddress: await starknet.selectedAddress,
+            // signature: signedMessage.toDERHex(),
+            signature: signedMessage,
+            msgHash: await starknet.account.hashMessage(MySNIP12Message),
+        }),
+        headers: {
+            "Content-Type": "application/json",
+        },
+    });
+    const data = await res.json();
+    console.log("[Response]: ", data);
+
+    if (res.status === 200) {
+        console.log("[+] Authenticated [+]");
+        document.getElementById("api").innerText = JSON.stringify(data);
+    } else {
+        console.log("[x] Authentication Failed [x]");
+        document.getElementById("api").innerText = JSON.stringify(data);
+    }
+
+}
+
+
 
 const signButton = document.getElementById("sign");
 signButton.onclick = () => signMessage();

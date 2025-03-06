@@ -1,3 +1,6 @@
+
+// https://www.npmjs.com/package/fast-jwt?activeTab=readme
+
 import { createSigner, createVerifier } from "fast-jwt";
 import { JWTPayload } from "types";
 
@@ -15,7 +18,7 @@ const verify = createVerifier({
     algorithms: ["HS512", "HS256"],
     allowedIss: ["MusicStrk"],
     allowedAud: ["MusicStrk-API-v1"],
-    cache: 5000,
+    cache: 5000,    // 5000 items
 });
 
 export function verifyJWT(token: string) {
