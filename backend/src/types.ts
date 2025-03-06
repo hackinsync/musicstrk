@@ -6,13 +6,13 @@ export enum Role {
 
 
 export interface User {
-  _id: BigInt;
+  _id?: BigInt;
   name: string;
   email: string;
   walletAddress: string;
   pubKey: string;
-  role: Role;
-  createdAt: Date;
+  role?: Role;
+  createdAt?: Date;
 }
 
 

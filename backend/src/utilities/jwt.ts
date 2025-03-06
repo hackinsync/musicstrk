@@ -26,6 +26,6 @@ export function verifyJWT(token: string) {
 }
 
 
-export function signJWT(payload: JWTPayload) {
+export function createJWT(payload: JWTPayload) {
     return sign(payload);
 }
