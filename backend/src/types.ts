@@ -16,6 +16,6 @@ export interface User {
 }
 
 
-export interface JWTPayload extends User {
-  role: Role
+export interface JWTPayload {
+  user: User
 }
