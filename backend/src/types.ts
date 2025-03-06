@@ -1,12 +1,12 @@
 
-
-enum Role {
-  user, admin
+export enum Role {
+  ADMIN = 'ADMIN',
+  USER = 'USER'
 }
 
 
 export interface User {
-  id: BigInt;
+  _id: BigInt;
   name: string;
   email: string;
   walletAddress: string;
