@@ -42,6 +42,12 @@ if (!process.env.JWT_SECRET) {
     throw ("JWT Secret not found in .env file");
 }
 
+if (!process.env.STARKNET_SEPOLIA_RPC_API_URL) {
+    throw ("Sepolia RPC URL not found in .env file");
+}
+
+// TODO: Add check for mainnet RPC API URL too.
+
 
 // start test page if in dev mode
 if (process.env.NODE_ENV === 'development') {
