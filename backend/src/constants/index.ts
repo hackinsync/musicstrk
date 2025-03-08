@@ -1,4 +1,4 @@
-import { constants, TypedDataRevision } from "starknet";
+import { constants, TypedData, TypedDataRevision } from "starknet";
 
 
 export const AUTHENTICATION_SNIP12_MESSAGE = {
@@ -10,14 +10,14 @@ export const AUTHENTICATION_SNIP12_MESSAGE = {
         revision: "1",
     },
     message: {
-        message: 'MusicStrk Authentication',
+        name: 'MusicStrk Authentication',
         // do not use BigInt type if message sent to a web browser
     },
     primaryType: 'Simple',
     types: {
         Simple: [
             {
-                name: 'message',
+                name: 'name',
                 type: 'shortstring',
             },
         ],
@@ -36,6 +36,6 @@ export const AUTHENTICATION_SNIP12_MESSAGE = {
             },
         ],
     },
-};
+} as TypedData;
 
 export const AUTHENTICATION_SNIP12_MESSAGE_HASH = "0x3fb79316e367534b134a6cc217a66b71eeb38c92006496058b9036a7c306fa4";
