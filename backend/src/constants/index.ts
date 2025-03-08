@@ -5,18 +5,19 @@ export const AUTHENTICATION_SNIP12_MESSAGE = {
     domain: {
         name: 'MusicStrk',
         chainId: "0x534e5f5345504f4c4941",  // SEPOLIA
+        // chainId: "0x534e5f4d41494e",  // MAIN
         version: '1.0.2',
         revision: "1",
     },
     message: {
-        name: 'MusicStrk Authentication',
+        message: 'MusicStrk Authentication',
         // do not use BigInt type if message sent to a web browser
     },
     primaryType: 'Simple',
     types: {
         Simple: [
             {
-                name: 'name',
+                name: 'message',
                 type: 'shortstring',
             },
         ],

@@ -5,18 +5,19 @@ const MySNIP12Message = {
     domain: {
         name: 'MusicStrk',
         chainId: "0x534e5f5345504f4c4941",  // SEPOLIA
+        // chainId: "0x534e5f4d41494e",  // MAIN
         version: '1.0.2',
         revision: "1",
     },
     message: {
-        name: 'MusicStrk Authentication',
+        message: 'MusicStrk Authentication',
         // do not use BigInt type if message sent to a web browser
     },
     primaryType: 'Simple',
     types: {
         Simple: [
             {
-                name: 'name',
+                name: 'message',
                 type: 'shortstring',
             },
         ],
@@ -79,11 +80,15 @@ async function signMessage() {
 
     // Make sure we are on testnet (sepolia)
     if (await starknet.account.getChainId() != "0x534e5f5345504f4c4941") {
+
+    // Make sure we are on mainnet (SN_MAIN)
+    // if (await starknet.account.getChainId() != "0x534e5f4d41494e") {
         // Request a chain switch
         await starknet.request({
             type: "wallet_switchStarknetChain",
             params: {
                 chainId: "0x534e5f5345504f4c4941" // SEPOLIA
+                // chainId: "0x534e5f4d41494e" // MAIN
             }
         });
     };
@@ -98,7 +103,7 @@ async function signMessage() {
     const res = await fetch("http://localhost:8080/api/v1/authenticate", {
         method: "POST",
         body: JSON.stringify({
-            walletPubKey: await starknet.account.signer.getPubKey(),
+            walletPubKey: signedMessage[2] || await starknet.account.signer.getPubKey(),
             walletAddress: await starknet.selectedAddress,
             // signature: signedMessage.toDERHex(),
             signature: signedMessage,
