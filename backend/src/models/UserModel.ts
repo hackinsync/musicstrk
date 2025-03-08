@@ -3,8 +3,8 @@ import { User, Role } from "../types";
 
 
 const UserSchema = new Schema<User>({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    name: { type: String, required: false },
+    email: { type: String, required: false, unique: true },
     walletAddress: { type: String, required: true, unique: true },
     pubKey: { type: String, required: true },
     role: { type: String, enum: Object.values(Role), default: Role.USER },
