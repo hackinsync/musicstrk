@@ -7,7 +7,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { fileURLToPath } from "url";
 
-import routes from './routes/v1/auth.js';
+import AuthRoutes from './routes/v1/auth.js';
+import UserRoutes from "routes/v1/user.js";
 
 // Load environment variables
 process.loadEnvFile(".env");
@@ -53,7 +54,8 @@ mongoose
 
 
 // declare routes below
-app.use('/api/v1', routes);
+app.use('/api/v1/auth', AuthRoutes);
+app.use('/api/v1/user', UserRoutes);
 
 
 app.listen(PORT, () => {
