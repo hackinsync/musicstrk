@@ -38,6 +38,11 @@ if (!MONGODB_URI) {
     throw ("Mongo URI not found in .env file");
 }
 
+if (!process.env.JWT_SECRET) {
+    throw ("JWT Secret not found in .env file");
+}
+
+
 // start test page if in dev mode
 if (process.env.NODE_ENV === 'development') {
     app.use(express.static(testsDir));
