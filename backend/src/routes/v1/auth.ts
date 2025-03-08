@@ -19,10 +19,9 @@ const AuthRoutes = Router();
 
 type ReqBody_Authenticate = {
   walletAddress: BigNumberish;
-  // walletPubKey: string;
   signature: string[];
-  // msgHash: string;
 }
+
 AuthRoutes.post('/authenticate', async (req: Request<{}, {}, ReqBody_Authenticate>, res: any) => {
   const { walletAddress, signature } = req.body;
   // console.log("[/authenticate | ReqBody]: ", walletAddress, walletPubKey, msgHash);
@@ -35,8 +34,8 @@ AuthRoutes.post('/authenticate', async (req: Request<{}, {}, ReqBody_Authenticat
   }
 
   try {
-
-    console.log("[/authenticate | Signature]:", signature);
+    // https://github.com/argentlabs/argent-contracts-starknet/blob/1352198956f36fb35fa544c4e46a3507a3ec20e3/docs/argent_account.md#Signatures
+    // console.log("[/authenticate | Signature]:", signature);
 
     // https://docs.argent.xyz/aa-use-cases/verifying-signatures-and-cosigners#verifying-multi-signatures
     const normalizedSignature = new ec.starkCurve.Signature(BigInt(signature[3]), BigInt(signature[4]));
@@ -51,8 +50,6 @@ AuthRoutes.post('/authenticate', async (req: Request<{}, {}, ReqBody_Authenticat
         msg: "Invalid Signature"
       });
     }
-
-    // throw new Error("Signature verification not implemented");
 
     // Stores wallet address in MongoDB (if not already stored).
     const user = await createUser({
