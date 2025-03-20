@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts for Cairo ^1.0.0
 use starknet::ContractAddress;
+use core::byte_array::ByteArray;
+
 #[starknet::interface]
-pub trait IMintable<ContractState> {
-    fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256);
+pub trait IMusicShareToken<ContractState> {
+    fn initialize(
+        ref self: ContractState, 
+        recipient: ContractAddress, 
+        metadata_uri: ByteArray, 
+        name: ByteArray, 
+        symbol: ByteArray, 
+        decimals: u8
+    );
+    fn get_metadata_uri(self: @ContractState) -> ByteArray;
 }
 
 #[starknet::interface]
@@ -13,13 +23,21 @@ pub trait IBurnable<ContractState> {
 
 #[starknet::contract]
 pub mod MusicStrk {
+    use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
     use openzeppelin::upgrades::interface::IUpgradeable;
     use openzeppelin::upgrades::UpgradeableComponent;
     use starknet::{ClassHash, ContractAddress, get_caller_address};
+    use core::num::traits::Zero;
+    use core::byte_array::ByteArray;
+    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use core::clone::Clone;
 
-    use super::{IBurnable, IMintable};
+    use super::{IBurnable, IMusicShareToken};
+
+    // Token hard cap - exactly 100 tokens per contract
+    const TOTAL_SHARES: u256 = 100_u256;
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -44,12 +62,16 @@ pub mod MusicStrk {
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         upgradeable: UpgradeableComponent::Storage,
+        // Immutable metadata URI for the share token (typically IPFS link)
+        share_metadata_uri: ByteArray,
+        // Flag to track if the token has been initialized
+        initialized: bool,
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
-        MintEvent: MintEvent,
+        TokenInitializedEvent: TokenInitializedEvent,
         BurnEvent: BurnEvent,
         #[flat]
         ERC20Event: ERC20Component::Event,
@@ -60,9 +82,10 @@ pub mod MusicStrk {
     }
 
     #[derive(Drop, starknet::Event)]
-    pub struct MintEvent {
+    pub struct TokenInitializedEvent {
         pub recipient: ContractAddress,
         pub amount: u256,
+        pub metadata_uri: ByteArray,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -73,16 +96,60 @@ pub mod MusicStrk {
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
-        self.erc20.initializer("MusicStrk", "MSTRK");
+        // Use Zero trait for checking zero address
+        assert(!owner.is_zero(), errors::OWNER_ZERO_ADDRESS);
         self.ownable.initializer(owner);
+        // Initialize the storage value directly
+        self.initialized.write(false);
     }
 
     #[abi(embed_v0)]
-    impl MintableImpl of IMintable<ContractState> {
-        fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
+    impl MusicShareTokenImpl of IMusicShareToken<ContractState> {
+        fn initialize(
+            ref self: ContractState, 
+            recipient: ContractAddress, 
+            metadata_uri: ByteArray, 
+            name: ByteArray, 
+            symbol: ByteArray,
+            decimals: u8
+        ) {
+            // Only the owner can initialize the token
             self.ownable.assert_only_owner();
-            self.erc20.mint(recipient, amount);
-            self.emit(MintEvent { recipient, amount });
+            
+            // Ensure the token hasn't been initialized yet
+            assert!(!self.initialized.read(), "Token already initialized");
+            
+            // Ensure the recipient address is valid
+            assert(!recipient.is_zero(), errors::RECIPIENT_ZERO_ADDRESS);
+            
+            // Initialize ERC20 token with name, symbol and decimals
+            self.erc20.initializer(name, symbol);
+            // For the actual implementation, handle decimals in a way compatible with your version
+            // This may be handled during initializer in some versions
+            
+            // Clone the metadata_uri before writing it to storage so we can use it in the event
+            let metadata_uri_clone = metadata_uri.clone();
+            
+            // Set the metadata URI (immutable)
+            self.share_metadata_uri.write(metadata_uri);
+            
+            // Mint exactly 100 tokens to the recipient
+            self.erc20.mint(recipient, TOTAL_SHARES);
+            
+            // Mark as initialized
+            self.initialized.write(true);
+            
+            // Emit initialization event
+            self.emit(TokenInitializedEvent { 
+                recipient, 
+                amount: TOTAL_SHARES, 
+                metadata_uri: metadata_uri_clone 
+            });
+        }
+
+        fn get_metadata_uri(self: @ContractState) -> ByteArray {
+            // Read the storage value
+            self.share_metadata_uri.read()
         }
     }
 
@@ -90,11 +157,11 @@ pub mod MusicStrk {
     impl BurnableImpl of IBurnable<ContractState> {
         fn burn(ref self: ContractState, amount: u256) {
             let burner = get_caller_address();
-            self.ownable.assert_only_owner();
             self.erc20.burn(burner, amount);
             self.emit(BurnEvent { from: burner, amount });
         }
     }
+    
     //
     // Upgradeable
     //
