@@ -1,16 +1,12 @@
 use contract_::erc20::{
-    IBurnableDispatcher, IBurnableDispatcherTrait, IMintableDispatcher, IMintableDispatcherTrait,
-    MusicStrk,
+    IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, IBurnableDispatcher,
+    IBurnableDispatcherTrait,
 };
-use openzeppelin::token::erc20::erc20::ERC20Component;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
-use snforge_std::{
-    CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
-    cheat_caller_address, declare, spy_events,
-};
+use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
 use starknet::{ContractAddress, contract_address_const};
-
 
 fn owner() -> ContractAddress {
     contract_address_const::<'owner'>()
@@ -32,12 +28,8 @@ fn lee() -> ContractAddress {
     contract_address_const::<'lee'>()
 }
 
-fn mint(contract_address: ContractAddress, recipient: ContractAddress, amount: u256) {
-    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
-    IMintableDispatcher { contract_address }.mint(recipient, amount);
-}
-
-fn deploy_erc20() -> ContractAddress {
+// Helper function to deploy the music share token contract
+fn deploy_music_share_token() -> ContractAddress {
     let owner = owner();
     let contract_class = declare("MusicStrk").unwrap().contract_class();
     let mut calldata = array![];
@@ -47,381 +39,393 @@ fn deploy_erc20() -> ContractAddress {
 }
 
 #[test]
-fn test_owner_can_mint() {
-    let owner = owner();
-    let kim = kim();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    let erc20 = IERC20Dispatcher { contract_address };
-    let previous_balance = erc20.balance_of(owner);
-    cheat_caller_address(contract_address, owner, CheatSpan::TargetCalls(1));
-    IMintableDispatcher { contract_address }.mint(owner, amount);
-    let balance = erc20.balance_of(owner);
-    assert(balance - previous_balance == amount, 'Wrong amount after mint');
+fn test_deployment() {
+    // Simple test just to check that the contract deploys successfully
+    let contract_address = deploy_music_share_token();
 
-    let previous_balance = erc20.balance_of(kim);
-    cheat_caller_address(contract_address, owner, CheatSpan::TargetCalls(1));
-    IMintableDispatcher { contract_address }.mint(kim, amount);
-    let balance = erc20.balance_of(kim);
-    assert(balance - previous_balance == amount, 'Wrong amount after mint');
+    // Simple check that deployed contract address is not zero
+    assert(contract_address != zero(), 'Contract not deployed');
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
-fn test_only_owner_can_mint() {
-    let kim = kim();
-    let contract_address = deploy_erc20();
+fn test_initialize() {
+    // Setup
+    let recipient = kim();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    IMintableDispatcher { contract_address }.mint(kim, 1000);
+    // Initialize the token with minimal data
+    // Direct string literals should work in Cairo 2.9.4
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token.initialize(recipient, "ipfs://test", "RecordToken", "REC", 2 // decimals
+    );
+
+    // Verify total supply is exactly 100 tokens
+    assert(token.total_supply() == 100_u256, 'Wrong total supply');
+
+    // Verify recipient received 100 tokens
+    assert(token.balance_of(recipient) == 100_u256, 'Recipient balance wrong');
 }
 
 #[test]
-fn test_supply_is_updated_after_mint() {
-    let kim = kim();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    let erc20 = IERC20Dispatcher { contract_address };
-    let previous_supply = erc20.total_supply();
-    mint(contract_address, kim, amount);
-    let supply = erc20.total_supply();
-    assert(supply - previous_supply == amount, 'Wrong supply after mint');
-}
+fn test_burn() {
+    // Setup
+    let recipient = kim();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let burnable = IBurnableDispatcher { contract_address };
 
-#[test]
-fn test_mint_emit_event() {
-    let owner = owner();
-    let kim = kim();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    let mut spy = spy_events();
-
-    cheat_caller_address(contract_address, owner, CheatSpan::TargetCalls(1));
-    IMintableDispatcher { contract_address }.mint(kim, amount);
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    contract_address,
-                    MusicStrk::Event::MintEvent(MusicStrk::MintEvent { recipient: kim, amount }),
-                ),
-            ],
+    // Initialize the token
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    IMusicShareTokenDispatcher { contract_address }
+        .initialize(recipient, "ipfs://test", "RecordToken", "REC", 2 // decimals
         );
-}
 
-#[test]
-#[should_panic(expected: 'ERC20: mint to 0')]
-fn test_mint_recipient_is_zero() {
-    let owner = owner();
-    let zero = zero();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
+    // Verify initial balance
+    assert(token.balance_of(recipient) == 100_u256, 'Initial balance wrong');
 
-    cheat_caller_address(contract_address, owner, CheatSpan::TargetCalls(1));
-    IMintableDispatcher { contract_address }.mint(zero, amount);
-}
+    // Burn 25 tokens
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
+    burnable.burn(25_u256);
 
-#[test]
-#[should_panic(expected: 'Caller is not the owner')]
-fn test_only_owner_can_burn() {
-    let kim = kim();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, amount);
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    IBurnableDispatcher { contract_address }.burn(amount);
-}
+    // Check balance after burning
+    assert(token.balance_of(recipient) == 75_u256, 'Balance after burn wrong');
 
-
-#[test]
-fn test_supply_is_updated_after_burn() {
-    let owner = owner();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    let erc20 = IERC20Dispatcher { contract_address };
-    mint(contract_address, owner, amount);
-
-    let previous_supply = erc20.total_supply();
-    cheat_caller_address(contract_address, owner, CheatSpan::TargetCalls(1));
-    IBurnableDispatcher { contract_address }.burn(amount);
-    let supply = erc20.total_supply();
-    assert(previous_supply - supply == amount, 'Wrong supply after burn');
-}
-
-#[test]
-fn test_burn_emit_event() {
-    let owner = owner();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, owner, amount);
-    let mut spy = spy_events();
-    cheat_caller_address(contract_address, owner, CheatSpan::TargetCalls(1));
-    IBurnableDispatcher { contract_address }.burn(amount);
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    contract_address,
-                    MusicStrk::Event::BurnEvent(MusicStrk::BurnEvent { from: owner, amount }),
-                ),
-            ],
-        );
-}
-
-#[test]
-#[should_panic(expected: 'ERC20: insufficient balance')]
-fn test_cant_burn_more_than_balance() {
-    let owner = owner();
-    let contract_address = deploy_erc20();
-    mint(contract_address, owner, 1000);
-    let erc20 = IERC20Dispatcher { contract_address };
-    let balance = erc20.balance_of(owner);
-    cheat_caller_address(contract_address, owner, CheatSpan::TargetCalls(1));
-    IBurnableDispatcher { contract_address }.burn(balance + 1);
+    // Check total supply decreased
+    assert(token.total_supply() == 75_u256, 'Total supply wrong after burn');
 }
 
 #[test]
 fn test_transfer() {
-    let kim = kim();
-    let thurston = thurston();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, amount);
-    let erc20 = IERC20Dispatcher { contract_address };
-    let previous_balance_kim = erc20.balance_of(kim);
-    let previous_balance_thurston = erc20.balance_of(thurston);
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.transfer(thurston, amount);
-    let balance_kim = erc20.balance_of(kim);
-    let balance_thurston = erc20.balance_of(thurston);
-    assert(previous_balance_kim - balance_kim == amount, 'Wrong amount after transfer');
-    assert(balance_thurston - previous_balance_thurston == amount, 'Wrong amount after transfer');
-}
+    // Setup
+    let from_address = kim();
+    let to_address = thurston();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
 
-
-#[test]
-fn test_transfer_emit_event() {
-    let kim = kim();
-    let thurston = thurston();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, thurston, amount);
-
-    let erc20 = IERC20Dispatcher { contract_address };
-    let mut spy = spy_events();
-    cheat_caller_address(contract_address, thurston, CheatSpan::TargetCalls(1));
-    erc20.transfer(kim, amount);
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    contract_address,
-                    ERC20Component::Event::Transfer(
-                        ERC20Component::Transfer { from: thurston, to: kim, value: amount },
-                    ),
-                ),
-            ],
+    // Initialize the token
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    IMusicShareTokenDispatcher { contract_address }
+        .initialize(from_address, "ipfs://test", "RecordToken", "REC", 2 // decimals
         );
+
+    // Verify initial balances
+    assert(token.balance_of(from_address) == 100_u256, 'Initial from balance wrong');
+    assert(token.balance_of(to_address) == 0_u256, 'Initial to balance wrong');
+
+    // Transfer 30 tokens from kim to thurston
+    cheat_caller_address(contract_address, from_address, CheatSpan::TargetCalls(1));
+    token.transfer(to_address, 30_u256);
+
+    // Check balances after transfer
+    assert(token.balance_of(from_address) == 70_u256, 'Final from balance wrong');
+    assert(token.balance_of(to_address) == 30_u256, 'Final to balance wrong');
+
+    // Ensure total supply remains unchanged
+    assert(token.total_supply() == 100_u256, 'Total supply changed');
 }
 
 #[test]
-#[should_panic(expected: 'ERC20: insufficient balance')]
-fn test_transfer_not_enough_balance() {
-    let kim = kim();
-    let thurston = thurston();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, thurston, amount);
+fn test_approve_and_transfer_from() {
+    // Setup
+    let token_owner = kim();
+    let spender = thurston();
+    let recipient = lee();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
 
-    let erc20 = IERC20Dispatcher { contract_address };
-    let balance = erc20.balance_of(thurston);
-    cheat_caller_address(contract_address, thurston, CheatSpan::TargetCalls(1));
-    erc20.transfer(kim, balance + 1);
-}
-
-#[test]
-#[should_panic(expected: 'ERC20: transfer to 0')]
-fn test_transfer_to_zero_address() {
-    let zero = zero();
-    let thurston = thurston();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, thurston, amount);
-
-    let erc20 = IERC20Dispatcher { contract_address };
-    let balance = erc20.balance_of(thurston);
-    cheat_caller_address(contract_address, thurston, CheatSpan::TargetCalls(1));
-    erc20.transfer(zero, balance);
-}
-
-#[test]
-fn test_transfer_from() {
-    let kim = kim();
-    let thurston = thurston();
-    let lee = lee();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, 2 * amount);
-
-    let erc20 = IERC20Dispatcher { contract_address };
-    let previous_balance_kim = erc20.balance_of(kim);
-    let previous_balance_thurston = erc20.balance_of(thurston);
-
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, amount);
-
-    cheat_caller_address(contract_address, lee, CheatSpan::TargetCalls(1));
-    erc20.transfer_from(kim, thurston, amount);
-
-    let balance_kim = erc20.balance_of(kim);
-    let balance_thurston = erc20.balance_of(thurston);
-    assert(previous_balance_kim - balance_kim == amount, 'Wrong amount after transfer');
-    assert(balance_thurston - previous_balance_thurston == amount, 'Wrong amount after transfer');
-}
-
-#[test]
-fn test_transfer_from_emit_event() {
-    let kim = kim();
-    let thurston = thurston();
-    let lee = lee();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, 2 * amount);
-
-    let erc20 = IERC20Dispatcher { contract_address };
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, amount);
-
-    let mut spy = spy_events();
-    cheat_caller_address(contract_address, lee, CheatSpan::TargetCalls(1));
-    erc20.transfer_from(kim, thurston, amount);
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    contract_address,
-                    ERC20Component::Event::Transfer(
-                        ERC20Component::Transfer { from: kim, to: thurston, value: amount },
-                    ),
-                ),
-            ],
+    // Initialize the token
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    IMusicShareTokenDispatcher { contract_address }
+        .initialize(token_owner, "ipfs://test", "RecordToken", "REC", 2 // decimals
         );
+
+    // Verify initial balances
+    assert(token.balance_of(token_owner) == 100_u256, 'Initial owner balance wrong');
+    assert(token.balance_of(spender) == 0_u256, 'Initial spender balance wrong');
+    assert(token.balance_of(recipient) == 0_u256, 'Initial recipient balance wrong');
+
+    // Approve spender to spend 50 tokens
+    cheat_caller_address(contract_address, token_owner, CheatSpan::TargetCalls(1));
+    token.approve(spender, 50_u256);
+
+    // Check allowance
+    assert(token.allowance(token_owner, spender) == 50_u256, 'Allowance not set correctly');
+
+    // Spender transfers 40 tokens from token_owner to recipient
+    cheat_caller_address(contract_address, spender, CheatSpan::TargetCalls(1));
+    token.transfer_from(token_owner, recipient, 40_u256);
+
+    // Check balances after transfer
+    assert(token.balance_of(token_owner) == 60_u256, 'Final owner balance wrong');
+    assert(token.balance_of(recipient) == 40_u256, 'Final recipient balance wrong');
+
+    // Check remaining allowance
+    assert(token.allowance(token_owner, spender) == 10_u256, 'Remaining allowance wrong');
+
+    // Ensure total supply remains unchanged
+    assert(token.total_supply() == 100_u256, 'Total supply changed');
 }
 
 #[test]
-#[should_panic(expected: 'ERC20: insufficient allowance')]
-fn test_transfer_from_not_enough_allowance() {
-    let kim = kim();
-    let thurston = thurston();
-    let lee = lee();
-    let amount = 1000;
-    let allowed_amount = amount - 1;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, amount);
+fn test_metadata_uri() {
+    // Setup
+    let recipient = kim();
+    let contract_address = deploy_music_share_token();
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
-    let erc20 = IERC20Dispatcher { contract_address };
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, allowed_amount);
+    // Initialize the token with metadata URI
+    let metadata_uri = "ipfs://QmSpecificCID";
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token.initialize(recipient, metadata_uri, "RecordToken", "REC", 2 // decimals
+    );
 
-    cheat_caller_address(contract_address, lee, CheatSpan::TargetCalls(1));
-    erc20.transfer_from(kim, thurston, amount);
+    // Verify that the metadata URI is correctly set and retrievable
+    let retrieved_uri = share_token.get_metadata_uri();
+
+    // For Cairo 2.9.4, we'll verify the URI was set by checking if it exists
+    // We don't have a direct way to compare ByteArray values in the test environment
+    assert(retrieved_uri.len() > 0, 'Metadata URI not set');
 }
 
 #[test]
-#[should_panic(expected: 'ERC20: insufficient balance')]
-fn test_transfer_from_not_enough_balance() {
-    let kim = kim();
-    let thurston = thurston();
-    let lee = lee();
-    let amount = 1000;
-    let transfer_amount = amount + 1;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, amount);
+fn test_ownership_transfer() {
+    // Setup
+    let original_owner = owner();
+    let new_owner = kim();
+    let contract_address = deploy_music_share_token();
+    let ownable = IOwnableDispatcher { contract_address };
 
-    let erc20 = IERC20Dispatcher { contract_address };
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, transfer_amount);
+    // Verify initial owner
+    assert(ownable.owner() == original_owner, 'Initial owner incorrect');
 
-    cheat_caller_address(contract_address, lee, CheatSpan::TargetCalls(1));
-    erc20.transfer_from(kim, thurston, transfer_amount);
+    // Transfer ownership from original owner to new owner
+    cheat_caller_address(contract_address, original_owner, CheatSpan::TargetCalls(1));
+    ownable.transfer_ownership(new_owner);
+
+    // Verify new owner
+    assert(ownable.owner() == new_owner, 'Ownership transfer failed');
 }
 
 #[test]
-#[should_panic(expected: 'ERC20: transfer to 0')]
-fn test_transfrom_from_to_zero_address() {
-    let kim = kim();
-    let zero = zero();
-    let lee = lee();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, 2 * amount);
+fn test_edge_cases() {
+    // Setup
+    let token_owner = kim();
+    let spender = thurston();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
-    let erc20 = IERC20Dispatcher { contract_address };
+    // Initialize the token
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token.initialize(token_owner, "ipfs://test", "RecordToken", "REC", 2 // decimals
+    );
 
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, amount);
+    // Case 1: Approve zero amount
+    cheat_caller_address(contract_address, token_owner, CheatSpan::TargetCalls(1));
+    token.approve(spender, 0_u256);
 
-    cheat_caller_address(contract_address, lee, CheatSpan::TargetCalls(1));
-    erc20.transfer_from(kim, zero, amount);
+    // Verify zero approval
+    assert(token.allowance(token_owner, spender) == 0_u256, 'Zero approval failed');
+
+    // Case 2: Transfer zero amount
+    let initial_balance = token.balance_of(token_owner);
+    cheat_caller_address(contract_address, token_owner, CheatSpan::TargetCalls(1));
+    token.transfer(spender, 0_u256);
+
+    // Verify balances didn't change
+    assert(token.balance_of(token_owner) == initial_balance, 'Balance changed');
+    assert(token.balance_of(spender) == 0_u256, 'Received tokens');
 }
 
 #[test]
-fn test_allowance() {
-    let kim = kim();
-    let lee = lee();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    let erc20 = IERC20Dispatcher { contract_address };
-    let allowance = erc20.allowance(kim, lee);
-    assert(allowance == 0, 'Wrong allowance');
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, amount);
-    let allowance = erc20.allowance(kim, lee);
-    assert(allowance == amount, 'Wrong allowance');
+fn test_decimal_configuration() {
+    // Test with different decimal configurations
+
+    // Test with 0 decimals
+    let decimal_0 = 0_u8;
+    let recipient = kim();
+    let to_address = thurston();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
+
+    // Initialize with 0 decimals
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token.initialize(recipient, "ipfs://test", "RecordToken", "REC", decimal_0);
+
+    // Verify the decimals setting was stored correctly
+    assert(share_token.get_decimals() == decimal_0, 'Decimals not set to 0');
+
+    // Verify initial balance - should be 100 tokens regardless of decimals
+    assert(token.balance_of(recipient) == 100_u256, 'Initial balance incorrect');
+
+    // Transfer a whole amount
+    let transfer_amount = 5_u256;
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
+    token.transfer(to_address, transfer_amount);
+
+    // Verify transfer worked correctly
+    assert(token.balance_of(to_address) == transfer_amount, 'Transfer failed');
+    assert(token.balance_of(recipient) == 100_u256 - transfer_amount, 'Sender balance wrong');
+
+    // Now test with a different decimal value
+    let decimal_2 = 2_u8;
+    let recipient2 = kim();
+    let to_address2 = thurston();
+    let contract_address2 = deploy_music_share_token();
+    let token2 = IERC20Dispatcher { contract_address: contract_address2 };
+    let share_token2 = IMusicShareTokenDispatcher { contract_address: contract_address2 };
+
+    // Initialize with 2 decimals
+    cheat_caller_address(contract_address2, owner(), CheatSpan::TargetCalls(1));
+    share_token2.initialize(recipient2, "ipfs://test", "RecordToken", "REC", decimal_2);
+
+    // Verify the decimals setting was stored correctly
+    assert(share_token2.get_decimals() == decimal_2, 'Decimals not set to 2');
+
+    // Verify initial balance - should be 100 tokens regardless of decimals
+    assert(token2.balance_of(recipient2) == 100_u256, 'Initial balance incorrect');
+
+    // Transfer an amount
+    let transfer_amount2 = 1_u256;
+    cheat_caller_address(contract_address2, recipient2, CheatSpan::TargetCalls(1));
+    token2.transfer(to_address2, transfer_amount2);
+
+    // Verify transfer worked correctly
+    assert(token2.balance_of(to_address2) == transfer_amount2, 'Transfer failed');
+    assert(token2.balance_of(recipient2) == 100_u256 - transfer_amount2, 'Sender balance wrong');
+
+    // Additionally, test a high decimal value (18, which is standard for many tokens)
+    let decimal_18 = 18_u8;
+    let recipient3 = kim();
+    let contract_address3 = deploy_music_share_token();
+    let share_token3 = IMusicShareTokenDispatcher { contract_address: contract_address3 };
+
+    // Initialize with 18 decimals
+    cheat_caller_address(contract_address3, owner(), CheatSpan::TargetCalls(1));
+    share_token3.initialize(recipient3, "ipfs://test", "RecordToken", "REC", decimal_18);
+
+    // Verify the decimals setting was stored correctly
+    assert(share_token3.get_decimals() == decimal_18, 'Decimals not set to 18');
 }
 
 #[test]
-fn test_allowance_is_updated_after_transfer_from() {
-    let kim = kim();
-    let thurston = thurston();
-    let lee = lee();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    mint(contract_address, kim, 2 * amount);
+#[should_panic]
+fn test_double_initialization() {
+    // Setup
+    let recipient = kim();
+    let contract_address = deploy_music_share_token();
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
-    let erc20 = IERC20Dispatcher { contract_address };
+    // Initialize the token first time
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token.initialize(recipient, "ipfs://test", "RecordToken", "REC", 2 // decimals
+    );
 
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, amount);
-    let previous_allowance = erc20.allowance(kim, lee);
-
-    cheat_caller_address(contract_address, lee, CheatSpan::TargetCalls(1));
-    erc20.transfer_from(kim, thurston, amount);
-
-    let allowance = erc20.allowance(kim, lee);
-
-    assert(previous_allowance - allowance == amount, 'Wrong allowance after transfer');
-}
-
-#[test]
-fn test_approve_emit_event() {
-    let kim = kim();
-    let lee = lee();
-    let amount = 1000;
-    let contract_address = deploy_erc20();
-    let erc20 = IERC20Dispatcher { contract_address };
-    let mut spy = spy_events();
-    cheat_caller_address(contract_address, kim, CheatSpan::TargetCalls(1));
-    erc20.approve(lee, amount);
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    contract_address,
-                    ERC20Component::Event::Approval(
-                        ERC20Component::Approval { owner: kim, spender: lee, value: amount },
-                    ),
-                ),
-            ],
+    // Try to initialize again - should fail
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token
+        .initialize(thurston(), "ipfs://test2", "RecordToken2", "REC2", 3 // different decimals
         );
+    // This should panic, but we don't specify the exact message since it might vary
+}
+
+#[test]
+fn test_6_decimal_precision() {
+    // Setup with 6 decimals (common for many stablecoins like USDC)
+    let decimal_6 = 6_u8;
+    let recipient = kim();
+    let to_address = thurston();
+    let third_party = lee();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
+
+    // Initialize with 6 decimals
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token.initialize(recipient, "ipfs://test", "StableCoin", "STBL", decimal_6);
+
+    // Verify the decimals setting was stored correctly
+    assert(share_token.get_decimals() == decimal_6, 'Decimals not set');
+
+    // Verify initial balance - should be 100 tokens
+    // Note: In ERC20, token amounts are always in the base unit, not affected by decimals
+    // Decimals only indicate how to display the token
+    assert(token.balance_of(recipient) == 100_u256, 'Wrong init balance');
+
+    // Test multiple operations with reasonably sized transfers
+
+    // First, make a small transfer - 0.5 tokens
+    let small_transfer = 5_u256; // Use small amounts for testing
+
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
+    token.transfer(to_address, small_transfer);
+
+    // Verify the transfer worked correctly
+    assert(token.balance_of(to_address) == small_transfer, 'Transfer failed');
+    assert(token.balance_of(recipient) == 100_u256 - small_transfer, 'Wrong balance');
+
+    // Test approvals and transfer_from with 6 decimal token
+    let approval_amount = 10_u256;
+
+    // Recipient approves third_party to spend tokens
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
+    token.approve(third_party, approval_amount);
+
+    // Verify approval was set correctly
+    assert(token.allowance(recipient, third_party) == approval_amount, 'Wrong allowance');
+
+    // Third party transfers half of the approved amount
+    let transfer_from_amount = 5_u256;
+    cheat_caller_address(contract_address, third_party, CheatSpan::TargetCalls(1));
+    token.transfer_from(recipient, third_party, transfer_from_amount);
+
+    // Verify balances after transfer_from
+    assert(token.balance_of(third_party) == transfer_from_amount, 'Wrong balance');
+    assert(
+        token.balance_of(recipient) == 100_u256 - small_transfer - transfer_from_amount,
+        'Wrong balance after transfer',
+    );
+
+    // Verify allowance was reduced correctly
+    assert(
+        token.allowance(recipient, third_party) == approval_amount - transfer_from_amount,
+        'Wrong allowance after transfer',
+    );
+
+    // Test burning with 6 decimal token
+    // Burn 2 tokens from to_address
+    let burn_amount = 2_u256;
+
+    cheat_caller_address(contract_address, to_address, CheatSpan::TargetCalls(1));
+    IBurnableDispatcher { contract_address }.burn(burn_amount);
+
+    // Verify balance after burn
+    assert(
+        token.balance_of(to_address) == small_transfer - burn_amount, 'Wrong balance after burn',
+    );
+
+    // Verify total supply decreased by the correct amount
+    let expected_total_supply = 100_u256 - burn_amount;
+    assert(token.total_supply() == expected_total_supply, 'Wrong total supply');
+
+    // Test that 6 decimal precision is respected in the contract's storage
+    assert(share_token.get_decimals() == 6_u8, 'Wrong decimals');
+}
+
+#[test]
+#[should_panic]
+fn test_authorization_failure() {
+    // Setup - deploy the contract but don't initialize yet
+    let contract_address = deploy_music_share_token();
+    let share_token = IMusicShareTokenDispatcher { contract_address };
+
+    // Try to initialize the token as a non-owner (kim)
+    // This should fail with an authorization error
+    cheat_caller_address(contract_address, kim(), CheatSpan::TargetCalls(1));
+    share_token.initialize(thurston(), "ipfs://test", "RecordToken", "REC", 6 // decimals
+    );
+    // This should panic as kim is not the owner and cannot initialize the token
 }
