@@ -388,3 +388,111 @@ fn test_double_initialization() {
     );
     // This should panic, but we don't specify the exact message since it might vary
 }
+
+#[test]
+fn test_6_decimal_precision() {
+    // Setup with 6 decimals (common for many stablecoins like USDC)
+    let decimal_6 = 6_u8;
+    let recipient = kim();
+    let to_address = thurston();
+    let third_party = lee();
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
+    
+    // Initialize with 6 decimals
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    share_token.initialize(
+        recipient, 
+        "ipfs://test", 
+        "StableCoin", 
+        "STBL", 
+        decimal_6
+    );
+    
+    // Verify the decimals setting was stored correctly
+    assert(share_token.get_decimals() == decimal_6, 'Decimals not set');
+    
+    // Verify initial balance - should be 100 tokens
+    // Note: In ERC20, token amounts are always in the base unit, not affected by decimals
+    // Decimals only indicate how to display the token
+    assert(token.balance_of(recipient) == 100_u256, 'Wrong init balance');
+    
+    // Test multiple operations with reasonably sized transfers
+    
+    // First, make a small transfer - 0.5 tokens
+    let small_transfer = 5_u256; // Use small amounts for testing
+    
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
+    token.transfer(to_address, small_transfer);
+    
+    // Verify the transfer worked correctly
+    assert(token.balance_of(to_address) == small_transfer, 'Transfer failed');
+    assert(token.balance_of(recipient) == 100_u256 - small_transfer, 'Wrong balance');
+    
+    // Test approvals and transfer_from with 6 decimal token
+    let approval_amount = 10_u256;
+    
+    // Recipient approves third_party to spend tokens
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
+    token.approve(third_party, approval_amount);
+    
+    // Verify approval was set correctly
+    assert(token.allowance(recipient, third_party) == approval_amount, 'Wrong allowance');
+    
+    // Third party transfers half of the approved amount
+    let transfer_from_amount = 5_u256;
+    cheat_caller_address(contract_address, third_party, CheatSpan::TargetCalls(1));
+    token.transfer_from(recipient, third_party, transfer_from_amount);
+    
+    // Verify balances after transfer_from
+    assert(token.balance_of(third_party) == transfer_from_amount, 'Wrong balance');
+    assert(
+        token.balance_of(recipient) == 100_u256 - small_transfer - transfer_from_amount, 
+        'Wrong balance after transfer'
+    );
+    
+    // Verify allowance was reduced correctly
+    assert(
+        token.allowance(recipient, third_party) == approval_amount - transfer_from_amount,
+        'Wrong allowance after transfer'
+    );
+    
+    // Test burning with 6 decimal token
+    // Burn 2 tokens from to_address
+    let burn_amount = 2_u256;
+    
+    cheat_caller_address(contract_address, to_address, CheatSpan::TargetCalls(1));
+    IBurnableDispatcher { contract_address }.burn(burn_amount);
+    
+    // Verify balance after burn
+    assert(token.balance_of(to_address) == small_transfer - burn_amount, 'Wrong balance after burn');
+    
+    // Verify total supply decreased by the correct amount
+    let expected_total_supply = 100_u256 - burn_amount;
+    assert(token.total_supply() == expected_total_supply, 'Wrong total supply');
+    
+    // Test that 6 decimal precision is respected in the contract's storage
+    assert(share_token.get_decimals() == 6_u8, 'Wrong decimals');
+}
+
+#[test]
+#[should_panic]
+fn test_authorization_failure() {
+    // Setup - deploy the contract but don't initialize yet
+    let contract_address = deploy_music_share_token();
+    let share_token = IMusicShareTokenDispatcher { contract_address };
+    
+    // Try to initialize the token as a non-owner (kim)
+    // This should fail with an authorization error
+    cheat_caller_address(contract_address, kim(), CheatSpan::TargetCalls(1));
+    share_token.initialize(
+        thurston(), 
+        "ipfs://test", 
+        "RecordToken", 
+        "REC", 
+        6 // decimals
+    );
+    
+    // This should panic as kim is not the owner and cannot initialize the token
+}
