@@ -6,12 +6,12 @@ use core::byte_array::ByteArray;
 #[starknet::interface]
 pub trait IMusicShareToken<ContractState> {
     fn initialize(
-        ref self: ContractState, 
-        recipient: ContractAddress, 
-        metadata_uri: ByteArray, 
-        name: ByteArray, 
-        symbol: ByteArray, 
-        decimals: u8
+        ref self: ContractState,
+        recipient: ContractAddress,
+        metadata_uri: ByteArray,
+        name: ByteArray,
+        symbol: ByteArray,
+        decimals: u8,
     );
     fn get_metadata_uri(self: @ContractState) -> ByteArray;
     fn get_decimals(self: @ContractState) -> u8;
@@ -109,53 +109,54 @@ pub mod MusicStrk {
     #[abi(embed_v0)]
     impl MusicShareTokenImpl of IMusicShareToken<ContractState> {
         fn initialize(
-            ref self: ContractState, 
-            recipient: ContractAddress, 
-            metadata_uri: ByteArray, 
-            name: ByteArray, 
+            ref self: ContractState,
+            recipient: ContractAddress,
+            metadata_uri: ByteArray,
+            name: ByteArray,
             symbol: ByteArray,
-            decimals: u8
+            decimals: u8,
         ) {
             // Only the owner can initialize the token
             self.ownable.assert_only_owner();
-            
+
             // Ensure the token hasn't been initialized yet
             assert!(!self.initialized.read(), "Token already initialized");
-            
+
             // Ensure the recipient address is valid
             assert(!recipient.is_zero(), errors::RECIPIENT_ZERO_ADDRESS);
-            
+
             // Initialize ERC20 token with name, symbol and decimals
             self.erc20.initializer(name, symbol);
-            
+
             // Set the decimal units
             self.decimal_units.write(decimals);
-            
+
             // Clone the metadata_uri before writing it to storage so we can use it in the event
             let metadata_uri_clone = metadata_uri.clone();
-            
+
             // Set the metadata URI (immutable)
             self.share_metadata_uri.write(metadata_uri);
-            
+
             // Mint exactly 100 tokens to the recipient
             self.erc20.mint(recipient, TOTAL_SHARES);
-            
+
             // Mark as initialized
             self.initialized.write(true);
-            
+
             // Emit initialization event
-            self.emit(TokenInitializedEvent { 
-                recipient, 
-                amount: TOTAL_SHARES, 
-                metadata_uri: metadata_uri_clone 
-            });
+            self
+                .emit(
+                    TokenInitializedEvent {
+                        recipient, amount: TOTAL_SHARES, metadata_uri: metadata_uri_clone,
+                    },
+                );
         }
 
         fn get_metadata_uri(self: @ContractState) -> ByteArray {
             // Read the storage value
             self.share_metadata_uri.read()
         }
-        
+
         fn get_decimals(self: @ContractState) -> u8 {
             // Read the decimals configuration
             self.decimal_units.read()
@@ -170,7 +171,7 @@ pub mod MusicStrk {
             self.emit(BurnEvent { from: burner, amount });
         }
     }
-    
+
     //
     // Upgradeable
     //
