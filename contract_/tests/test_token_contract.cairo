@@ -271,12 +271,7 @@ fn test_edge_cases() {
 
 #[test]
 fn test_decimal_configuration() {
-    // Since we don't have direct access to the decimals(),
-    // we'll just verify token transfers work correctly.
-    
-    // The ERC20 implementation in our contract may not be applying the decimals
-    // to the token amounts directly, but rather just storing it as a value.
-    // We'll test the basic transfer functionality instead.
+    // Test with different decimal configurations
     
     // Test with 0 decimals
     let decimal_0 = 0_u8;
@@ -295,6 +290,9 @@ fn test_decimal_configuration() {
         "REC", 
         decimal_0
     );
+    
+    // Verify the decimals setting was stored correctly
+    assert(share_token.get_decimals() == decimal_0, 'Decimals not set to 0');
     
     // Verify initial balance - should be 100 tokens regardless of decimals
     assert(token.balance_of(recipient) == 100_u256, 'Initial balance incorrect');
@@ -326,10 +324,13 @@ fn test_decimal_configuration() {
         decimal_2
     );
     
+    // Verify the decimals setting was stored correctly
+    assert(share_token2.get_decimals() == decimal_2, 'Decimals not set to 2');
+    
     // Verify initial balance - should be 100 tokens regardless of decimals
     assert(token2.balance_of(recipient2) == 100_u256, 'Initial balance incorrect');
     
-    // Transfer fractional tokens (conceptually 1.5 tokens, but actually 1.5 base units)
+    // Transfer an amount
     let transfer_amount2 = 1_u256;
     cheat_caller_address(contract_address2, recipient2, CheatSpan::TargetCalls(1));
     token2.transfer(to_address2, transfer_amount2);
@@ -337,6 +338,25 @@ fn test_decimal_configuration() {
     // Verify transfer worked correctly
     assert(token2.balance_of(to_address2) == transfer_amount2, 'Transfer failed');
     assert(token2.balance_of(recipient2) == 100_u256 - transfer_amount2, 'Sender balance wrong');
+    
+    // Additionally, test a high decimal value (18, which is standard for many tokens)
+    let decimal_18 = 18_u8;
+    let recipient3 = kim();
+    let contract_address3 = deploy_music_share_token();
+    let share_token3 = IMusicShareTokenDispatcher { contract_address: contract_address3 };
+    
+    // Initialize with 18 decimals
+    cheat_caller_address(contract_address3, owner(), CheatSpan::TargetCalls(1));
+    share_token3.initialize(
+        recipient3, 
+        "ipfs://test", 
+        "RecordToken", 
+        "REC", 
+        decimal_18
+    );
+    
+    // Verify the decimals setting was stored correctly
+    assert(share_token3.get_decimals() == decimal_18, 'Decimals not set to 18');
 }
 
 #[test]

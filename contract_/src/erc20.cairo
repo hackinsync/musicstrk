@@ -14,6 +14,7 @@ pub trait IMusicShareToken<ContractState> {
         decimals: u8
     );
     fn get_metadata_uri(self: @ContractState) -> ByteArray;
+    fn get_decimals(self: @ContractState) -> u8;
 }
 
 #[starknet::interface]
@@ -66,6 +67,8 @@ pub mod MusicStrk {
         share_metadata_uri: ByteArray,
         // Flag to track if the token has been initialized
         initialized: bool,
+        // Decimal units for the token
+        decimal_units: u8,
     }
 
     #[event]
@@ -124,8 +127,9 @@ pub mod MusicStrk {
             
             // Initialize ERC20 token with name, symbol and decimals
             self.erc20.initializer(name, symbol);
-            // For the actual implementation, handle decimals in a way compatible with your version
-            // This may be handled during initializer in some versions
+            
+            // Set the decimal units
+            self.decimal_units.write(decimals);
             
             // Clone the metadata_uri before writing it to storage so we can use it in the event
             let metadata_uri_clone = metadata_uri.clone();
@@ -150,6 +154,11 @@ pub mod MusicStrk {
         fn get_metadata_uri(self: @ContractState) -> ByteArray {
             // Read the storage value
             self.share_metadata_uri.read()
+        }
+        
+        fn get_decimals(self: @ContractState) -> u8 {
+            // Read the decimals configuration
+            self.decimal_units.read()
         }
     }
 
