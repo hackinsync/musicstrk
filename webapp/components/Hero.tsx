@@ -11,12 +11,14 @@ import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import Telegram from "./icons/Telegram"
 import Github from "./icons/Github"
+import ConnectWalletModal from "./ConnectWalletModal"
 
 
 export default function Hero() {
     const { toast } = useToast();
     const [email, setEmail] = useState("") // State for email input
     const [loading, setLoading] = useState(false) // State for button loading
+    const [isModalOpen, setIsModalOpen] = useState(false) // State for modal visibility
 
     // Function to validate email
     const validateEmail = (email: string) => {
@@ -137,6 +139,16 @@ export default function Hero() {
                             </a>
                         </div>
                     </div>
+                    <div className="mt-4">
+                        <Button
+                            className="bg-green-600 hover:bg-green-700 text-white px-8"
+                            onClick={() => setIsModalOpen(true)}
+                        >
+                            Connect Wallet
+                        </Button>
+                    </div>
+
+                    <ConnectWalletModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
                 </div>
             </div>
         </div>
