@@ -7,4 +7,5 @@ pub mod errors {
     pub const INSUFFICIENT_ALLOWANCE: felt252 = 'Insufficient allowance';
     pub const CALLER_ZERO_ADDRESS: felt252 = 'Caller is address zero';
     pub const CALLER_NOT_OWNER: felt252 = 'Caller is not the owner';
+    pub const INDEX_OUT_OF_BOUNDS: felt252 = 'Index out of bounds;';
 }
