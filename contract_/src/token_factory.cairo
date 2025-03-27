@@ -17,6 +17,7 @@ pub trait IMusicShareToken<ContractState> {
     );
     fn get_metadata_uri(self: @ContractState) -> ByteArray;
     fn get_decimals(self: @ContractState) -> u8;
+    // fn set_factory(ref self: ContractState, factory_address: ContractAddress);
 }
 
 #[starknet::interface]
@@ -45,7 +46,9 @@ pub mod MusicShareTokenFactory {
     use core::option::OptionTrait;
     use core::result::Result;
     use core::traits::Into;
-    use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::access::ownable::{
+        interface::{IOwnableDispatcher, IOwnableDispatcherTrait}, OwnableComponent,
+    };
     use openzeppelin::upgrades::{interface::IUpgradeable, UpgradeableComponent};
     use starknet::{
         get_caller_address,
@@ -131,11 +134,17 @@ pub mod MusicShareTokenFactory {
             // Deploy a new token contract
             let class_hash = self.token_class_hash.read();
 
+            // Get the factory (this contract) address
+            let factory_address = starknet::get_contract_address();
+
             // Create calldata for the constructor
             let mut constructor_calldata = ArrayTrait::new();
 
             // Add the owner (caller) as parameter to the constructor
-            constructor_calldata.append(caller.into());
+            // constructor_calldata.append(caller.into());
+
+            // Add the owner (factory) as parameter to the constructor
+            constructor_calldata.append(factory_address.into());
 
             // Generate a unique salt based on token count and caller
             let token_count = self.token_count.read();
@@ -145,10 +154,13 @@ pub mod MusicShareTokenFactory {
             let (token_address, _) = deploy_syscall(
                 class_hash, salt, constructor_calldata.span(), false // deploy from zero
             )
-                .unwrap();
-                // .expect('Token deployment failed');
+                // .unwrap();
+                .expect('Token deployment failed');
 
-            // Initialize the token with parameters using the dispatcher
+            // Set factory role for this token
+            // token.set_factory(factory_address);
+            
+            // Initialize token as factory
             let token = IMusicShareTokenDispatcher { contract_address: token_address };
             token.initialize(caller, metadata_uri.clone(), name.clone(), symbol.clone(), decimals);
 
@@ -161,6 +173,10 @@ pub mod MusicShareTokenFactory {
             let user_count = self.artist_tokens_count.read(caller);
             self.artist_tokens_items.write((caller, user_count), token_address);
             self.artist_tokens_count.write(caller, user_count + 1);
+
+            // Transfer ownership of token to artist
+            let ownable = IOwnableDispatcher { contract_address: token_address };
+            ownable.transfer_ownership(caller);
 
             // Emit deployment event
             self
