@@ -54,8 +54,6 @@ This document provides an overview of the test cases implemented for the MusicSt
 | `test_update_token_class_hash` | Update token implementation class hash | Class hash should update successfully |
 | `test_update_token_class_hash_unauthorized` | Unauthorized update of class hash | Should fail with authorization error |
 | `test_deploy_factory_with_zero_owner` | Deploy factory with zero address owner | Should fail with owner zero address error |
-| `test_deploy_token_with_zero_decimals` | Deploy token with 0 decimal places | Token should function correctly with 0 decimals |
-| `test_deploy_token_with_empty_strings` | Deploy token with empty name, symbol and metadata | Token should deploy successfully with empty string values |
 
 ## Performance Tests
 
