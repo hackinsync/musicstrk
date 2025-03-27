@@ -36,7 +36,6 @@ pub trait IMusicShareTokenFactory<ContractState> {
 
     // Token state getter functions
     fn get_token_count(self: @ContractState) -> u64;
-    fn get_token_class_hash(self: @ContractState) -> ClassHash;
     fn get_token_at_index(self: @ContractState, index: u64) -> ContractAddress;
     fn get_tokens_by_artist(
         self: @ContractState, artist: ContractAddress,
@@ -46,6 +45,7 @@ pub trait IMusicShareTokenFactory<ContractState> {
 
     // Class hash management
     fn update_token_class_hash(ref self: ContractState, new_class_hash: ClassHash);
+    fn get_token_class_hash(self: @ContractState) -> ClassHash;
 }
 
 #[starknet::contract]
@@ -61,7 +61,8 @@ pub mod MusicShareTokenFactory {
     use starknet::{
         get_caller_address,
         storage::{
-            Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess, StoragePointerWriteAccess,
+            Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+            StoragePointerWriteAccess,
         },
     };
     use super::{
