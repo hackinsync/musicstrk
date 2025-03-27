@@ -17,7 +17,6 @@ pub trait IMusicShareToken<ContractState> {
     );
     fn get_metadata_uri(self: @ContractState) -> ByteArray;
     fn get_decimals(self: @ContractState) -> u8;
-    // fn set_factory(ref self: ContractState, factory_address: ContractAddress);
 }
 
 #[starknet::interface]
@@ -29,6 +28,13 @@ pub trait IMusicShareTokenFactory<ContractState> {
         decimals: u8,
         metadata_uri: ByteArray,
     ) -> ContractAddress;
+
+    // Access control for artists
+    fn grant_artist_role(ref self: ContractState, artist: ContractAddress);
+    fn revoke_artist_role(ref self: ContractState, artist: ContractAddress);
+    fn has_artist_role(self: @ContractState, artist: ContractAddress) -> bool;
+
+    // Token state getter functions
     fn get_token_count(self: @ContractState) -> u64;
     fn get_token_class_hash(self: @ContractState) -> ClassHash;
     fn get_token_at_index(self: @ContractState, index: u64) -> ContractAddress;
@@ -37,14 +43,16 @@ pub trait IMusicShareTokenFactory<ContractState> {
     ) -> Array<ContractAddress>;
     fn get_all_tokens(self: @ContractState) -> Array<ContractAddress>;
     fn is_token_deployed(self: @ContractState, token_address: ContractAddress) -> bool;
+
+    // Class hash management
+    fn update_token_class_hash(ref self: ContractState, new_class_hash: ClassHash);
 }
 
 #[starknet::contract]
 pub mod MusicShareTokenFactory {
     use contract_::errors::errors;
     use core::clone::Clone;
-    use core::option::OptionTrait;
-    use core::result::Result;
+    use core::num::traits::Zero;
     use core::traits::Into;
     use openzeppelin::access::ownable::{
         interface::{IOwnableDispatcher, IOwnableDispatcherTrait}, OwnableComponent,
@@ -53,14 +61,12 @@ pub mod MusicShareTokenFactory {
     use starknet::{
         get_caller_address,
         storage::{
-            Map, MutableVecTrait, Vec, VecTrait, StoragePathEntry, StorageMapReadAccess,
-            StorageMapWriteAccess, StoragePointerReadAccess, StoragePointerWriteAccess,
+            Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess, StoragePointerWriteAccess,
         },
     };
     use super::{
         Array, ArrayTrait, ByteArray, ClassHash, ContractAddress, deploy_syscall,
-        IMusicShareTokenFactory, IMusicShareToken, IMusicShareTokenDispatcher,
-        IMusicShareTokenDispatcherTrait,
+        IMusicShareTokenFactory, IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait,
     };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -86,6 +92,7 @@ pub mod MusicShareTokenFactory {
         deployed_tokens: Map<ContractAddress, bool>,
         artist_tokens_count: Map<ContractAddress, u64>,
         artist_tokens_items: Map<(ContractAddress, u64), ContractAddress>,
+        artist_role: Map<ContractAddress, bool>,
     }
 
     #[event]
@@ -131,17 +138,20 @@ pub mod MusicShareTokenFactory {
             // Get the caller who will be the owner and recipient of the token
             let caller = get_caller_address();
 
+            // Check if caller is owner or has artist role
+            assert(
+                self.ownable.owner() == caller || self.artist_role.read(caller),
+                errors::CALLER_NOT_AUTH_OR_ARTIST,
+            );
+
             // Deploy a new token contract
             let class_hash = self.token_class_hash.read();
 
             // Get the factory (this contract) address
             let factory_address = starknet::get_contract_address();
 
-            // Create calldata for the constructor
+            // Create calldata for the token constructor
             let mut constructor_calldata = ArrayTrait::new();
-
-            // Add the owner (caller) as parameter to the constructor
-            // constructor_calldata.append(caller.into());
 
             // Add the owner (factory) as parameter to the constructor
             constructor_calldata.append(factory_address.into());
@@ -152,14 +162,10 @@ pub mod MusicShareTokenFactory {
 
             // Deploy the contract
             let (token_address, _) = deploy_syscall(
-                class_hash, salt, constructor_calldata.span(), false // deploy from zero
+                class_hash, salt, constructor_calldata.span(), false,
             )
-                // .unwrap();
                 .expect('Token deployment failed');
 
-            // Set factory role for this token
-            // token.set_factory(factory_address);
-            
             // Initialize token as factory
             let token = IMusicShareTokenDispatcher { contract_address: token_address };
             token.initialize(caller, metadata_uri.clone(), name.clone(), symbol.clone(), decimals);
@@ -191,6 +197,33 @@ pub mod MusicShareTokenFactory {
                 );
 
             token_address
+        }
+
+        // Artist role management
+        fn grant_artist_role(ref self: ContractState, artist: ContractAddress) {
+            // Only owner can grant artist role
+            self.ownable.assert_only_owner();
+            assert(!artist.is_zero(), errors::ZERO_ADDRESS_DETECTED);
+            self.artist_role.write(artist, true);
+        }
+
+        fn revoke_artist_role(ref self: ContractState, artist: ContractAddress) {
+            // Only owner can revoke artist role
+            self.ownable.assert_only_owner();
+            self.artist_role.write(artist, false);
+        }
+
+        fn has_artist_role(self: @ContractState, artist: ContractAddress) -> bool {
+            self.artist_role.read(artist)
+        }
+
+        // Class hash management
+        fn update_token_class_hash(ref self: ContractState, new_class_hash: ClassHash) {
+            // Only owner can update class hash
+            self.ownable.assert_only_owner();
+            // Ensure the class hash is not zero
+            assert(!new_class_hash.is_zero(), errors::INVALID_CLASS_HASH);
+            self.token_class_hash.write(new_class_hash);
         }
 
         // Token getter functions
