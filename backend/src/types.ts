@@ -19,3 +19,11 @@ export interface User {
 export interface JWTPayload {
   user: User
 }
+
+declare global {
+  namespace Express {
+    interface Request {
+      subdomain?: string
+    }
+  }
+}
