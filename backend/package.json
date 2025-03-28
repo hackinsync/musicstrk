@@ -1,19 +1,45 @@
 {
   "name": "musicstrk-backend",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "",
-  "main": "app.js",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon --ext ts --exec tsx src/index.ts",
+    "prod": "tsc && node dist/index.js",
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "test": "jest"
   },
   "keywords": [],
   "author": "musicstrk",
   "license": "MIT",
   "dependencies": {
     "body-parser": "^1.20.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "starknet": "^6.23.1"
+    "fast-jwt": "^5.0.5",
+    "mongoose": "^8.12.1",
+    "starknet": "^6.23.1",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/isomorphic-fetch": "^0.0.39",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.5",
+    "@types/pako": "^2.0.3",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.9",
+    "ts-jest": "^29.2.6",
+    "tsx": "^4.19.3"
+  },
+  "packageManager": "pnpm@9.14.4+sha512.c8180b3fbe4e4bca02c94234717896b5529740a6cbadf19fa78254270403ea2f27d4e1d46a08a0f56c89b63dc8ebfd3ee53326da720273794e6200fcf0d184ab",
+  "engines": {
+    "node": "^20.12.0"
   }
 }

@@ -1,286 +1,186 @@
-use starknet::{ContractAddress};
+// SPDX-License-Identifier: MIT
+// Compatible with OpenZeppelin Contracts for Cairo ^1.0.0
+use starknet::ContractAddress;
+use core::byte_array::ByteArray;
 
 #[starknet::interface]
-pub trait Ierc20<ContractState> {
-    fn name(self: @ContractState) -> felt252;
-    fn symbol(self: @ContractState) -> felt252;
-    fn decimal(self: @ContractState) -> u64;
-    fn balance_of(self: @ContractState, account: ContractAddress) -> u256;
-    fn total_supply(self: @ContractState) -> u256;
-    fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool;
-    fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool;
-    fn transferFrom(
-        ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
-    ) -> bool;
-    fn get_allowance(
-        self: @ContractState, owner: ContractAddress, spender: ContractAddress
-    ) -> u256;
-    fn mint(ref self: ContractState, to_: ContractAddress, amount: u256);
+pub trait IMusicShareToken<ContractState> {
+    fn initialize(
+        ref self: ContractState,
+        recipient: ContractAddress,
+        metadata_uri: ByteArray,
+        name: ByteArray,
+        symbol: ByteArray,
+        decimals: u8,
+    );
+    fn get_metadata_uri(self: @ContractState) -> ByteArray;
+    fn get_decimals(self: @ContractState) -> u8;
+}
+
+#[starknet::interface]
+pub trait IBurnable<ContractState> {
     fn burn(ref self: ContractState, amount: u256);
 }
 
 #[starknet::contract]
-pub mod TokenContract {
-    use starknet::{ContractAddress, get_caller_address};
-    use starknet::contract_address_const;
-    use super::Ierc20;
-    use core::starknet::storage::{
-        StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map
-    };
+pub mod MusicStrk {
+    use contract_::errors::errors;
+    use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
+    use openzeppelin::upgrades::interface::IUpgradeable;
+    use openzeppelin::upgrades::UpgradeableComponent;
+    use starknet::{ClassHash, ContractAddress, get_caller_address};
+    use core::num::traits::Zero;
+    use core::byte_array::ByteArray;
+    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use core::clone::Clone;
+
+    use super::{IBurnable, IMusicShareToken};
+
+    // Token hard cap - exactly 100 tokens per contract
+    const TOTAL_SHARES: u256 = 100_u256;
+
+    component!(path: ERC20Component, storage: erc20, event: ERC20Event);
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+
+    // External
+    #[abi(embed_v0)]
+    impl ERC20MixinImpl = ERC20Component::ERC20MixinImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
+
+    // Internal
+    impl ERC20InternalImpl = ERC20Component::InternalImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
-        erc20_token: u256,
-        token_name: felt252,
-        token_symbol: felt252,
-        token_decimal: u64,
-        totalSupply: u256,
-        owner: ContractAddress,
-        sender: ContractAddress,
-        from: ContractAddress,
-        to: ContractAddress,
-        balances: Map<ContractAddress, u256>,
-        allowances: Map<(ContractAddress, ContractAddress), u256>,
+        #[substorage(v0)]
+        erc20: ERC20Component::Storage,
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
+        // Immutable metadata URI for the share token (typically IPFS link)
+        share_metadata_uri: ByteArray,
+        // Flag to track if the token has been initialized
+        initialized: bool,
+        // Decimal units for the token
+        decimal_units: u8,
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {}
+    pub enum Event {
+        TokenInitializedEvent: TokenInitializedEvent,
+        BurnEvent: BurnEvent,
+        #[flat]
+        ERC20Event: ERC20Component::Event,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct TokenInitializedEvent {
+        pub recipient: ContractAddress,
+        pub amount: u256,
+        pub metadata_uri: ByteArray,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct BurnEvent {
+        pub from: ContractAddress,
+        pub amount: u256,
+    }
 
     #[constructor]
-    fn constructor(
-        ref self: ContractState, token_name_: felt252, token_symbol_: felt252, token_decimal_: u64
-    ) {
-        let owner: ContractAddress = get_caller_address();
-
-        self.token_name.write(token_name_);
-        self.token_symbol.write(token_symbol_);
-        self.token_decimal.write(token_decimal_);
-        self.owner.write(owner);
+    fn constructor(ref self: ContractState, owner: ContractAddress) {
+        // Use Zero trait for checking zero address
+        assert(!owner.is_zero(), errors::OWNER_ZERO_ADDRESS);
+        self.ownable.initializer(owner);
+        // Initialize the storage value directly
+        self.initialized.write(false);
     }
 
     #[abi(embed_v0)]
-    impl erc20Impl of Ierc20<ContractState> {
-        fn name(self: @ContractState) -> felt252 {
-            self.token_name.read()
+    impl MusicShareTokenImpl of IMusicShareToken<ContractState> {
+        fn initialize(
+            ref self: ContractState,
+            recipient: ContractAddress,
+            metadata_uri: ByteArray,
+            name: ByteArray,
+            symbol: ByteArray,
+            decimals: u8,
+        ) {
+            // Only the owner can initialize the token
+            self.ownable.assert_only_owner();
+
+            // Ensure the token hasn't been initialized yet
+            assert!(!self.initialized.read(), "Token already initialized");
+
+            // Ensure the recipient address is valid
+            assert(!recipient.is_zero(), errors::RECIPIENT_ZERO_ADDRESS);
+
+            // Initialize ERC20 token with name, symbol and decimals
+            self.erc20.initializer(name, symbol);
+
+            // Set the decimal units
+            self.decimal_units.write(decimals);
+
+            // Clone the metadata_uri before writing it to storage so we can use it in the event
+            let metadata_uri_clone = metadata_uri.clone();
+
+            // Set the metadata URI (immutable)
+            self.share_metadata_uri.write(metadata_uri);
+
+            // Mint exactly 100 tokens to the recipient
+            self.erc20.mint(recipient, TOTAL_SHARES);
+
+            // Mark as initialized
+            self.initialized.write(true);
+
+            // Emit initialization event
+            self
+                .emit(
+                    TokenInitializedEvent {
+                        recipient, amount: TOTAL_SHARES, metadata_uri: metadata_uri_clone,
+                    },
+                );
         }
 
-        fn symbol(self: @ContractState) -> felt252 {
-            self.token_symbol.read()
+        fn get_metadata_uri(self: @ContractState) -> ByteArray {
+            // Read the storage value
+            self.share_metadata_uri.read()
         }
 
-        fn decimal(self: @ContractState) -> u64 {
-            self.token_decimal.read()
-        }
-
-        fn balance_of(self: @ContractState, account: ContractAddress) -> u256 {
-            self.balances.entry(account).read()
-        }
-
-        fn total_supply(self: @ContractState) -> u256 {
-            self.totalSupply.read()
-        }
-
-        fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool {
-            let owner: ContractAddress = get_caller_address();
-
-            let zero_address = contract_address_const::<0x0>();
-
-            assert(owner != zero_address, 'owner can not be address zero');
-
-            assert(spender != zero_address, 'invalid spender');
-
-            self.allowances.entry((owner, spender)).write(amount);
-
-            true
-        }
-
-        // fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool {
-        //     //get sender/caller address
-        //     let sender: ContractAddress = get_caller_address();
-
-        //     let zero_address = contract_address_const::<0x0>();
-        //     // ensure owner is not address zero
-        //     assert(sender != zero_address, 'sender can not be address zero');
-
-        //     // ensure to address is not zero address
-        //     assert(to_ != zero_address, 'to_ address can not be address zero');
-
-        //     // ensure owners balance is => amount to transfer
-        //     let sender_balance: u256 = self.balances.entry(sender).read();
-
-        //     // ensure owner's balance is => amount
-        //     assert(sender_balance >= amount, 'insufficient balance');
-
-        //     // remove amount from sender
-        //     self.balances.write(sender, sender_balance - amount);
-
-        //     // get the current balance of to_address
-        //     let to_current_balance = self.balances.entry(to_).read();
-
-        //     //add amount to to_current_balance
-        //     let to_new_balance = to_current_balance + amount;
-
-        //     // transfer amount to to_address
-        //     self.balances.entry(to_).write(to_, to_new_balance);
-
-        //     true
-        // }
-
-        // fn transferFrom(
-        //     ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
-        // ) -> bool {
-        //     //get caller address
-        //     let caller: ContractAddress = get_caller_address();
-
-        //     let zero_address = contract_address_const::<0x0>();
-        //     // ensure caller is not address zero
-        //     assert(caller != zero_address, "caller can't be address zero");
-
-        //     //check allowance
-        //     let allowance = self.allowances.read(from, caller);
-
-        //     //ensure allowance is greater/equal to amount
-        //     assert(allowance >= amount, 'insufficient allowance');
-
-        //     //check balanace
-        //     let from_balance = self.balances.entry(from_).read();
-        //     assert(from_balance >= amount, 'insufficient balance');
-
-        //     //update allowance
-        //     self.allowances.write((from_, caller), from_balance - amount);
-
-        //     //update balance, taking amount from from_
-        //     self.balances.write(from_, from_balance - amount);
-
-        //     //grt recipient balance
-        //     let to_current_balance = self.balances.entry(to_).read();
-
-        //     //update to_ balance
-        //     self.balances.write(to_, to_current_balance + amount);
-
-        //     true
-        // }
-
-        fn transfer(ref self: ContractState, amount: u256, to_: ContractAddress) -> bool {
-            // get sender/caller address
-            let sender: ContractAddress = get_caller_address();
-            let zero_address = contract_address_const::<0x0>();
-
-            // ensure sender is not address zero
-            assert(sender != zero_address, 'sender can not be address zero');
-
-            // ensure to address is not zero address
-            assert(to_ != zero_address, 'to_ address is address zero');
-
-            // get sender's balance using entry()
-            let sender_balance: u256 = self.balances.entry(sender).read();
-
-            // ensure sender's balance is >= amount
-            assert(sender_balance >= amount, 'insufficient balance');
-
-            // remove amount from sender using entry()
-            self.balances.entry(sender).write(sender_balance - amount);
-
-            // get the current balance of to_address using entry()
-            let to_current_balance = self.balances.entry(to_).read();
-
-            // transfer amount to to_address using entry()
-            self.balances.entry(to_).write(to_current_balance + amount);
-
-            true
-        }
-
-        fn transferFrom(
-            ref self: ContractState, from_: ContractAddress, to_: ContractAddress, amount: u256
-        ) -> bool {
-            let caller: ContractAddress = get_caller_address();
-            let zero_address = contract_address_const::<0x0>();
-
-            assert(caller != zero_address, 'caller is address zero');
-
-            // Using entry() for compound key Map
-            let allowance = self.allowances.entry((from_, caller)).read();
-            assert(allowance >= amount, 'insufficient allowance');
-
-            let from_balance = self.balances.entry(from_).read();
-            assert(from_balance >= amount, 'insufficient balance');
-
-            // Update allowance using entry()
-            self.allowances.entry((from_, caller)).write(allowance - amount);
-
-            // Update balances using entry()
-            self.balances.entry(from_).write(from_balance - amount);
-            let to_balance = self.balances.entry(to_).read();
-            self.balances.entry(to_).write(to_balance + amount);
-
-            true
-        }
-
-
-        fn get_allowance(
-            self: @ContractState, owner: ContractAddress, spender: ContractAddress
-        ) -> u256 {
-            self.allowances.entry((owner, spender)).read()
-        }
-
-        fn mint(ref self: ContractState, to_: ContractAddress, amount: u256) {
-            //get caller
-            let caller: ContractAddress = get_caller_address();
-
-            let zero_address = contract_address_const::<0x0>();
-            //get owner
-            let owner: ContractAddress = self.owner.read();
-
-            //ensure to_ is not address zero
-            assert(to_ != zero_address, 'recipient is be address zero');
-            //ensure caller is not address zero
-            assert(caller != zero_address, 'caller can not be address zero');
-
-            //ensure caller is the owner
-            assert(caller == owner, 'caller not owner');
-
-            //get current ballance
-            let to_current_balance = self.balances.entry(to_).read();
-            //increase to_ balance with amount
-            self.balances.entry(to_).write(to_current_balance + amount);
-
-            //get the current total supply
-            let current_supply = self.totalSupply.read();
-            //increase total supply with amount
-            self.totalSupply.write(current_supply + amount)
-        }
-
-        fn burn(ref self: ContractState, amount: u256) {
-            //get caller
-            let caller: ContractAddress = get_caller_address();
-
-            let zero_address = contract_address_const::<0x0>();
-            //get owner
-            let owner: ContractAddress = self.owner.read();
-
-            //ensure caller is not address zero
-            assert(caller != zero_address, 'caller can not be address zero');
-
-            //ensure caller is the owner
-            assert(caller == owner, 'caller not owner');
-
-            //get callers current balance
-            let caller_balance = self.balances.entry(caller).read();
-            //reduce callers balance with amount
-            self.balances.entry(caller).write(caller_balance - amount);
-
-            //get the current total supply
-            let current_supply = self.totalSupply.read();
-            //substract amount from current total supply
-            self.totalSupply.write(current_supply - amount)
+        fn get_decimals(self: @ContractState) -> u8 {
+            // Read the decimals configuration
+            self.decimal_units.read()
         }
     }
 
-    #[generate_trait]
-    impl internalImpl of internalTrait {
-        fn zero_address() -> ContractAddress {
-            contract_address_const::<0x0>()
+    #[abi(embed_v0)]
+    impl BurnableImpl of IBurnable<ContractState> {
+        fn burn(ref self: ContractState, amount: u256) {
+            let burner = get_caller_address();
+            self.erc20.burn(burner, amount);
+            self.emit(BurnEvent { from: burner, amount });
+        }
+    }
+
+    //
+    // Upgradeable
+    //
+
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
         }
     }
 }
