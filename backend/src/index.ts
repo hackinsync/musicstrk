@@ -18,7 +18,11 @@ logger(`Environment: ${process.env.NODE_ENV}`)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const testsDir = path.resolve(__dirname + "/../tests")
+const rootDir = path.resolve(__dirname + "/../../")
+const artisteSitesDir = path.join(rootDir, "artiste_sites")
+
 logger(`Tests directory: ${testsDir}`)
+logger(`Artiste Sites directory: ${artisteSitesDir}`)
 
 const app = express()
 
@@ -82,5 +86,6 @@ app.listen(PORT, () => {
   logger(`Server is running on port ${PORT}`)
   logger(`Main domain: http://musicstrk.fun:${PORT}`)
   logger(`Example subdomain: http://rebelwav.musicstrk.fun:${PORT}`)
+  logger(`Next.js app should be running at: ${process.env.NEXT_APP_URL || "http://localhost:3000"}`)
 })
 

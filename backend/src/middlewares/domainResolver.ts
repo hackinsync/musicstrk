@@ -1,14 +1,24 @@
 import type { Request, Response, NextFunction } from "express"
 import { createProxyMiddleware, type Options } from "http-proxy-middleware"
 import type { IncomingMessage, ServerResponse } from "http"
+import path from "path"
+import { fileURLToPath } from "url"
 import { getSubdomainByName } from "../models/SubdomainModel"
 import { logger } from "../utilities/utilities"
 
 // List of reserved subdomains
 const RESERVED_SUBDOMAINS = ["api", "admin", "www", "app", "dashboard"]
 
-// Next.js app URL
-const NEXT_APP_URL = process.env.NEXT_APP_URL || "http://localhost:3000"
+// Get the directory path
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const rootDir = path.resolve(__dirname, "../../../")
+
+// Next.js app URL - pointing to the artiste_sites directory
+const NEXT_APP_URL = process.env.NEXT_APP_URL || `http://localhost:3000`
+const NEXT_APP_PATH = path.join(rootDir, "artiste_sites")
+
+logger(`Next.js app path: ${NEXT_APP_PATH}`)
+logger(`Next.js app URL: ${NEXT_APP_URL}`)
 
 // Extract subdomain from hostname
 export const extractSubdomain = (hostname: string): string | null => {
@@ -39,6 +49,13 @@ const nextJsProxy = createProxyMiddleware({
   pathRewrite: {
     "^/api/v1": "/api/v1", // Keep API routes
     "^/": "/", // Rewrite all other paths
+  },
+  // Add custom headers to pass subdomain information to Next.js
+  onProxyReq: (proxyReq: any, req: Request, res: Response) => {
+    // Pass the subdomain as a header to the Next.js app
+    if (req.headers["x-subdomain"]) {
+      proxyReq.setHeader("x-subdomain", req.headers["x-subdomain"])
+    }
   },
   // Use proper typing for the proxy options
   onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
@@ -86,8 +103,8 @@ export const domainResolver = async (req: Request, res: Response, next: NextFunc
         return
       }
 
-      // For other reserved subdomains, proxy to Next.js
-      nextJsProxy(req, res, next)
+      // For other reserved subdomains, continue to main app
+      next()
       return
     }
 
