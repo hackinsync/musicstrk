@@ -40,7 +40,7 @@ export function CommandMenu() {
         <ScrollArea type='hover' className='h-72 pr-1'>
           <CommandEmpty>No results found.</CommandEmpty>
           {sidebarData.navGroups.map((group) => (
-            <CommandGroup key={group.title} heading={group.title}>
+            <CommandGroup key={Math.random()} >
               {group.items.map((navItem, i) => {
                 if (navItem.url)
                   return (
