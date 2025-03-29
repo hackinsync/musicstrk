@@ -1,4 +1,4 @@
-use contract::erc20::{
+use contract_::erc20::{
     IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, IBurnableDispatcher,
     IBurnableDispatcherTrait,
 };
@@ -6,32 +6,32 @@ use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTr
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
-use starknet::{ContractAddress, contractaddress_const};
+use starknet::{ContractAddress, contract_address_const};
 
 fn owner() -> ContractAddress {
-    contractaddress_const::<'owner'>()
+    contract_address_const::<'owner'>()
 }
 
 fn zero() -> ContractAddress {
-    contractaddress_const::<0>()
+    contract_address_const::<0>()
 }
 
 fn kim() -> ContractAddress {
-    contractaddress_const::<'kim'>()
+    contract_address_const::<'kim'>()
 }
 
 fn thurston() -> ContractAddress {
-    contractaddress_const::<'thurston'>()
+    contract_address_const::<'thurston'>()
 }
 
 fn lee() -> ContractAddress {
-    contractaddress_const::<'lee'>()
+    contract_address_const::<'lee'>()
 }
 
 // Helper function to deploy the music share token contract
 fn deploy_music_share_token() -> ContractAddress {
     let owner = owner();
-    let contractclass = declare("MusicStrk").unwrap().contractclass();
+    let contractclass = declare("MusicStrk").unwrap().contract_class();
     let mut calldata = array![];
     calldata.append_serde(owner);
     let (contractaddress, _) = contractclass.deploy(@calldata).unwrap();
@@ -51,13 +51,13 @@ fn test_deployment() {
 fn test_initialize() {
     // Setup
     let recipient = kim();
-    let contractaddress = deploy_music_share_token();
-    let token = IERC20Dispatcher { contractaddress };
-    let share_token = IMusicShareTokenDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
     // Initialize the token with minimal data
     // Direct string literals should work in Cairo 2.9.4
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     share_token.initialize(recipient, "ipfs://test", "RecordToken", "REC", 2 // decimals
     );
 
@@ -72,13 +72,13 @@ fn test_initialize() {
 fn test_burn() {
     // Setup
     let recipient = kim();
-    let contractaddress = deploy_music_share_token();
-    let token = IERC20Dispatcher { contractaddress };
-    let burnable = IBurnableDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let burnable = IBurnableDispatcher { contract_address };
 
     // Initialize the token
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
-    IMusicShareTokenDispatcher { contractaddress }
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    IMusicShareTokenDispatcher { contract_address }
         .initialize(recipient, "ipfs://test", "RecordToken", "REC", 2 // decimals
         );
 
@@ -86,7 +86,7 @@ fn test_burn() {
     assert(token.balance_of(recipient) == 100_u256, 'Initial balance wrong');
 
     // Burn 25 tokens
-    cheat_caller_address(contractaddress, recipient, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
     burnable.burn(25_u256);
 
     // Check balance after burning
@@ -101,12 +101,12 @@ fn test_transfer() {
     // Setup
     let from_address = kim();
     let to_address = thurston();
-    let contractaddress = deploy_music_share_token();
-    let token = IERC20Dispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
 
     // Initialize the token
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
-    IMusicShareTokenDispatcher { contractaddress }
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    IMusicShareTokenDispatcher { contract_address }
         .initialize(from_address, "ipfs://test", "RecordToken", "REC", 2 // decimals
         );
 
@@ -115,7 +115,7 @@ fn test_transfer() {
     assert(token.balance_of(to_address) == 0_u256, 'Initial to balance wrong');
 
     // Transfer 30 tokens from kim to thurston
-    cheat_caller_address(contractaddress, from_address, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, from_address, CheatSpan::TargetCalls(1));
     token.transfer(to_address, 30_u256);
 
     // Check balances after transfer
@@ -132,12 +132,12 @@ fn test_approve_and_transfer_from() {
     let token_owner = kim();
     let spender = thurston();
     let recipient = lee();
-    let contractaddress = deploy_music_share_token();
-    let token = IERC20Dispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
 
     // Initialize the token
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
-    IMusicShareTokenDispatcher { contractaddress }
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    IMusicShareTokenDispatcher { contract_address }
         .initialize(token_owner, "ipfs://test", "RecordToken", "REC", 2 // decimals
         );
 
@@ -147,14 +147,14 @@ fn test_approve_and_transfer_from() {
     assert(token.balance_of(recipient) == 0_u256, 'Initial recipient balance wrong');
 
     // Approve spender to spend 50 tokens
-    cheat_caller_address(contractaddress, token_owner, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, token_owner, CheatSpan::TargetCalls(1));
     token.approve(spender, 50_u256);
 
     // Check allowance
     assert(token.allowance(token_owner, spender) == 50_u256, 'Allowance not set correctly');
 
     // Spender transfers 40 tokens from token_owner to recipient
-    cheat_caller_address(contractaddress, spender, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, spender, CheatSpan::TargetCalls(1));
     token.transfer_from(token_owner, recipient, 40_u256);
 
     // Check balances after transfer
@@ -172,12 +172,12 @@ fn test_approve_and_transfer_from() {
 fn test_metadata_uri() {
     // Setup
     let recipient = kim();
-    let contractaddress = deploy_music_share_token();
-    let share_token = IMusicShareTokenDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
     // Initialize the token with metadata URI
     let metadata_uri = "ipfs://QmSpecificCID";
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     share_token.initialize(recipient, metadata_uri, "RecordToken", "REC", 2 // decimals
     );
 
@@ -194,14 +194,14 @@ fn test_ownership_transfer() {
     // Setup
     let original_owner = owner();
     let new_owner = kim();
-    let contractaddress = deploy_music_share_token();
-    let ownable = IOwnableDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let ownable = IOwnableDispatcher { contract_address };
 
     // Verify initial owner
     assert(ownable.owner() == original_owner, 'Initial owner incorrect');
 
     // Transfer ownership from original owner to new owner
-    cheat_caller_address(contractaddress, original_owner, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, original_owner, CheatSpan::TargetCalls(1));
     ownable.transfer_ownership(new_owner);
 
     // Verify new owner
@@ -213,17 +213,17 @@ fn test_edge_cases() {
     // Setup
     let token_owner = kim();
     let spender = thurston();
-    let contractaddress = deploy_music_share_token();
-    let token = IERC20Dispatcher { contractaddress };
-    let share_token = IMusicShareTokenDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
     // Initialize the token
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     share_token.initialize(token_owner, "ipfs://test", "RecordToken", "REC", 2 // decimals
     );
 
     // Case 1: Approve zero amount
-    cheat_caller_address(contractaddress, token_owner, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, token_owner, CheatSpan::TargetCalls(1));
     token.approve(spender, 0_u256);
 
     // Verify zero approval
@@ -231,7 +231,7 @@ fn test_edge_cases() {
 
     // Case 2: Transfer zero amount
     let initial_balance = token.balance_of(token_owner);
-    cheat_caller_address(contractaddress, token_owner, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, token_owner, CheatSpan::TargetCalls(1));
     token.transfer(spender, 0_u256);
 
     // Verify balances didn't change
@@ -247,12 +247,12 @@ fn test_decimal_configuration() {
     let decimal_0 = 0_u8;
     let recipient = kim();
     let to_address = thurston();
-    let contractaddress = deploy_music_share_token();
-    let token = IERC20Dispatcher { contractaddress };
-    let share_token = IMusicShareTokenDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
     // Initialize with 0 decimals
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     share_token.initialize(recipient, "ipfs://test", "RecordToken", "REC", decimal_0);
 
     // Verify the decimals setting was stored correctly
@@ -263,7 +263,7 @@ fn test_decimal_configuration() {
 
     // Transfer a whole amount
     let transfer_amount = 5_u256;
-    cheat_caller_address(contractaddress, recipient, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
     token.transfer(to_address, transfer_amount);
 
     // Verify transfer worked correctly
@@ -274,12 +274,12 @@ fn test_decimal_configuration() {
     let decimal_2 = 2_u8;
     let recipient2 = kim();
     let to_address2 = thurston();
-    let contractaddress2 = deploy_music_share_token();
-    let token2 = IERC20Dispatcher { contractaddress: contractaddress2 };
-    let share_token2 = IMusicShareTokenDispatcher { contractaddress: contractaddress2 };
+    let contract_address2 = deploy_music_share_token();
+    let token2 = IERC20Dispatcher { contract_address: contract_address2 };
+    let share_token2 = IMusicShareTokenDispatcher { contract_address: contract_address2 };
 
     // Initialize with 2 decimals
-    cheat_caller_address(contractaddress2, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address2, owner(), CheatSpan::TargetCalls(1));
     share_token2.initialize(recipient2, "ipfs://test", "RecordToken", "REC", decimal_2);
 
     // Verify the decimals setting was stored correctly
@@ -290,7 +290,7 @@ fn test_decimal_configuration() {
 
     // Transfer an amount
     let transfer_amount2 = 1_u256;
-    cheat_caller_address(contractaddress2, recipient2, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address2, recipient2, CheatSpan::TargetCalls(1));
     token2.transfer(to_address2, transfer_amount2);
 
     // Verify transfer worked correctly
@@ -300,11 +300,11 @@ fn test_decimal_configuration() {
     // Additionally, test a high decimal value (18, which is standard for many tokens)
     let decimal_18 = 18_u8;
     let recipient3 = kim();
-    let contractaddress3 = deploy_music_share_token();
-    let share_token3 = IMusicShareTokenDispatcher { contractaddress: contractaddress3 };
+    let contract_address3 = deploy_music_share_token();
+    let share_token3 = IMusicShareTokenDispatcher { contract_address: contract_address3 };
 
     // Initialize with 18 decimals
-    cheat_caller_address(contractaddress3, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address3, owner(), CheatSpan::TargetCalls(1));
     share_token3.initialize(recipient3, "ipfs://test", "RecordToken", "REC", decimal_18);
 
     // Verify the decimals setting was stored correctly
@@ -316,16 +316,16 @@ fn test_decimal_configuration() {
 fn test_double_initialization() {
     // Setup
     let recipient = kim();
-    let contractaddress = deploy_music_share_token();
-    let share_token = IMusicShareTokenDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
     // Initialize the token first time
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     share_token.initialize(recipient, "ipfs://test", "RecordToken", "REC", 2 // decimals
     );
 
     // Try to initialize again - should fail
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     share_token
         .initialize(thurston(), "ipfs://test2", "RecordToken2", "REC2", 3 // different decimals
         );
@@ -339,12 +339,12 @@ fn test_6_decimal_precision() {
     let recipient = kim();
     let to_address = thurston();
     let third_party = lee();
-    let contractaddress = deploy_music_share_token();
-    let token = IERC20Dispatcher { contractaddress };
-    let share_token = IMusicShareTokenDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let token = IERC20Dispatcher { contract_address };
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
     // Initialize with 6 decimals
-    cheat_caller_address(contractaddress, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     share_token.initialize(recipient, "ipfs://test", "StableCoin", "STBL", decimal_6);
 
     // Verify the decimals setting was stored correctly
@@ -360,7 +360,7 @@ fn test_6_decimal_precision() {
     // First, make a small transfer - 0.5 tokens
     let small_transfer = 5_u256; // Use small amounts for testing
 
-    cheat_caller_address(contractaddress, recipient, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
     token.transfer(to_address, small_transfer);
 
     // Verify the transfer worked correctly
@@ -371,7 +371,7 @@ fn test_6_decimal_precision() {
     let approval_amount = 10_u256;
 
     // Recipient approves third_party to spend tokens
-    cheat_caller_address(contractaddress, recipient, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, recipient, CheatSpan::TargetCalls(1));
     token.approve(third_party, approval_amount);
 
     // Verify approval was set correctly
@@ -379,7 +379,7 @@ fn test_6_decimal_precision() {
 
     // Third party transfers half of the approved amount
     let transfer_from_amount = 5_u256;
-    cheat_caller_address(contractaddress, third_party, CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, third_party, CheatSpan::TargetCalls(1));
     token.transfer_from(recipient, third_party, transfer_from_amount);
 
     // Verify balances after transfer_from
@@ -399,8 +399,8 @@ fn test_6_decimal_precision() {
     // Burn 2 tokens from to_address
     let burn_amount = 2_u256;
 
-    cheat_caller_address(contractaddress, to_address, CheatSpan::TargetCalls(1));
-    IBurnableDispatcher { contractaddress }.burn(burn_amount);
+    cheat_caller_address(contract_address, to_address, CheatSpan::TargetCalls(1));
+    IBurnableDispatcher { contract_address }.burn(burn_amount);
 
     // Verify balance after burn
     assert(
@@ -419,12 +419,12 @@ fn test_6_decimal_precision() {
 #[should_panic]
 fn test_authorization_failure() {
     // Setup - deploy the contract but don't initialize yet
-    let contractaddress = deploy_music_share_token();
-    let share_token = IMusicShareTokenDispatcher { contractaddress };
+    let contract_address = deploy_music_share_token();
+    let share_token = IMusicShareTokenDispatcher { contract_address };
 
     // Try to initialize the token as a non-owner (kim)
     // This should fail with an authorization error
-    cheat_caller_address(contractaddress, kim(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, kim(), CheatSpan::TargetCalls(1));
     share_token.initialize(thurston(), "ipfs://test", "RecordToken", "REC", 6 // decimals
     );
     // This should panic as kim is not the owner and cannot initialize the token

@@ -15,6 +15,10 @@ pub trait IMusicShareToken<ContractState> {
     );
     fn get_metadata_uri(self: @ContractState) -> ByteArray;
     fn get_decimals(self: @ContractState) -> u8;
+    fn get_balance_of(self: @ContractState, account: ContractAddress) -> u256;
+    fn transfer_token(
+        ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256,
+    );
 }
 
 #[starknet::interface]
@@ -24,7 +28,8 @@ pub trait IBurnable<ContractState> {
 
 #[starknet::contract]
 pub mod MusicStrk {
-    use contract::errors::errors;
+    // use openzeppelin_token::erc20::interface::IERC20Mixin;
+    use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
     use openzeppelin::upgrades::interface::IUpgradeable;
@@ -38,7 +43,7 @@ pub mod MusicStrk {
     use super::{IBurnable, IMusicShareToken};
 
     // Token hard cap - exactly 100 tokens per contract
-    const TOTAL_SHARES: u256 = 100_u256;
+    pub const TOTAL_SHARES: u256 = 100_u256;
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -160,6 +165,16 @@ pub mod MusicStrk {
         fn get_decimals(self: @ContractState) -> u8 {
             // Read the decimals configuration
             self.decimal_units.read()
+        }
+
+        fn get_balance_of(self: @ContractState, account: ContractAddress) -> u256 {
+            self.erc20.balance_of(account)
+        }
+
+        fn transfer_token(
+            ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256,
+        ) {
+            self.erc20.transfer_from(from, to, amount);
         }
     }
 

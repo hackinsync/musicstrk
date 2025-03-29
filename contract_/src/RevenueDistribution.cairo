@@ -1,44 +1,40 @@
 #[starknet::contract]
 pub mod RevenueDistribution {
-    use contract::errors::errors;
-    use starknet::{ClassHash, ContractAddress, get_caller_address, get_block_timestamp};
+    use starknet::storage::StorageMapReadAccess;
+    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use core::num::traits::Zero;
-    use core::byte_array::ByteArray;
-    use starknet::storage::{
-        StoragePointerReadAccess, StoragePointerWriteAccess, StoragePathEntry, Map, Array,
-        ByteArray,
-    };
-    use core::clone::Clone;
 
-    use contract::interfaces::{
-        IRevenueDistribution, IRevenueDistributionDispatcher, IRevenueDistributionDispatcherTrait,
-        IMusicShareToken, IMusicShareTokenDispatcher,
+    use starknet::storage::{
+        StoragePointerReadAccess, StoragePointerWriteAccess, Map, StorageMapWriteAccess,
     };
+    use contract_::IRevenueDistribution::{
+        IRevenueDistribution, Category, RevenueAddedEvent, RevenueDistributedEvent,
+    };
+    use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
+    use contract_::erc20::MusicStrk::TOTAL_SHARES;
+    use alexandria_storage::{ListTrait, List};
+
+    const DECIMALS: u256 = 1_000_000; // 6 decimal places
 
     #[storage]
     struct Storage {
-        // total revenue accumulated by category 
         total_revenue: u256,
-        // Revenue owed to each token holder
         holder_revenue: Map<ContractAddress, u256>,
-        // Revenue distribution history
-        category_revenue: Map<ByteArray, u256>,
-        // Store the token contract address
+        category_revenue: Map<u8, u256>,
         token_contract: ContractAddress,
-        // Mapping of artist addresses to their associated tokens
-        artist_tokens: Map<ContractAddress, Array<ByteArray>>,
+        artist_tokens: Map<
+            ContractAddress, List<ContractAddress>,
+        >, // holder_address -> tokens_address 
+        token_holders: Map<
+            ContractAddress, List<ContractAddress>,
+        > // token_address -> holders_address
     }
+
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
-        EscrowAddressUpdated: EscrowAddressEvent,
-        WagerCreated: WagerCreatedEvent,
-        WagerJoined: WagerJoinedEvent,
-        OutcomeSubmitted: OutcomeSubmittedEvent,
-        #[flat]
-        AccessControlEvent: AccessControlComponent::Event,
-        #[flat]
-        SRC5Event: SRC5Component::Event,
+        RevenueAddedEvent: RevenueAddedEvent,
+        RevenueDistributedEvent: RevenueDistributedEvent,
     }
 
 
@@ -50,60 +46,128 @@ pub mod RevenueDistribution {
 
     #[abi(embed_v0)]
     impl RevenueDistributionImpl of IRevenueDistribution<ContractState> {
-        fn add_revenue(ref self: ContractState, category: ByteArray, amount: u256) {
-            // Update total revenue for the category
+        fn transfer_token_share(ref self: ContractState, to: ContractAddress, amount: u256) {
+            let token_contract = self.token_contract.read();
+            let caller = get_caller_address();
+            let erc20 = IMusicShareTokenDispatcher { contract_address: token_contract };
+
+            assert!(erc20.get_balance_of(caller) >= amount, "caller_have_less_token");
+
+            erc20.transfer_token(caller, to, amount);
+
+            let mut holders = self.token_holders.read(token_contract);
+            let _index = holders.append(to);
+            self.token_holders.write(token_contract, holders);
+        }
+
+        fn add_revenue(ref self: ContractState, category: Category, amount: u256) {
             let current_revenue = self.total_revenue.read();
             self.total_revenue.write(current_revenue + amount);
 
-            let old_amount = self.category_revenue.read(category);
-            self.category_revenue.write(category, old_amount + amount);
+            let (old_revenue, cat) = self.get_revenue_by_category(category);
+            self.category_revenue.write(cat, old_revenue + amount);
 
             self.emit(RevenueAddedEvent { category, amount, time: get_block_timestamp() });
         }
 
-        //  calculate revenue share  gives percentage share in revenue
         fn calculate_revenue_share(self: @ContractState, holder: ContractAddress) -> u256 {
             let token_contract = self.token_contract.read();
-            let total_supply = IMusicShareTokenDispatcher::total_supply(token_contract);
+            let erc20 = IMusicShareTokenDispatcher { contract_address: token_contract };
 
-            if total_supply == 0 {
-                return 0;
+            if TOTAL_SHARES == 0 {
+                return 0_u256;
             }
-
-            let balance = IMusicShareTokenDispatcher::balance_of(token_contract, holder);
-
-            balance / total_supply
+            let balance = erc20.get_balance_of(holder);
+            (balance * 100) / TOTAL_SHARES
         }
 
         fn distribute_revenue(ref self: ContractState) {
             let token_contract = self.token_contract.read();
-            let total_supply = IMusicShareTokenDispatcher::total_supply(token_contract);
 
-            let holders = IMusicShareTokenDispatcher::get_all_holders(token_contract);
-
+            let holders = self.token_holders.read(token_contract);
             let total_revenue = self.total_revenue.read();
+
             assert!(total_revenue > 0, "No_revenue_for_Distribute");
 
-            for holder in holders.iter() {
-                let revenue_share = self.calculate_revenue_share(*holder) * total_revenue;
-                let current_holder_revenue = self.holder_revenue.read(*holder);
-                self.holder_revenue.write(*holder, current_holder_revenue + revenue_share);
-            }
-        }
+            let mut i: u32 = 0;
+            loop {
+                if i >= holders.len() {
+                    break;
+                }
 
+                let revenue_share = (self.calculate_revenue_share(holders[i]) * total_revenue)
+                    / DECIMALS;
+                let current_holder_revenue = self.holder_revenue.read(holders[i]);
+                self.holder_revenue.write(holders[i], current_holder_revenue + revenue_share);
+                i += 1;
+            };
+            self
+                .emit(
+                    RevenueDistributedEvent {
+                        total_distributed: total_revenue, time: get_block_timestamp(),
+                    },
+                );
+            self.total_revenue.write(0); // Reset total revenue after distribution
+        }
 
         fn get_holder_revenue(self: @ContractState, holder: ContractAddress) -> u256 {
             self.holder_revenue.read(holder)
         }
 
-        fn get_revenue_by_category(self: @ContractState, category: ByteArray) -> u256 {
-            self.category_revenue.read(category)
+        fn get_revenue_by_category(self: @ContractState, category: Category) -> (u256, u8) {
+            let cat = match category {
+                Category::TICKET => 1_u8,
+                Category::MERCH => 2_u8,
+                Category::STREAMING => 3_u8,
+                _ => 4_u8,
+            };
+            (self.category_revenue.read(cat), cat)
         }
 
+        fn get_tokens_by_artist(
+            self: @ContractState, artist: ContractAddress,
+        ) -> Array<ContractAddress> {
+            let mut artist_tokens = self.artist_tokens.read(artist);
 
-        fn get_tokens_by_artist(self: @ContractState, artist: ContractAddress) -> Array<ByteArray> {
-            self.artist_tokens.read(artist).clone()
+            let mut tokens = ArrayTrait::new();
+
+            let mut i: u32 = 0;
+
+            loop {
+                if i >= artist_tokens.len() {
+                    break;
+                }
+
+                let id = artist_tokens[i];
+                tokens.append(id);
+
+                i += 1;
+            };
+
+            tokens
         }
 
+        fn get_artist_by_token(
+            self: @ContractState, token: ContractAddress,
+        ) -> Array<ContractAddress> {
+            let mut artists = self.token_holders.read(token);
+
+            let mut artist_array = ArrayTrait::new();
+
+            let mut i: u32 = 0;
+
+            loop {
+                if i >= artists.len() {
+                    break;
+                }
+
+                let id = artists[i];
+                artist_array.append(id);
+
+                i += 1;
+            };
+
+            artist_array
+        }
     }
 }
