@@ -257,13 +257,13 @@ export default function HeroSection() {
                                 onClick={handleSubmit}
                                 disabled={loading}
                             >
-                                {loading ? "Warping..." : "Join Quantum Waitlist"}
+                                {loading ? "Warping..." : "Join Waitlist"}
                             </Button>
                         </div>
                     </div>
 
                     {/* Additional Links */}
-                    <div className="mt-8 flex flex-col md:flex-row justify-center items-center space-x-8">
+                    <div className="mt-8 flex flex-col md:flex-row md:justify-center justify-center items-center md:items-center md:space-x-8">
                         <Link
                             href="https://github.com/hackinsync/musicstrk/"
                             className="flex items-center text-[#00f5d4] 
