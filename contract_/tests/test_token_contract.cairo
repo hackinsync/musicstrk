@@ -312,7 +312,7 @@ fn test_decimal_configuration() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected: 'Token already initialized')]
 fn test_double_initialization() {
     // Setup
     let recipient = kim();
@@ -416,7 +416,7 @@ fn test_6_decimal_precision() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected: 'Caller is not the owner')]
 fn test_authorization_failure() {
     // Setup - deploy the contract but don't initialize yet
     let contract_address = deploy_music_share_token();
