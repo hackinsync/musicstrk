@@ -15,10 +15,6 @@ pub trait IMusicShareToken<ContractState> {
     );
     fn get_metadata_uri(self: @ContractState) -> ByteArray;
     fn get_decimals(self: @ContractState) -> u8;
-    fn get_balance_of(self: @ContractState, account: ContractAddress) -> u256;
-    fn transfer_token(
-        ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256,
-    );
 }
 
 #[starknet::interface]
@@ -165,16 +161,6 @@ pub mod MusicStrk {
         fn get_decimals(self: @ContractState) -> u8 {
             // Read the decimals configuration
             self.decimal_units.read()
-        }
-
-        fn get_balance_of(self: @ContractState, account: ContractAddress) -> u256 {
-            self.erc20.balance_of(account)
-        }
-
-        fn transfer_token(
-            ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256,
-        ) {
-            self.erc20.transfer_from(from, to, amount);
         }
     }
 

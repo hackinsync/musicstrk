@@ -1,7 +1,7 @@
 #[starknet::contract]
 pub mod RevenueDistribution {
     use starknet::storage::StorageMapReadAccess;
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
+    use starknet::{ContractAddress, get_block_timestamp};
     use core::num::traits::Zero;
 
     use starknet::storage::{
@@ -10,7 +10,8 @@ pub mod RevenueDistribution {
     use contract_::IRevenueDistribution::{
         IRevenueDistribution, Category, RevenueAddedEvent, RevenueDistributedEvent,
     };
-    use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
+
+    use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use contract_::erc20::MusicStrk::TOTAL_SHARES;
     use alexandria_storage::{ListTrait, List};
 
@@ -22,9 +23,6 @@ pub mod RevenueDistribution {
         holder_revenue: Map<ContractAddress, u256>,
         category_revenue: Map<u8, u256>,
         token_contract: ContractAddress,
-        artist_tokens: Map<
-            ContractAddress, List<ContractAddress>,
-        >, // holder_address -> tokens_address 
         token_holders: Map<
             ContractAddress, List<ContractAddress>,
         >, // token_address -> holders_address
@@ -47,14 +45,13 @@ pub mod RevenueDistribution {
 
     #[abi(embed_v0)]
     impl RevenueDistributionImpl of IRevenueDistribution<ContractState> {
+
+        //  1 token  = 1_00_00_00 token_shares
         fn transfer_token_share(ref self: ContractState, to: ContractAddress, amount: u256) {
             let token_contract = self.token_contract.read();
-            let caller = get_caller_address();
-            let erc20 = IMusicShareTokenDispatcher { contract_address: token_contract };
+            let erc20 = IERC20Dispatcher { contract_address: token_contract };
 
-            assert!(erc20.get_balance_of(caller) >= amount, "caller_have_less_token");
-
-            erc20.transfer_token(caller, to, amount);
+            erc20.transfer(to, amount);
 
             let mut holders = self.token_holders.read(token_contract);
             let _index = holders.append(to);
@@ -71,20 +68,21 @@ pub mod RevenueDistribution {
             self.emit(RevenueAddedEvent { category, amount, time: get_block_timestamp() });
         }
 
+
         fn calculate_revenue_share(self: @ContractState, holder: ContractAddress) -> u256 {
             let token_contract = self.token_contract.read();
-            let erc20 = IMusicShareTokenDispatcher { contract_address: token_contract };
+            let erc20 = IERC20Dispatcher { contract_address: token_contract };
 
             if TOTAL_SHARES == 0 {
                 return 0_u256;
             }
-            let balance = erc20.get_balance_of(holder);
+
+            let balance = erc20.balance_of(holder);
             (balance * DECIMALS) / TOTAL_SHARES
         }
 
         fn distribute_revenue(ref self: ContractState) {
             let token_contract = self.token_contract.read();
-
             let holders = self.token_holders.read(token_contract);
             let total_revenue = self.total_revenue.read();
 
@@ -97,24 +95,27 @@ pub mod RevenueDistribution {
                 }
 
                 let revenue_share = (self.calculate_revenue_share(holders[i]) * total_revenue)
-                    / DECIMALS;
+                    / (TOTAL_SHARES * DECIMALS);
+
                 let current_holder_revenue = self.holder_revenue.read(holders[i]);
                 self.holder_revenue.write(holders[i], current_holder_revenue + revenue_share);
 
-                 // Track distribution history
-                 let mut history =self.distribution_history.read();
-                 let _idx =history.append((holders[i], revenue_share, get_block_timestamp()));
-                 self.distribution_history.write(history);
-                
+                // Track distribution history
+                let mut history = self.distribution_history.read();
+                let _idx = history.append((holders[i], revenue_share, get_block_timestamp()));
+                self.distribution_history.write(history);
+
                 i += 1;
             };
+
             self
                 .emit(
                     RevenueDistributedEvent {
                         total_distributed: total_revenue, time: get_block_timestamp(),
                     },
                 );
-            self.total_revenue.write(0); // Reset total revenue after distribution
+
+            self.total_revenue.write(0);
         }
 
         fn get_holder_revenue(self: @ContractState, holder: ContractAddress) -> u256 {
@@ -131,30 +132,8 @@ pub mod RevenueDistribution {
             (self.category_revenue.read(cat), cat)
         }
 
-        fn get_tokens_by_artist(
-            self: @ContractState, artist: ContractAddress,
-        ) -> Array<ContractAddress> {
-            let mut artist_tokens = self.artist_tokens.read(artist);
 
-            let mut tokens = ArrayTrait::new();
-
-            let mut i: u32 = 0;
-
-            loop {
-                if i >= artist_tokens.len() {
-                    break;
-                }
-
-                let id = artist_tokens[i];
-                tokens.append(id);
-
-                i += 1;
-            };
-
-            tokens
-        }
-
-        fn get_artist_by_token(
+        fn get_holders_by_token(
             self: @ContractState, token: ContractAddress,
         ) -> Array<ContractAddress> {
             let mut artists = self.token_holders.read(token);
@@ -178,7 +157,6 @@ pub mod RevenueDistribution {
         }
 
         fn get_distribution_history(self: @ContractState) -> Array<(ContractAddress, u256, u64)> {
-            
             let mut history = self.distribution_history.read();
 
             let mut history_array = ArrayTrait::new();
