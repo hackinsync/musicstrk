@@ -33,4 +33,5 @@ pub trait IRevenueDistribution<TContractState> {
     ) -> Array<ContractAddress>;
     fn transfer_token_share(ref self: TContractState, to: ContractAddress, amount: u256);
     fn get_artist_by_token(self: @TContractState, token: ContractAddress) -> Array<ContractAddress>;
+    fn get_distribution_history(self: @TContractState) -> Array<(ContractAddress, u256, u64)> ;
 }

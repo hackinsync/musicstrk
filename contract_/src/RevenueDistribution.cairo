@@ -27,7 +27,8 @@ pub mod RevenueDistribution {
         >, // holder_address -> tokens_address 
         token_holders: Map<
             ContractAddress, List<ContractAddress>,
-        > // token_address -> holders_address
+        >, // token_address -> holders_address
+        distribution_history: List<(ContractAddress, u256, u64)>,
     }
 
     #[event]
@@ -78,7 +79,7 @@ pub mod RevenueDistribution {
                 return 0_u256;
             }
             let balance = erc20.get_balance_of(holder);
-            (balance * 100) / TOTAL_SHARES
+            (balance * DECIMALS) / TOTAL_SHARES
         }
 
         fn distribute_revenue(ref self: ContractState) {
@@ -99,6 +100,12 @@ pub mod RevenueDistribution {
                     / DECIMALS;
                 let current_holder_revenue = self.holder_revenue.read(holders[i]);
                 self.holder_revenue.write(holders[i], current_holder_revenue + revenue_share);
+
+                 // Track distribution history
+                 let mut history =self.distribution_history.read();
+                 let _idx =history.append((holders[i], revenue_share, get_block_timestamp()));
+                 self.distribution_history.write(history);
+                
                 i += 1;
             };
             self
@@ -168,6 +175,28 @@ pub mod RevenueDistribution {
             };
 
             artist_array
+        }
+
+        fn get_distribution_history(self: @ContractState) -> Array<(ContractAddress, u256, u64)> {
+            
+            let mut history = self.distribution_history.read();
+
+            let mut history_array = ArrayTrait::new();
+
+            let mut i: u32 = 0;
+
+            loop {
+                if i >= history.len() {
+                    break;
+                }
+
+                let id = history[i];
+                history_array.append(id);
+
+                i += 1;
+            };
+
+            history_array
         }
     }
 }
