@@ -6,20 +6,6 @@ use starknet::{ContractAddress, ClassHash};
 use starknet::syscalls::deploy_syscall;
 
 #[starknet::interface]
-pub trait IMusicShareToken<ContractState> {
-    fn initialize(
-        ref self: ContractState,
-        recipient: ContractAddress,
-        metadata_uri: ByteArray,
-        name: ByteArray,
-        symbol: ByteArray,
-        decimals: u8,
-    );
-    fn get_metadata_uri(self: @ContractState) -> ByteArray;
-    fn get_decimals(self: @ContractState) -> u8;
-}
-
-#[starknet::interface]
 pub trait IMusicShareTokenFactory<ContractState> {
     fn deploy_music_token(
         ref self: ContractState,
@@ -50,6 +36,7 @@ pub trait IMusicShareTokenFactory<ContractState> {
 
 #[starknet::contract]
 pub mod MusicShareTokenFactory {
+    use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
     use contract_::errors::errors;
     use core::clone::Clone;
     use core::num::traits::Zero;
@@ -67,7 +54,7 @@ pub mod MusicShareTokenFactory {
     };
     use super::{
         Array, ArrayTrait, ByteArray, ClassHash, ContractAddress, deploy_syscall,
-        IMusicShareTokenFactory, IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait,
+        IMusicShareTokenFactory,
     };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);

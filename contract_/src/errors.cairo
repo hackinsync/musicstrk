@@ -10,6 +10,6 @@ pub mod errors {
     pub const OWNER_ZERO_ADDRESS: felt252 = 'Owner cannot be address zero';
     pub const RECIPIENT_ZERO_ADDRESS: felt252 = 'Recipient is address zero';
     pub const SENDER_ZERO_ADDRESS: felt252 = 'Sender cannot be address zero';
-    pub const TOKEN_INITIALIZED: felt252 = 'Token already initialized';
+    pub const TOKEN_ALREADY_INITIALIZED: felt252 = 'Token already initialized';
     pub const ZERO_ADDRESS_DETECTED: felt252 = 'Caller is address zero';
 }

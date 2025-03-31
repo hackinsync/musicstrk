@@ -127,7 +127,7 @@ pub mod MusicStrk {
             assert(!caller.is_zero(), errors::OWNER_ZERO_ADDRESS);
 
             // Ensure the token hasn't been initialized yet
-            assert(!self.initialized.read(), errors::TOKEN_INITIALIZED);
+            assert(!self.initialized.read(), errors::TOKEN_ALREADY_INITIALIZED);
 
             // Ensure the recipient address is valid
             assert(!recipient.is_zero(), errors::RECIPIENT_ZERO_ADDRESS);

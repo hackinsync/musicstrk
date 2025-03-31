@@ -1,7 +1,6 @@
-use contract_::erc20::MusicStrk;
+use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, MusicStrk};
 use contract_::token_factory::{
-    IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, IMusicShareTokenFactoryDispatcher,
-    IMusicShareTokenFactoryDispatcherTrait, MusicShareTokenFactory,
+    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait, MusicShareTokenFactory,
 };
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
@@ -48,7 +47,7 @@ fn setup_token_data() -> (ByteArray, ByteArray, u8, ByteArray) {
     // Set up test parameters
     let name = "Test Music Token";
     let symbol = "TMT";
-    let decimals = 18_u8;
+    let decimals = 6_u8;
     let metadata_uri = "ipfs://QmTestMetadataHash";
 
     (name, symbol, decimals, metadata_uri)
@@ -188,19 +187,16 @@ fn test_multiple_tokens_per_artist() {
     cheat_caller_address(factory_address, owner, CheatSpan::TargetCalls(1));
     factory_dispatcher.grant_artist_role(artist_1);
 
-    // Setup test data
-    let (name, symbol, decimals, metadata_uri) = setup_token_data();
-
     // Start calls as the deployer (artist)
     cheat_caller_address(factory_address, artist_1, CheatSpan::TargetCalls(2));
 
     // Deploy first token through the factory
     let token1_address = factory_dispatcher
-        .deploy_music_token("First Album", "FA", 18_u8, "ipfs://first-uri");
+        .deploy_music_token("First Album", "FA", 6_u8, "ipfs://first-uri");
 
     // Deploy second token through the factory
     let token2_address = factory_dispatcher
-        .deploy_music_token("Second Album", "SA", 18_u8, "ipfs://second-uri");
+        .deploy_music_token("Second Album", "SA", 6_u8, "ipfs://second-uri");
 
     // Verify token count and registration
     assert(factory_dispatcher.get_token_count() == 2, 'Token count should be 2');
@@ -243,13 +239,13 @@ fn test_multiple_artists() {
     cheat_caller_address(factory_address, artist_1, CheatSpan::TargetCalls(1));
 
     let token1_address = factory_dispatcher
-        .deploy_music_token("Artist 1 Album", "A1A", 18_u8, "ipfs://artist1-uri");
+        .deploy_music_token("Artist 1 Album", "A1A", 6_u8, "ipfs://artist1-uri");
 
     // Start calls as the deployer (artist_2)
     cheat_caller_address(factory_address, artist_2, CheatSpan::TargetCalls(1));
 
     let token2_address = factory_dispatcher
-        .deploy_music_token("Artist 2 Album", "A2A", 18_u8, "ipfs://artist2-uri");
+        .deploy_music_token("Artist 2 Album", "A2A", 6_u8, "ipfs://artist2-uri");
 
     // Verify token count
     assert(factory_dispatcher.get_token_count() == 2, 'Token count should be 2');
@@ -327,7 +323,7 @@ fn test_no_deploy_invalid_token_index() {
     let owner = OWNER();
 
     // Deploy music share token factory as owner
-    let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
+    let (_, factory_dispatcher) = deploy_music_share_token_factory(owner);
 
     // No tokens deployed, so index 0 should fail
     factory_dispatcher.get_token_at_index(0);
@@ -359,7 +355,6 @@ fn test_artist_role_management() {
     // Setup test accounts from address constants
     let owner = OWNER();
     let artist = ARTIST_1();
-    let unauthorized = NON_AUTH();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -465,5 +460,5 @@ fn test_deploy_factory_with_zero_owner() {
     calldata.append(music_token_class_hash.into());
 
     // Attempt to deploy with zero address owner - should fail
-    let (factory_address, _) = factory_class.deploy(@calldata).unwrap();
+    let (_, _) = factory_class.deploy(@calldata).unwrap();
 }
