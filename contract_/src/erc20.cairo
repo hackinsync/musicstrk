@@ -101,8 +101,11 @@ pub mod MusicStrk {
     fn constructor(ref self: ContractState, owner: ContractAddress) {
         // Use Zero trait for checking zero address
         assert(!owner.is_zero(), errors::OWNER_ZERO_ADDRESS);
+
+        // Initialize token owner
         self.ownable.initializer(owner);
-        // Initialize the storage value directly
+
+        // Initialize token storage directly
         self.initialized.write(false);
     }
 
@@ -118,6 +121,10 @@ pub mod MusicStrk {
         ) {
             // Only the owner can initialize the token
             self.ownable.assert_only_owner();
+
+            // Verify caller address is not zero address
+            let caller = get_caller_address();
+            assert(!caller.is_zero(), errors::OWNER_ZERO_ADDRESS);
 
             // Ensure the token hasn't been initialized yet
             assert(!self.initialized.read(), errors::TOKEN_ALREADY_INITIALIZED);
