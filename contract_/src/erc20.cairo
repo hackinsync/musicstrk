@@ -120,7 +120,7 @@ pub mod MusicStrk {
             self.ownable.assert_only_owner();
 
             // Ensure the token hasn't been initialized yet
-            assert!(!self.initialized.read(), "Token already initialized");
+            assert(!self.initialized.read(), errors::TOKEN_ALREADY_INITIALIZED);
 
             // Ensure the recipient address is valid
             assert(!recipient.is_zero(), errors::RECIPIENT_ZERO_ADDRESS);
