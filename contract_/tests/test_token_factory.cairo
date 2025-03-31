@@ -1,6 +1,7 @@
 use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, MusicStrk};
 use contract_::token_factory::{
-    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait, MusicShareTokenFactory,
+    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
+    MusicShareTokenFactory,
 };
 use core::array::ArrayTrait;
 use core::result::ResultTrait;

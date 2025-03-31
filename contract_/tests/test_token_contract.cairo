@@ -1,5 +1,6 @@
 use contract_::erc20::{
-     IBurnableDispatcher, IBurnableDispatcherTrait, IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait,
+    IBurnableDispatcher, IBurnableDispatcherTrait, IMusicShareTokenDispatcher,
+    IMusicShareTokenDispatcherTrait,
 };
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
