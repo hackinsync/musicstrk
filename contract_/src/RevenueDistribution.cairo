@@ -46,7 +46,7 @@ pub mod RevenueDistribution {
     #[abi(embed_v0)]
     impl RevenueDistributionImpl of IRevenueDistribution<ContractState> {
 
-        //  1 token  = 1_00_00_00 token_shares
+    
         fn transfer_token_share(ref self: ContractState, to: ContractAddress, amount: u256) {
             let token_contract = self.token_contract.read();
             let erc20 = IERC20Dispatcher { contract_address: token_contract };
