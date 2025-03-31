@@ -213,10 +213,10 @@ export default function HeroSection() {
                     </div>
 
                     {/* Hero Headline with Synthwave Styling */}
-                    <h1 className="text-4xl md:text-5xl text-transparent bg-clip-text 
+                    <h1 className="text-3xl md:text-4xl text-transparent bg-clip-text 
                         bg-gradient-to-r from-[#00f5d4] to-[#ff6b6b] 
                         drop-shadow-neon animate-pulse">
-                        We&apos;re BUIDLING a <del>Pump.Fun</del> for musical talents on Starknet
+                        We&apos;re BUIDLING a <del className="line-through">Pump.Fun</del> for musical talents on Starknet
                         <span className="block mt-4 text-white">
                             Join The
                             <span className="text-[#00f5d4] ml-2 italic">Pack!</span>
@@ -241,7 +241,7 @@ export default function HeroSection() {
                         <div className="max-w-md mx-auto relative">
                             <Input
                                 type="email"
-                                placeholder="Transmit Your Coordinates"
+                                placeholder="Email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="bg-[#1a1a3a] border-[#00f5d4]/50 text-white h-14
