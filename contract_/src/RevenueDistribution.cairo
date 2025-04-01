@@ -10,15 +10,28 @@ pub mod RevenueDistribution {
     use contract_::IRevenueDistribution::{
         IRevenueDistribution, Category, RevenueAddedEvent, RevenueDistributedEvent,
     };
-
+    use openzeppelin::access::ownable::{
+        interface::{IOwnableDispatcher, IOwnableDispatcherTrait}, OwnableComponent,
+    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use contract_::erc20::MusicStrk::TOTAL_SHARES;
     use alexandria_storage::{ListTrait, List};
 
-    const DECIMALS: u256 = 1_000_000; // 6 decimal places
+    const DECIMALS: u256 = 1_000_000;
+
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+
+    // External
+    #[abi(embed_v0)]
+    impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
+
+    // Internal
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
         total_revenue: u256,
         holder_revenue: Map<ContractAddress, u256>,
         category_revenue: Map<u8, u256>,
@@ -32,21 +45,25 @@ pub mod RevenueDistribution {
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
         RevenueAddedEvent: RevenueAddedEvent,
         RevenueDistributedEvent: RevenueDistributedEvent,
     }
 
 
     #[constructor]
-    fn constructor(ref self: ContractState, token_contract: ContractAddress) {
+    fn constructor(
+        ref self: ContractState, owner: ContractAddress, token_contract: ContractAddress,
+    ) {
         assert!(!token_contract.is_zero(), "invalid_token_contractaddress");
         self.token_contract.write(token_contract);
+        // Set owner
+        self.ownable.initializer(owner);
     }
 
     #[abi(embed_v0)]
     impl RevenueDistributionImpl of IRevenueDistribution<ContractState> {
-
-    
         fn transfer_token_share(ref self: ContractState, to: ContractAddress, amount: u256) {
             let token_contract = self.token_contract.read();
             let erc20 = IERC20Dispatcher { contract_address: token_contract };
@@ -78,10 +95,11 @@ pub mod RevenueDistribution {
             }
 
             let balance = erc20.balance_of(holder);
-            (balance * DECIMALS) / TOTAL_SHARES
+            (balance * DECIMALS)
         }
 
         fn distribute_revenue(ref self: ContractState) {
+            self.ownable.assert_only_owner();
             let token_contract = self.token_contract.read();
             let holders = self.token_holders.read(token_contract);
             let total_revenue = self.total_revenue.read();
@@ -89,11 +107,7 @@ pub mod RevenueDistribution {
             assert!(total_revenue > 0, "No_revenue_for_Distribute");
 
             let mut i: u32 = 0;
-            loop {
-                if i >= holders.len() {
-                    break;
-                }
-
+            while i < holders.len() {
                 let revenue_share = (self.calculate_revenue_share(holders[i]) * total_revenue)
                     / (TOTAL_SHARES * DECIMALS);
 
@@ -108,14 +122,13 @@ pub mod RevenueDistribution {
                 i += 1;
             };
 
+            self.total_revenue.write(0);
             self
                 .emit(
                     RevenueDistributedEvent {
                         total_distributed: total_revenue, time: get_block_timestamp(),
                     },
                 );
-
-            self.total_revenue.write(0);
         }
 
         fn get_holder_revenue(self: @ContractState, holder: ContractAddress) -> u256 {
