@@ -24,6 +24,7 @@ pub trait IBurnable<ContractState> {
 
 #[starknet::contract]
 pub mod MusicStrk {
+    // use openzeppelin_token::erc20::interface::IERC20Mixin;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
@@ -38,7 +39,7 @@ pub mod MusicStrk {
     use super::{IBurnable, IMusicShareToken};
 
     // Token hard cap - exactly 100 tokens per contract
-    const TOTAL_SHARES: u256 = 100_u256;
+    pub const TOTAL_SHARES: u256 = 100_u256;
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
