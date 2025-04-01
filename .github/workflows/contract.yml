@@ -1,4 +1,5 @@
 name: Contract CI
+
 on:
   push:
     branches:
@@ -25,9 +26,37 @@ jobs:
           tool-versions: contract_/.tool-versions
       - name: Check Scarb Formatting
         run: scarb fmt --check
+
+  compile:
+    runs-on: ubuntu-latest
+    name: Compile Cairo contract
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - uses: software-mansion/setup-scarb@v1
+        with:
+          tool-versions: contract_/.tool-versions
+      - name: Install universal sierra compiler
+        shell: bash
+        run: |
+          curl -L https://raw.githubusercontent.com/software-mansion/universal-sierra-compiler/master/scripts/install.sh | sh
+          echo "/root/.local/bin" >> ${GITHUB_PATH}
+      - name: Compile contract
+        run: scarb build
+      - name: Generate Starknet artifacts
+        run: scarb sierra compile
+      - name: Check contract size
+        run: ls -la target/dev/
+      - name: Upload compilation artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: contract-artifacts
+          path: contract_/target/dev/
+
   run-test:
     runs-on: ubuntu-latest
     name: Cairo test
+    needs: [compile]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
