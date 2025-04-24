@@ -24,6 +24,7 @@ pub trait IBurnable<ContractState> {
 
 #[starknet::contract]
 pub mod MusicStrk {
+    // use openzeppelin_token::erc20::interface::IERC20Mixin;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
@@ -38,7 +39,7 @@ pub mod MusicStrk {
     use super::{IBurnable, IMusicShareToken};
 
     // Token hard cap - exactly 100 tokens per contract
-    const TOTAL_SHARES: u256 = 100_u256;
+    pub const TOTAL_SHARES: u256 = 100_u256;
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -101,8 +102,11 @@ pub mod MusicStrk {
     fn constructor(ref self: ContractState, owner: ContractAddress) {
         // Use Zero trait for checking zero address
         assert(!owner.is_zero(), errors::OWNER_ZERO_ADDRESS);
+
+        // Initialize token owner
         self.ownable.initializer(owner);
-        // Initialize the storage value directly
+
+        // Initialize token storage directly
         self.initialized.write(false);
     }
 
@@ -119,8 +123,12 @@ pub mod MusicStrk {
             // Only the owner can initialize the token
             self.ownable.assert_only_owner();
 
+            // Verify caller address is not zero address
+            let caller = get_caller_address();
+            assert(!caller.is_zero(), errors::OWNER_ZERO_ADDRESS);
+
             // Ensure the token hasn't been initialized yet
-            assert!(!self.initialized.read(), "Token already initialized");
+            assert(!self.initialized.read(), errors::TOKEN_ALREADY_INITIALIZED);
 
             // Ensure the recipient address is valid
             assert(!recipient.is_zero(), errors::RECIPIENT_ZERO_ADDRESS);

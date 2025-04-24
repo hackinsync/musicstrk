@@ -1,6 +1,6 @@
 use contract_::erc20::{
-    IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, IBurnableDispatcher,
-    IBurnableDispatcherTrait,
+    IBurnableDispatcher, IBurnableDispatcherTrait, IMusicShareTokenDispatcher,
+    IMusicShareTokenDispatcherTrait,
 };
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
@@ -31,20 +31,20 @@ fn lee() -> ContractAddress {
 // Helper function to deploy the music share token contract
 fn deploy_music_share_token() -> ContractAddress {
     let owner = owner();
-    let contract_class = declare("MusicStrk").unwrap().contract_class();
+    let contractclass = declare("MusicStrk").unwrap().contract_class();
     let mut calldata = array![];
     calldata.append_serde(owner);
-    let (contract_address, _) = contract_class.deploy(@calldata).unwrap();
-    contract_address
+    let (contractaddress, _) = contractclass.deploy(@calldata).unwrap();
+    contractaddress
 }
 
 #[test]
 fn test_deployment() {
     // Simple test just to check that the contract deploys successfully
-    let contract_address = deploy_music_share_token();
+    let contractaddress = deploy_music_share_token();
 
     // Simple check that deployed contract address is not zero
-    assert(contract_address != zero(), 'Contract not deployed');
+    assert(contractaddress != zero(), 'Contract not deployed');
 }
 
 #[test]
@@ -312,7 +312,7 @@ fn test_decimal_configuration() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected: 'Token already initialized')]
 fn test_double_initialization() {
     // Setup
     let recipient = kim();
@@ -416,7 +416,7 @@ fn test_6_decimal_precision() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected: 'Caller is not the owner')]
 fn test_authorization_failure() {
     // Setup - deploy the contract but don't initialize yet
     let contract_address = deploy_music_share_token();
