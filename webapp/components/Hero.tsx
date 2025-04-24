@@ -135,7 +135,7 @@ export default function HeroSection() {
                 },
                 body: JSON.stringify({ email }),
             })
-
+            console.log(response.json(), "Response");
             if (response.ok) {
                 toast({
                     title: "Warp Sequence Initiated! 🚀",
@@ -160,7 +160,7 @@ export default function HeroSection() {
     return (
         <div className={`min-h-screen relative bg-gradient-to-br from-[#0a0a2a] via-[#1a1a3a] to-[#2a2a4a] 
             overflow-hidden text-white ${glitchEffect ? 'animate-glitch' : ''}`}>
-            {/* Synthwave Grid Background */}
+            {/* Synthwave Grid Backgrfound */}
             <div className="absolute inset-0 bg-grid-neon opacity-20 pointer-events-none" />
 
             {/* Dynamic Musical Icons Background */}
@@ -216,7 +216,7 @@ export default function HeroSection() {
                     <h1 className="text-3xl md:text-4xl text-transparent bg-clip-text 
                         bg-gradient-to-r from-[#00f5d4] to-[#ff6b6b] 
                         drop-shadow-neon animate-pulse">
-                        We&apos;re BUIDLING a <del className="line-through">Pump.Fun</del> for musical talents on Starknet
+                        We&apos;re BUIDLING a <span className="line-through">Pump.Fun</span> for musical talents on Starknet
                         <span className="block mt-4 text-white">
                             Join The
                             <span className="text-[#00f5d4] ml-2 italic">Pack!</span>
@@ -267,7 +267,7 @@ export default function HeroSection() {
                         <Link
                             href="https://github.com/hackinsync/musicstrk/"
                             className="flex items-center text-[#00f5d4] 
-                                hover:text-[#ff6b6b] transition-colors"
+                                hover:text-[#ff6b6b] text-sm transition-colors"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
@@ -278,7 +278,7 @@ export default function HeroSection() {
                             <Mail className="w-5 h-5 mr-2 text-[#ff6b6b]" />
                             <a
                                 href="mailto:buidl@musicstrk.fun"
-                                className="text-[#00f5d4] hover:text-[#ff6b6b] transition-colors"
+                                className="text-[#00f5d4] text-sm hover:text-[#ff6b6b] transition-colors"
                             >
                                 buidl@musicstrk.fun
                             </a>
