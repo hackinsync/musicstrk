@@ -1,0 +1,1 @@
+export const AUTHENTICATION_SNIP12_MESSAGE = "Welcome to MusicStrk! \n\nThis signature is used to verify that you are the owner of this wallet.\n\nSigning is free and will not trigger a transaction."
