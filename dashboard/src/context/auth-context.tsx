@@ -34,7 +34,7 @@ const waitForAccount = async (
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { address, isConnected, account } = useAccount()
+  const { address, isConnected, account, status } = useAccount()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
   const [isLoading, setIsLoading] = useState(true)
@@ -44,13 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    console.log('Account:', account)
-    console.log('Address:', address)
-    console.log('Is Connected:', isConnected)
-
     const token = localStorage.getItem('authToken')
-    setIsAuthenticated(!!token && isConnected)
-    setIsLoading(false)
+    if (token) {
+      setIsAuthenticated(!!token && isConnected)
+      setIsLoading(false)
+    }
   }, [isConnected, account, address])
 
   const signIn = async (connectorId: string) => {
@@ -63,28 +61,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Wallet not found')
       }
 
-      console.log('connector:', connector)
+      await connect({ connector })
 
-      const wallet = await connect({ connector })
+      console.log("status",status)
 
-      // Wait for connection to be established
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+     
+       if (!isConnected) {
+          throw new Error('Connection timed out. Please try again.')
+        }
+ 
 
-      console.log('Wallet:', wallet)
+      // const resolvedAccount = await waitForAccount(account)
+
+      if (!account) {
+        throw new Error('No account found')
+      }
+      // console.log('Wallet:', starknet)
       console.log('Account:', account)
       console.log('IsConnected:', isConnected)
 
-      if (!isConnected) {
-        throw new Error('Failed to connect to wallet')
-      }
-
-      const resolvedAccount = await waitForAccount(account)
-
-      if (!resolvedAccount) {
-        throw new Error('No account found')
-      }
-
-      const signature = await resolvedAccount.signMessage({
+      const signature = await account.signMessage({
         domain: {
           name: 'MusicStrk',
           version: '1',

@@ -68,12 +68,9 @@ importers:
       '@radix-ui/react-visually-hidden':
         specifier: ^1.1.0
         version: 1.1.0(@types/react-dom@19.0.1)(@types/react@19.0.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@starknet-io/get-starknet':
-        specifier: ^4.0.7
-        version: 4.0.7
-      '@starknet-io/get-starknet-core':
-        specifier: ^4.0.7
-        version: 4.0.7
+      '@starknet-react/chains':
+        specifier: ^3.1.3
+        version: 3.1.3
       '@starknet-react/core':
         specifier: ^3.7.2
         version: 3.7.2(get-starknet-core@4.0.0)(react@19.0.0)(starknet@7.1.0)(typescript@5.7.2)
@@ -735,12 +732,6 @@ packages:
   '@jridgewell/trace-mapping@0.3.25':
     resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
 
-  '@module-federation/runtime@0.1.21':
-    resolution: {integrity: sha512-/p4BhZ0SnjJuiL0wwu+FebFgIUJ9vM+oCY7CyprUHImyi/Y23ulI61WNWMVrKQGgdMoXQDQCL8RH4EnrVP2ZFw==}
-
-  '@module-federation/sdk@0.1.21':
-    resolution: {integrity: sha512-r7xPiAm+O4e+8Zvw+8b4ToeD0D0VJD004nHmt+Y8r/l98J2eA6di72Vn1FeyjtQbCrFtiMw3ts/dlqtcmIBipw==}
-
   '@noble/curves@1.7.0':
     resolution: {integrity: sha512-UTMhXK9SeDhFJVrHeUJ5uZlI6ajXg10O6Ddocf9S6GjbSBVZsJo88HzKwXznNfGpMTRDyJkqMjNDPYgf0qFWnw==}
     engines: {node: ^14.21.3 || >=16}
@@ -1379,20 +1370,14 @@ packages:
     engines: {node: '>=8.10'}
     hasBin: true
 
-  '@starknet-io/get-starknet-core@4.0.7':
-    resolution: {integrity: sha512-ocwQTdDvGa+0CvjGygyaTuFkda2R82dofydts8uXr9p0Diy/bmYW1fkuqJfi1nC5M+YcvvuEpl6wFvwXM1og5w==}
-
-  '@starknet-io/get-starknet@4.0.7':
-    resolution: {integrity: sha512-env/ZN5EmDJ6vDtIgjOjsEvvzdKBDaWZ0aLe79IVJ7lq2icqKbX86yR1/CUf4AU31AFYZHWZ3daOaGFT4nHSUQ==}
-
   '@starknet-io/types-js@0.7.10':
     resolution: {integrity: sha512-1VtCqX4AHWJlRRSYGSn+4X1mqolI1Tdq62IwzoU2vUuEE72S1OlEeGhpvd6XsdqXcfHmVzYfj8k1XtKBQqwo9w==}
 
   '@starknet-io/types-js@0.8.1':
     resolution: {integrity: sha512-c6P/qVa5YRhUMahsyyfIVW6rY2ptRylH3UXVWiB5ZHvmxzZP2lh58B9fdkPuZ3d5X3uiETEbzzrRsEGSGZI29Q==}
 
-  '@starknet-react/chains@3.1.2':
-    resolution: {integrity: sha512-/Oldb4AVYdvHXzlBRxu01s0WwdOjqL2Q47BAmiv07/aBRU7mSZl6r/6l+bYKNrChSZl7WVnlpb+ojfwhRpbGcw==}
+  '@starknet-react/chains@3.1.3':
+    resolution: {integrity: sha512-b16VQyxqZXfiVmlKEkjfg+Oj8fdSnGWh1KU87O/unn6NpmaD9h511az1Cs6aW/j3qCIF1o5CrqfEnU1NWV7MVA==}
 
   '@starknet-react/core@3.7.2':
     resolution: {integrity: sha512-5l6IlXqYzbnInVPwL2VdSwmIiaNnTjm4iYnEGSSVUUPyklHr3bdXaZoILJWcIQ0NaF2ebhNhoKYL8GDHiSKTPw==}
@@ -1773,9 +1758,6 @@ packages:
     resolution: {integrity: sha512-y+CcFFwelSXpLZk/7fMB2mUbGtX9lKycf1MWJ7CaTIERyitVlyQx6C+sxcROU2BAJ24OiZyK+8wj2i8AlBoS3A==}
     engines: {node: '>=10'}
 
-  async-mutex@0.5.0:
-    resolution: {integrity: sha512-1A94B18jkJ3DYq284ohPxoXbfTA5HsQ7/Mf4DEhcyLx3Bz27Rh59iScbB6EPiP+B+joue6YCxcMXSbFC1tZKwA==}
-
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
@@ -1798,9 +1780,6 @@ packages:
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
-
-  bowser@2.11.0:
-    resolution: {integrity: sha512-AlcaJBi/pqqJBIQ8U9Mcpc9i8Aqxn88Skv5d+xBX006BY5u8N3mGLHa5Lgppa7L/HfwgwLgZ6NYs+Ag6uUmJRA==}
 
   brace-expansion@1.1.11:
     resolution: {integrity: sha512-iCuPHDFgrHX7H2vEI/5xpz07zSHB00TpugqhmYtVmMO6518mCuRMoOYFldEBl0g187ufozdaHgWKcYFb61qGiA==}
@@ -3505,12 +3484,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@module-federation/runtime@0.1.21':
-    dependencies:
-      '@module-federation/sdk': 0.1.21
-
-  '@module-federation/sdk@0.1.21': {}
-
   '@noble/curves@1.7.0':
     dependencies:
       '@noble/hashes': 1.6.0
@@ -4136,27 +4109,16 @@ snapshots:
       ignore: 5.3.2
       p-map: 4.0.0
 
-  '@starknet-io/get-starknet-core@4.0.7':
-    dependencies:
-      '@module-federation/runtime': 0.1.21
-      '@starknet-io/types-js': 0.7.10
-      async-mutex: 0.5.0
-
-  '@starknet-io/get-starknet@4.0.7':
-    dependencies:
-      '@starknet-io/get-starknet-core': 4.0.7
-      bowser: 2.11.0
-
   '@starknet-io/types-js@0.7.10': {}
 
   '@starknet-io/types-js@0.8.1': {}
 
-  '@starknet-react/chains@3.1.2': {}
+  '@starknet-react/chains@3.1.3': {}
 
   '@starknet-react/core@3.7.2(get-starknet-core@4.0.0)(react@19.0.0)(starknet@7.1.0)(typescript@5.7.2)':
     dependencies:
       '@starknet-io/types-js': 0.7.10
-      '@starknet-react/chains': 3.1.2
+      '@starknet-react/chains': 3.1.3
       '@tanstack/react-query': 5.62.3(react@19.0.0)
       abi-wan-kanabi: 2.2.4
       eventemitter3: 5.0.1
@@ -4548,10 +4510,6 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  async-mutex@0.5.0:
-    dependencies:
-      tslib: 2.8.1
-
   asynckit@0.4.0: {}
 
   autoprefixer@10.4.20(postcss@8.4.49):
@@ -4584,8 +4542,6 @@ snapshots:
   balanced-match@1.0.2: {}
 
   binary-extensions@2.3.0: {}
-
-  bowser@2.11.0: {}
 
   brace-expansion@1.1.11:
     dependencies:
