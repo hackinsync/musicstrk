@@ -1,58 +1,54 @@
-import { type ReactNode } from 'react'
+'use client'
+
 import { sepolia, mainnet } from '@starknet-react/chains'
 import {
-  StarknetConfig,
-  jsonRpcProvider,
-  braavos,
+  alchemyProvider,
   argent,
+  infuraProvider,
+  lavaProvider,
+  nethermindProvider,
+  reddioProvider,
+  StarknetConfig,
+  starkscan,
   useInjectedConnectors,
-  voyager,
 } from '@starknet-react/core'
-import { constants } from 'starknet'
 
-/**
- * StarknetProvider component that configures the Starknet React context
- * for the application.
- *
- * @param {Object} props - Component props
- * @param {ReactNode} props.children - Child components
- * @returns {JSX.Element} Configured StarknetConfig provider
- */
-export function StarknetProvider({ children }: { children: ReactNode }) {
-  // Define available wallet connectors
+
+interface StarknetProviderProps {
+  children: React.ReactNode
+}
+
+export function StarknetProvider({ children }: StarknetProviderProps) {
   const { connectors } = useInjectedConnectors({
-    // Optionally, you can customize the connectors
-    recommended: [argent(), braavos()],
+    recommended: [argent()],
     includeRecommended: 'always',
-    order: 'random',
   })
-  // Validate environment variables
-  const rpcUrl = 'https://free-rpc.nethermind.io/sepolia-juno'
-  const isTestnet = true
 
-  if (!rpcUrl) {
-    throw new Error('Missing RPC URL configuration')
+  const apiKey = import.meta.env.VITE_RPC_API_KEY
+  const nodeProvider = import.meta.env.VITE_STARKNET_RPC
+
+
+
+  let provider
+  if (nodeProvider == 'infura') {
+    provider = infuraProvider({ apiKey })
+  } else if (nodeProvider == 'alchemy') {
+    provider = alchemyProvider({ apiKey })
+  } else if (nodeProvider == 'lava') {
+    provider = lavaProvider({ apiKey })
+  } else if (nodeProvider == 'nethermind') {
+    provider = nethermindProvider({ apiKey })
+  } else {
+    provider = reddioProvider({ apiKey })
   }
-
-  // Determine which chain to use based on environment
-  const defaultChainId = BigInt(
-    isTestnet
-      ? constants.StarknetChainId.SN_SEPOLIA
-      : constants.StarknetChainId.SN_MAIN
-  )
-
-  // Create a provider function
-  const provider = jsonRpcProvider({
-    rpc: () => ({ nodeUrl: rpcUrl }),
-  })
 
   return (
     <StarknetConfig
-      chains={[sepolia, mainnet]}
       connectors={connectors}
+      chains={[sepolia, mainnet]}
       provider={provider}
-      // defaultChainId={defaultChainId}
-      explorer={voyager}
+      explorer={starkscan}
+      autoConnect
     >
       {children}
     </StarknetConfig>
