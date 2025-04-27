@@ -101,16 +101,23 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
             <Button
               key={connector.id}
               variant="outline"
-              className="flex w-full items-center justify-between p-6 hover:border-primary"
+              className="flex w-full items-center justify-between p-6 hover:border"
               onClick={() => handleConnect(connector.id)}
               disabled={!connector.available() || !!connecting}
             >
               <div className="flex items-center space-x-3">
+              <div className="relative h-8 w-8">
+                  <img
+                    src={typeof connector.icon === 'string' ? connector.icon : connector.icon.light}
+                    alt={connector.name}
+                    className="rounded-full object-contain"
+                  />
+                </div>
                 <span className="text-lg font-medium">
                   {connector.id === 'argentX' ? 'Argent X' : 'Braavos'}
                 </span>
               </div>
-              {connecting === connector.id &&(
+              {connecting === connector.id && (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               )}
             </Button>

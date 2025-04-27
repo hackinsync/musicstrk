@@ -12,6 +12,7 @@ import { AUTHENTICATION_SNIP12_MESSAGE } from '@/utils/constants'
 interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
+  connectingWallet: boolean
   walletAddress: string | null
   error: string | null
   signIn: (connectorId: string) => Promise<void>
@@ -112,22 +113,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      await disconnectAsync();
-      localStorage.removeItem('authToken');
-      setIsAuthenticated(false);
-      setError(null);
+      await disconnectAsync()
+      localStorage.removeItem('authToken')
+      setIsAuthenticated(false)
+      setError(null)
     } catch (err) {
-      console.error('Sign out error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to sign out';
-      setError(errorMessage);
+      console.error('Sign out error:', err)
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to sign out'
+      setError(errorMessage)
     }
-  };
+  }
 
   return (
     <AuthContext.Provider
       value={{
         isAuthenticated,
         isLoading,
+        connectingWallet,
         walletAddress: address ?? null,
         error,
         signIn,
