@@ -1,4 +1,4 @@
-import { TypedData } from "starknet";
+import { constants, TypedData, TypedDataRevision } from "starknet";
 
 
 export const AUTHENTICATION_SNIP12_MESSAGE = {
