@@ -3,4 +3,6 @@ pub mod errors;
 pub mod RevenueDistribution;
 pub mod IRevenueDistribution;
 pub mod token_factory;
-pub mod season_and_audition;
+pub mod audition {
+    pub mod season_and_audition;
+}

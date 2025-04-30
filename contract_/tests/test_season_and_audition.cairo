@@ -1,4 +1,4 @@
-use contract_::season_and_audition::{SeasonAndAudition, Season, Audition, Genre, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait, ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait};
+use contract_::audition::season_and_audition::{SeasonAndAudition, Season, Audition, Genre, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait, ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait};
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use starknet::ContractAddress;
 use snforge_std::{ ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, start_cheat_caller_address, stop_cheat_caller_address, spy_events };
