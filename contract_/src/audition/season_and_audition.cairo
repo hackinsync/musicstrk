@@ -1,17 +1,8 @@
-#[derive(Copy, Drop, Serde, Default, PartialEq, starknet::Store)]
-pub enum Genre {
-    #[default]
-    All,
-    Pop,
-    Rock,
-    Electronic,
-}
-
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
     pub season_id: felt252,
-    pub genre: Genre,
-    pub price: felt252,
+    pub genre: felt252,
+    pub name: felt252,
     pub start_timestamp: felt252,
     pub end_timestamp: felt252,
     pub paused: bool,
@@ -21,8 +12,8 @@ pub struct Season {
 pub struct Audition {
     pub audition_id: felt252,
     pub season_id: felt252,
-    pub genre: Genre,
-    pub price: felt252,
+    pub genre: felt252,
+    pub name: felt252,
     pub start_timestamp: felt252,
     pub end_timestamp: felt252,
     pub paused: bool,
@@ -31,12 +22,29 @@ pub struct Audition {
 // Define the contract interface
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
-    fn create_season(ref self: TContractState, season_id: felt252,genre: Genre, price: felt252, start_timestamp: felt252, end_timestamp: felt252, paused: bool);
+    fn create_season(
+        ref self: TContractState,
+        season_id: felt252,
+        genre: felt252,
+        name: felt252,
+        start_timestamp: felt252,
+        end_timestamp: felt252,
+        paused: bool,
+    );
     fn read_season(self: @TContractState, season_id: felt252) -> Season;
     fn update_season(ref self: TContractState, season_id: felt252, season: Season);
     fn delete_season(ref self: TContractState, season_id: felt252);
 
-    fn create_audition(ref self: TContractState, audition_id: felt252,season_id: felt252, genre: Genre, price: felt252, start_timestamp: felt252, end_timestamp: felt252, paused: bool);
+    fn create_audition(
+        ref self: TContractState,
+        audition_id: felt252,
+        season_id: felt252,
+        genre: felt252,
+        name: felt252,
+        start_timestamp: felt252,
+        end_timestamp: felt252,
+        paused: bool,
+    );
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn delete_audition(ref self: TContractState, audition_id: felt252);
@@ -45,8 +53,10 @@ pub trait ISeasonAndAudition<TContractState> {
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use starknet::ContractAddress;
-    use starknet::storage::{Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess};
-    use super::{ISeasonAndAudition, Season, Audition, Genre};
+    use starknet::storage::{
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+    };
+    use super::{ISeasonAndAudition, Season, Audition};
     use OwnableComponent::InternalTrait;
     use openzeppelin::access::ownable::OwnableComponent;
 
@@ -79,16 +89,16 @@ pub mod SeasonAndAudition {
     #[derive(Drop, starknet::Event)]
     pub struct SeasonCreated {
         pub season_id: felt252,
-        pub genre: Genre,
-        pub price: felt252,
+        pub genre: felt252,
+        pub name: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct AuditionCreated {
         pub audition_id: felt252,
         pub season_id: felt252,
-        pub genre: Genre,
-        pub price: felt252,
+        pub genre: felt252,
+        pub name: felt252,
     }
 
     #[constructor]
@@ -98,25 +108,23 @@ pub mod SeasonAndAudition {
 
     #[abi(embed_v0)]
     impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
-        fn create_season(ref self: ContractState, season_id: felt252,genre: Genre, price: felt252, start_timestamp: felt252,end_timestamp: felt252, paused: bool) {
+        fn create_season(
+            ref self: ContractState,
+            season_id: felt252,
+            genre: felt252,
+            name: felt252,
+            start_timestamp: felt252,
+            end_timestamp: felt252,
+            paused: bool,
+        ) {
             self.ownable.assert_only_owner();
 
-            self.seasons.entry(season_id).write(
-                Season {
-                    season_id,
-                    genre,
-                    price,
-                    start_timestamp,
-                    end_timestamp,
-                    paused
-                }
-            );
+            self
+                .seasons
+                .entry(season_id)
+                .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
 
-            self.emit(SeasonCreated {
-                season_id,
-                genre,
-                price
-            });
+            self.emit(SeasonCreated { season_id, genre, name });
         }
 
         fn read_season(self: @ContractState, season_id: felt252) -> Season {
@@ -135,31 +143,32 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
 
             let default_season: Season = Default::default();
-            
+
             self.seasons.entry(season_id).write(default_season);
         }
 
-        fn create_audition(ref self: ContractState, audition_id: felt252,season_id: felt252, genre: Genre, price: felt252, start_timestamp: felt252, end_timestamp: felt252, paused: bool) {
+        fn create_audition(
+            ref self: ContractState,
+            audition_id: felt252,
+            season_id: felt252,
+            genre: felt252,
+            name: felt252,
+            start_timestamp: felt252,
+            end_timestamp: felt252,
+            paused: bool,
+        ) {
             self.ownable.assert_only_owner();
 
-            self.auditions.entry(audition_id).write(
-                Audition {
-                    audition_id,
-                    season_id,
-                    genre,
-                    price,
-                    start_timestamp,
-                    end_timestamp,
-                    paused
-                }
-            );
+            self
+                .auditions
+                .entry(audition_id)
+                .write(
+                    Audition {
+                        audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused,
+                    },
+                );
 
-            self.emit(AuditionCreated {
-                audition_id,
-                season_id,
-                genre,
-                price
-            });
+            self.emit(AuditionCreated { audition_id, season_id, genre, name });
         }
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
