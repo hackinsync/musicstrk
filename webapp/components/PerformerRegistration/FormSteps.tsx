@@ -1,5 +1,5 @@
 import React from "react"
-import { Music, Headphones, Mic, Wallet, ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react"
+import { Wallet, ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,6 @@ export function FormStepContent({
   isConnecting,
   connectWallet
 }: FormStepProps) {
-  // Render appropriate step content based on currentStep
   const renderStepContent = () => {
     switch (currentStep) {
       case STEPS.BASIC_INFO:
@@ -63,11 +62,8 @@ export function FormStepContent({
     }
   }
 
-  // Render appropriate footer buttons based on currentStep
   const renderFooterButtons = () => {
-    if (currentStep === STEPS.SUCCESS) {
-      return null // No footer buttons on success screen
-    }
+    if (currentStep === STEPS.SUCCESS) return null
 
     return (
       <div className="flex justify-between">
@@ -127,7 +123,6 @@ export function FormStepContent({
   )
 }
 
-// Step 1: Basic Info
 function BasicInfoStep({ 
   formData, 
   errors, 
@@ -180,7 +175,6 @@ function BasicInfoStep({
   )
 }
 
-// Step 2: Social Media
 function SocialMediaStep({ 
   formData, 
   errors, 
@@ -245,7 +239,6 @@ function SocialMediaStep({
   )
 }
 
-// Step 3: Wallet Connection
 function WalletConnectionStep({ 
   formData, 
   isConnecting, 
@@ -285,7 +278,6 @@ function WalletConnectionStep({
   )
 }
 
-// Step 4: Success
 function SuccessStep() {
   return (
     <div className="text-center space-y-6 py-8">
@@ -299,7 +291,7 @@ function SuccessStep() {
       <div className="space-y-2">
         <h3 className="text-xl font-bold text-white">Welcome to MusicStrk!</h3>
         <p className="text-white/70">
-          Your audition has been submitted successfully. We'll review your application and get back to you
+          Your audition has been submitted successfully. We&apos;ll review your application and get back to you
           soon.
         </p>
       </div>
