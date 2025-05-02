@@ -44,3 +44,29 @@ export interface PerformerRegistrationPayload {
   tiktokProfileUrl: string
   socialX: string
 }
+
+export interface PersonalityScale {
+  energy: number
+  creativity: number
+  originality: number
+}
+
+export interface Vote {
+  _id?: string
+  auditionId: string
+  voterTag: string
+  performerId: string
+  walletAddress: string
+  score?: number
+  personalityScale: PersonalityScale
+  createdAt?: Date
+}
+
+export interface VotePayload {
+  auditionId: string
+  voterTag: string
+  performerId: string
+  walletAddress: string
+  score?: number
+  personalityScale: PersonalityScale
+}
