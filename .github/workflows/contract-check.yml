@@ -4,14 +4,14 @@ on:
     branches:
       - main
     paths:
-      - "contract/**"
+      - "contract_/**"
   pull_request:
     paths:
-      - "contract/**"
+      - "contract_/**"
 
 defaults:
   run:
-    working-directory: contract
+    working-directory: contract_
 
 jobs:
   check-fmt:
@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
       - uses: software-mansion/setup-scarb@v1
         with:
-          tool-versions: contract/.tool-versions
+          tool-versions: contract_/.tool-versions
       - name: Check Scarb Formatting
         run: scarb fmt --check
   run-test:
@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
       - uses: software-mansion/setup-scarb@v1
         with:
-          tool-versions: contract/.tool-versions
+          tool-versions: contract_/.tool-versions
       - name: Install universal sierra compiler
         shell: bash
         run: |
@@ -50,6 +50,6 @@ jobs:
           toolchain: stable
       - uses: foundry-rs/setup-snfoundry@v3
         with:
-          tool-versions: contract/.tool-versions
+          tool-versions: contract_/.tool-versions
       - name: Run scarb test
         run: scarb test
