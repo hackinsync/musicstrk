@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Performer } from '@/utils/mocks/performers';
 import { 
-  ChevronUp, 
-  ChevronDown, 
   ThumbsUp, 
   User, 
   Music, 
@@ -16,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { TikTokEmbed } from 'react-social-media-embed';
 
 interface PerformerReelProps {
   performer: Performer;
@@ -27,6 +26,7 @@ const PerformerReel: React.FC<PerformerReelProps> = ({ performer, isActive }) =>
   const [showDetails, setShowDetails] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVoting, setIsVoting] = useState(false);
+  const [barHeights, setBarHeights] = useState<number[]>(Array(10).fill(10));
   
   // Function to handle voting
   const handleVote = () => {
@@ -40,30 +40,42 @@ const PerformerReel: React.FC<PerformerReelProps> = ({ performer, isActive }) =>
     }, 1000);
   };
 
-  // Function to animate the audio level bars randomly
-  const AudioLevelBars = () => {
-    const bars = Array.from({ length: 10 }, (_, i) => {
-      const height = isActive ? Math.floor(Math.random() * 80) + 20 : 10;
-      return (
-        <div 
-          key={i} 
-          className="w-1 mx-px bg-[#00f5d4]" 
-          style={{ 
-            height: `${height}%`,
-            transition: 'height 0.2s ease-in-out',
-          }}
-        />
-      );
-    });
+  useEffect(() => {
+    let animationInterval: NodeJS.Timeout | null = null;
     
+    if (isActive) {
+      animationInterval = setInterval(() => {
+        setBarHeights(Array(10).fill(0).map(() => Math.floor(Math.random() * 80) + 20));
+      }, 200);
+    } else {
+      setBarHeights(Array(10).fill(10));
+    }
+    
+    return () => {
+      if (animationInterval) {
+        clearInterval(animationInterval);
+      }
+    };
+  }, [isActive]);
+
+  // Function to render animated audio level bars
+  const AudioLevelBars = () => {
     return (
       <div className="absolute bottom-28 left-4 h-24 flex items-end space-x-1">
-        {bars}
+        {barHeights.map((height, i) => (
+          <div 
+            key={i} 
+            className="w-1 mx-px bg-[#00f5d4]" 
+            style={{ 
+              height: `${height}%`,
+              transition: 'height 0.2s ease-in-out',
+            }}
+          />
+        ))}
       </div>
     );
   };
 
-  // Create visual representation of personality scales
   const PersonalityScaleBars = () => {
     if (!performer.personalityScale) return null;
     
@@ -79,9 +91,9 @@ const PerformerReel: React.FC<PerformerReelProps> = ({ performer, isActive }) =>
       <div className="space-y-2 mt-4">
         {scales.map((scale) => (
           <div key={scale.name} className="flex items-center mb-1">
-            <div className="flex items-center w-32 text-xs">
+            <div className="flex items-center w-32 text-xs text-gray-400">
               {scale.icon}
-              <span className="ml-1">{scale.name}</span>
+              <span className="ml-1 text-gray-400">{scale.name}</span>
             </div>
             <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
@@ -89,12 +101,13 @@ const PerformerReel: React.FC<PerformerReelProps> = ({ performer, isActive }) =>
                 style={{ width: `${scale.value}%` }}
               />
             </div>
-            <span className="ml-2 text-xs">{scale.value}</span>
+            <span className="ml-2 text-xs text-gray-400">{scale.value}</span>
           </div>
         ))}
       </div>
     );
   };
+
 
   return (
     <div
@@ -106,12 +119,9 @@ const PerformerReel: React.FC<PerformerReelProps> = ({ performer, isActive }) =>
         {/* TikTok embed */}
         <div className="absolute inset-0 w-full h-full flex items-center justify-center">
           {isActive && (
-            <iframe
-              src={performer.tiktokAuditionUrl}
-              className="absolute inset-0 w-full h-full"
-              allowFullScreen
-              allow="autoplay"
-            />
+            <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <TikTokEmbed url={performer.tiktokAuditionUrl} width={325} />
+            </div>
           )}
         </div>
         
