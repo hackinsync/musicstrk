@@ -1,10 +1,17 @@
 use starknet::ContractAddress;
 use starknet::{get_caller_address, get_block_timestamp};
+use super::season_and_audition::{Audition as SeasonAudition, ISeasonAndAudition};
 
 #[starknet::interface]
 trait IAudition<TContractState> {
     fn initialize(ref self: TContractState, organizer: ContractAddress);
-    fn create_audition(ref self: TContractState, audition_id: felt252) -> felt252;
+    fn create_audition(
+        ref self: TContractState,
+        audition_id: felt252,
+        season_id: felt252,
+        genre: felt252,
+        name: felt252
+    ) -> felt252;
     fn pause_audition(ref self: TContractState, audition_id: felt252);
     fn resume_audition(ref self: TContractState, audition_id: felt252);
     fn end_audition(ref self: TContractState, audition_id: felt252);
@@ -20,6 +27,8 @@ mod Audition {
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::upgrades::interface::IUpgradeable;
+    use super::SeasonAudition;
+    use super::ISeasonAndAudition;
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -68,50 +77,50 @@ mod Audition {
     struct Storage {
         organizer: ContractAddress,
         initialized: bool,
-        auditions: LegacyMap<felt252, AuditionData>,
+        season_audition: ISeasonAndAudition,
         #[substorage(v0)]
         ownable_component: OwnableComponent::Storage
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, owner: ContractAddress) {
+    fn constructor(
+        ref self: ContractState,
+        owner: ContractAddress,
+        season_audition_address: ContractAddress
+    ) {
         self.ownable_component.initializer(owner);
+        self.season_audition.write(ISeasonAndAudition { contract_address: season_audition_address });
     }
 
     #[external(v0)]
     impl AuditionImpl of super::IAudition<ContractState> {
         fn initialize(ref self: ContractState, organizer: ContractAddress) {
-            // Ensure contract is not already initialized
             assert(!self.initialized.read(), 'Already initialized');
-            
-            // Set the organizer
             self.organizer.write(organizer);
             self.initialized.write(true);
-            
-            // Transfer ownership to the organizer
             self.ownable_component.transfer_ownership(organizer);
         }
 
-        fn create_audition(ref self: ContractState, audition_id: felt252) -> felt252 {
-            // Only organizer can create auditions
+        fn create_audition(
+            ref self: ContractState,
+            audition_id: felt252,
+            season_id: felt252,
+            genre: felt252,
+            name: felt252
+        ) -> felt252 {
             assert(get_caller_address() == self.organizer.read(), 'Only organizer can create');
             
-            // Ensure audition doesn't already exist
-            assert(!self.auditions.read(audition_id).paused, 'Audition already exists');
-            assert(!self.auditions.read(audition_id).ended, 'Audition already exists');
-            
-            // Create new audition
             let current_time = get_block_timestamp();
-            let audition_data = AuditionData {
-                paused: false,
-                ended: false,
-                start_timestamp: current_time,
-                end_timestamp: 0
-            };
+            self.season_audition.read().create_audition(
+                audition_id,
+                season_id,
+                genre,
+                name,
+                current_time,
+                0, // end_timestamp will be set when ended
+                false // not paused initially
+            );
             
-            self.auditions.write(audition_id, audition_data);
-            
-            // Emit event
             self.emit(Event::AuditionCreated(AuditionCreated {
                 audition_id,
                 organizer: self.organizer.read(),
@@ -122,23 +131,14 @@ mod Audition {
         }
 
         fn pause_audition(ref self: ContractState, audition_id: felt252) {
-            // Only organizer can pause auditions
             assert(get_caller_address() == self.organizer.read(), 'Only organizer can pause');
             
-            // Get current audition data
-            let mut audition_data = self.auditions.read(audition_id);
+            let mut audition = self.season_audition.read().read_audition(audition_id);
+            assert(!audition.paused, 'Audition already paused');
             
-            // Ensure audition exists and is not ended
-            assert(!audition_data.ended, 'Audition already ended');
+            audition.paused = true;
+            self.season_audition.read().update_audition(audition_id, audition);
             
-            // Ensure audition is not already paused
-            assert(!audition_data.paused, 'Audition already paused');
-            
-            // Update audition state
-            audition_data.paused = true;
-            self.auditions.write(audition_id, audition_data);
-            
-            // Emit event
             self.emit(Event::AuditionPaused(AuditionPaused {
                 audition_id,
                 timestamp: get_block_timestamp()
