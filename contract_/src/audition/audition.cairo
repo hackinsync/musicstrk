@@ -78,6 +78,7 @@ mod Audition {
         organizer: ContractAddress,
         initialized: bool,
         season_audition: ISeasonAndAudition,
+        auditions: Map<felt252, AuditionData>,
         #[substorage(v0)]
         ownable_component: OwnableComponent::Storage
     }
@@ -146,23 +147,15 @@ mod Audition {
         }
 
         fn resume_audition(ref self: ContractState, audition_id: felt252) {
-            // Only organizer can resume auditions
             assert(get_caller_address() == self.organizer.read(), 'Only organizer can resume');
             
-            // Get current audition data
-            let mut audition_data = self.auditions.read(audition_id);
+            let mut audition = self.season_audition.read().read_audition(audition_id);
+            assert(!audition.ended, 'Audition already ended');
+            assert(audition.paused, 'Audition not paused');
             
-            // Ensure audition exists and is not ended
-            assert(!audition_data.ended, 'Audition already ended');
+            audition.paused = false;
+            self.season_audition.read().update_audition(audition_id, audition);
             
-            // Ensure audition is paused
-            assert(audition_data.paused, 'Audition not paused');
-            
-            // Update audition state
-            audition_data.paused = false;
-            self.auditions.write(audition_id, audition_data);
-            
-            // Emit event
             self.emit(Event::AuditionResumed(AuditionResumed {
                 audition_id,
                 timestamp: get_block_timestamp()
@@ -170,22 +163,15 @@ mod Audition {
         }
 
         fn end_audition(ref self: ContractState, audition_id: felt252) {
-            // Only organizer can end auditions
             assert(get_caller_address() == self.organizer.read(), 'Only organizer can end');
             
-            // Get current audition data
-            let mut audition_data = self.auditions.read(audition_id);
+            let mut audition = self.season_audition.read().read_audition(audition_id);
+            assert(!audition.ended, 'Audition already ended');
             
-            // Ensure audition exists and is not already ended
-            assert(!audition_data.ended, 'Audition already ended');
-            
-            // Update audition state
             let current_time = get_block_timestamp();
-            audition_data.ended = true;
-            audition_data.end_timestamp = current_time;
-            self.auditions.write(audition_id, audition_data);
+            audition.end_timestamp = current_time;
+            self.season_audition.read().update_audition(audition_id, audition);
             
-            // Emit event
             self.emit(Event::AuditionEnded(AuditionEnded {
                 audition_id,
                 timestamp: current_time
@@ -193,35 +179,29 @@ mod Audition {
         }
 
         fn register_for_audition(ref self: ContractState, audition_id: felt252) {
-            // Get current audition data
-            let audition_data = self.auditions.read(audition_id);
-            
-            // Ensure audition is not paused or ended
-            assert(!audition_data.paused, 'Audition is paused');
-            assert(!audition_data.ended, 'Audition has ended');
+            let audition = self.season_audition.read().read_audition(audition_id);
+            assert(!audition.paused, 'Audition is paused');
+            assert(!audition.ended, 'Audition has ended');
             
             // Registration logic would go here
             // For now, just validate the state
         }
 
         fn vote_for_audition(ref self: ContractState, audition_id: felt252, participant: ContractAddress) {
-            // Get current audition data
-            let audition_data = self.auditions.read(audition_id);
-            
-            // Ensure audition is not paused or ended
-            assert(!audition_data.paused, 'Audition is paused');
-            assert(!audition_data.ended, 'Audition has ended');
+            let audition = self.season_audition.read().read_audition(audition_id);
+            assert(!audition.paused, 'Audition is paused');
+            assert(!audition.ended, 'Audition has ended');
             
             // Voting logic would go here
             // For now, just validate the state
         }
 
         fn is_paused(self: @ContractState, audition_id: felt252) -> bool {
-            self.auditions.read(audition_id).paused
+            self.season_audition.read().read_audition(audition_id).paused
         }
 
         fn is_ended(self: @ContractState, audition_id: felt252) -> bool {
-            self.auditions.read(audition_id).ended
+            self.season_audition.read().read_audition(audition_id).ended
         }
 
         fn get_organizer(self: @ContractState) -> ContractAddress {

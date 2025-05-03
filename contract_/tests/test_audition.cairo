@@ -22,9 +22,11 @@ fn non_organizer() -> ContractAddress {
 // Helper function to deploy the audition contract
 fn deploy_audition_contract() -> ContractAddress {
     let owner_address = owner();
+    let season_audition_address = contract_address_const::<'season_audition'>(); // Add this
     let contract_class = declare("Audition").unwrap().contract_class();
     let mut calldata = array![];
     calldata.append_serde(owner_address);
+    calldata.append_serde(season_audition_address); // Add this
     let (contract_address, _) = contract_class.deploy(@calldata).unwrap();
     contract_address
 }
@@ -68,6 +70,11 @@ fn test_create_audition() {
     
     // Verify event was emitted (simplified check)
     let events = event_spy.get_events();
+    let event = events.first().unwrap();
+    assert_eq!(
+        *event,
+        AuditionCreated { audition_id, organizer: organizer(), timestamp: get_block_timestamp() }
+    );
     assert(events.len() > 0, 'No events emitted');
 }
 
