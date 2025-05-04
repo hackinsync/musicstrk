@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { ChevronUp, ChevronDown, ArrowLeft } from 'lucide-react';
-import { Performer } from '@/utils/mocks/performers';
-import PerformerReel from '@/components/audition/PerformerReel';
-import Link from 'next/link';
-import Image from 'next/image';
-import logo from '@/app/assets/images/LogoText-W.png';
-import { fetchPerformersByAuditionId } from '@/sevices/api';
+import React, { useState, useEffect, useRef } from "react";
+import { useParams } from "next/navigation";
+import { motion } from "framer-motion";
+import { ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
+import { Performer } from "@/utils/mocks/performers";
+import PerformerReel from "@/components/audition/PerformerReel";
+import Link from "next/link";
+import Image from "next/image";
+import logo from "@/app/assets/images/LogoText-W.png";
+import { fetchPerformersByAuditionId } from "@/sevices/api";
 
 export default function ReelsPage() {
   const params = useParams();
-  const auditionId = params.auditionId as string;
+  const auditionId = params?.auditionId as string;
   const [performers, setPerformers] = useState<Performer[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -28,7 +28,7 @@ export default function ReelsPage() {
         const data = await fetchPerformersByAuditionId(auditionId);
         setPerformers(data);
       } catch (error) {
-        console.error('Error loading performers:', error);
+        console.error("Error loading performers:", error);
       } finally {
         setLoading(false);
       }
@@ -48,17 +48,17 @@ export default function ReelsPage() {
 
   const handleTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-    
+
     const distance = touchStart - touchEnd;
     const isSwipeDown = distance < -50;
     const isSwipeUp = distance > 50;
-    
+
     if (isSwipeUp && currentIndex < performers.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else if (isSwipeDown && currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
     }
-    
+
     setTouchStart(null);
     setTouchEnd(null);
   };
@@ -88,18 +88,18 @@ export default function ReelsPage() {
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown' || e.key === 'j') {
+      if (e.key === "ArrowDown" || e.key === "j") {
         goToNextReel();
-      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+      } else if (e.key === "ArrowUp" || e.key === "k") {
         goToPrevReel();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [currentIndex, performers.length]);
+  }, [currentIndex, performers.length, goToNextReel, goToPrevReel]);
 
   if (loading) {
     return (
@@ -122,9 +122,13 @@ export default function ReelsPage() {
             width={200}
             className="mx-auto mb-6"
           />
-          <h2 className="text-[#00f5d4] text-2xl font-bold mb-4">No performers found</h2>
-          <p className="text-white mb-6">There are no performers registered for this audition yet.</p>
-          <Link 
+          <h2 className="text-[#00f5d4] text-2xl font-bold mb-4">
+            No performers found
+          </h2>
+          <p className="text-white mb-6">
+            There are no performers registered for this audition yet.
+          </p>
+          <Link
             href={`/audition/${auditionId}`}
             className="inline-block bg-[#ff6b6b] text-black font-bold px-6 py-3 rounded-full hover:bg-[#00f5d4] transition-colors"
           >
@@ -136,7 +140,7 @@ export default function ReelsPage() {
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="min-h-screen bg-gradient-to-br from-[#0a0a2a] via-[#1a1a3a] to-[#2a2a4a] overflow-hidden"
       onWheel={handleWheel}
@@ -146,7 +150,7 @@ export default function ReelsPage() {
     >
       {/* Header with back button and progress indicator */}
       <div className="absolute top-0 left-0 right-0 z-50 px-4 py-3 flex items-center justify-between bg-gradient-to-b from-[#0a0a2a] to-transparent">
-        <Link 
+        <Link
           href={`/audition/${auditionId}`}
           className="flex items-center text-[#00f5d4] hover:text-[#ff6b6b] transition-colors"
         >
@@ -155,10 +159,10 @@ export default function ReelsPage() {
         </Link>
         <div className="flex items-center space-x-1">
           {performers.map((_, index) => (
-            <div 
+            <div
               key={index}
               className={`h-1 rounded-full ${
-                index === currentIndex ? 'w-6 bg-[#00f5d4]' : 'w-2 bg-gray-500'
+                index === currentIndex ? "w-6 bg-[#00f5d4]" : "w-2 bg-gray-500"
               } transition-all`}
             />
           ))}
@@ -175,18 +179,18 @@ export default function ReelsPage() {
             key={performer.id}
             className="absolute inset-0 w-full h-full"
             initial={{ opacity: 0 }}
-            animate={{ 
+            animate={{
               opacity: index === currentIndex ? 1 : 0,
-              y: `${(index - currentIndex) * 100}%`
+              y: `${(index - currentIndex) * 100}%`,
             }}
-            transition={{ 
+            transition={{
               opacity: { duration: 0.3 },
-              y: { type: "spring", stiffness: 300, damping: 30 }
+              y: { type: "spring", stiffness: 300, damping: 30 },
             }}
           >
-            <PerformerReel 
-              performer={performer} 
-              isActive={index === currentIndex} 
+            <PerformerReel
+              performer={performer}
+              isActive={index === currentIndex}
             />
           </motion.div>
         ))}
@@ -198,9 +202,9 @@ export default function ReelsPage() {
           onClick={goToPrevReel}
           disabled={currentIndex === 0}
           className={`p-2 rounded-full ${
-            currentIndex === 0 
-              ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
-              : 'bg-[#1a1a3a] text-[#00f5d4] hover:bg-[#00f5d4] hover:text-black'
+            currentIndex === 0
+              ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+              : "bg-[#1a1a3a] text-[#00f5d4] hover:bg-[#00f5d4] hover:text-black"
           } transition-colors`}
         >
           <ChevronUp />
@@ -209,9 +213,9 @@ export default function ReelsPage() {
           onClick={goToNextReel}
           disabled={currentIndex === performers.length - 1}
           className={`p-2 rounded-full ${
-            currentIndex === performers.length - 1 
-              ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
-              : 'bg-[#1a1a3a] text-[#00f5d4] hover:bg-[#00f5d4] hover:text-black'
+            currentIndex === performers.length - 1
+              ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+              : "bg-[#1a1a3a] text-[#00f5d4] hover:bg-[#00f5d4] hover:text-black"
           } transition-colors`}
         >
           <ChevronDown />

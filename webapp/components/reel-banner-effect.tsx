@@ -183,27 +183,37 @@ export function ReelBannerEffect() {
   }, []);
 
   useEffect(() => {
-    if (!cameraRef.current) return;
+    // Capture current ref and dependencies at effect time
+    const camera = cameraRef.current;
+    const currentTarget = activeTarget;
+    const currentClock1 = clock1;
+    const currentClock2 = clock2;
 
-    if (activeTarget) {
-      // Enhanced zoom effect with slightly different parameters for a more dynamic feel
-      cameraRef.current.follow(activeTarget);
-      cameraRef.current.setZoom(2.2); // Slightly less zoom for better visibility
-      cameraRef.current.setRotation(0);
-      clock1.stop();
-      clock2.stop();
+    if (!camera) return;
+
+    if (currentTarget) {
+      // Enhanced zoom effect
+      camera.follow(currentTarget);
+      camera.setZoom(2.2);
+      camera.setRotation(0);
+      currentClock1.stop();
+      currentClock2.stop();
     } else {
-      cameraRef.current.panTo({ x: 0, y: 0 });
-      cameraRef.current.setZoom(1);
-      cameraRef.current.setRotation(-5);
-      clock1.start();
-      clock2.start();
+      camera.panTo({ x: 0, y: 0 });
+      camera.setZoom(1);
+      camera.setRotation(-5);
+      currentClock1.start();
+      currentClock2.start();
     }
 
     return () => {
-      if (activeTarget && cameraRef.current) {
-        cameraRef.current.unfollow(activeTarget);
+      // Use captured values in cleanup
+      if (currentTarget && camera) {
+        camera.unfollow(currentTarget);
       }
+      // Consider resetting clocks if needed
+      currentClock1.start();
+      currentClock2.start();
     };
   }, [activeTarget, clock1, clock2]);
 
