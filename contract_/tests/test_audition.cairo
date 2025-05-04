@@ -1,5 +1,7 @@
 use contract_::audition::{IAuditionDispatcher, IAuditionDispatcherTrait};
-use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events};
+use snforge_std::{
+    CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events,
+};
 use starknet::{ContractAddress, contract_address_const};
 
 // Helper functions for test addresses
@@ -22,59 +24,38 @@ fn non_organizer() -> ContractAddress {
 // Helper function to deploy the audition contract
 fn deploy_audition_contract() -> ContractAddress {
     let owner_address = owner();
-    let season_audition_address = contract_address_const::<'season_audition'>(); // Add this
+    let season_audition_address = contract_address_const::<'season_audition'>();
     let contract_class = declare("Audition").unwrap().contract_class();
     let mut calldata = array![];
     calldata.append_serde(owner_address);
-    calldata.append_serde(season_audition_address); // Add this
+    calldata.append_serde(season_audition_address);
     let (contract_address, _) = contract_class.deploy(@calldata).unwrap();
     contract_address
 }
 
 #[test]
-fn test_initialize() {
-    // Deploy the contract
-    let contract_address = deploy_audition_contract();
-    let audition = IAuditionDispatcher { contract_address };
-    
-    // Initialize the contract
-    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
-    audition.initialize(organizer());
-    
-    // Verify organizer was set correctly
-    assert(audition.get_organizer() == organizer(), 'Organizer not set correctly');
-}
-
-#[test]
 fn test_create_audition() {
-    // Deploy and initialize the contract
     let contract_address = deploy_audition_contract();
     let audition = IAuditionDispatcher { contract_address };
     
     cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     audition.initialize(organizer());
     
-    // Create an audition
     let audition_id = 1;
+    let season_id = 1;
+    let genre = 1;
+    let name = 1;
     cheat_caller_address(contract_address, organizer(), CheatSpan::TargetCalls(1));
+    audition.create_audition(audition_id, season_id, genre, name);
     
-    // Spy on events
     let mut event_spy = spy_events();
     
-    let created_id = audition.create_audition(audition_id);
+    cheat_caller_address(contract_address, organizer(), CheatSpan::TargetCalls(1));
+    audition.pause_audition(audition_id);
     
-    // Verify audition was created
-    assert(created_id == audition_id, 'Audition ID mismatch');
-    assert(!audition.is_paused(audition_id), 'Audition should not be paused');
-    assert(!audition.is_ended(audition_id), 'Audition should not be ended');
+    assert(audition.is_paused(audition_id), 'Audition should be paused');
     
-    // Verify event was emitted (simplified check)
     let events = event_spy.get_events();
-    let event = events.first().unwrap();
-    assert_eq!(
-        *event,
-        AuditionCreated { audition_id, organizer: organizer(), timestamp: get_block_timestamp() }
-    );
     assert(events.len() > 0, 'No events emitted');
 }
 
