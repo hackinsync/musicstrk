@@ -1,3 +1,5 @@
+use starknet::ContractAddress;
+
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
     pub season_id: felt252,
@@ -48,13 +50,18 @@ pub trait ISeasonAndAudition<TContractState> {
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn delete_audition(ref self: TContractState, audition_id: felt252);
+    fn submit_results(ref self: TContractState, audition_id: felt252, top_performers: felt252, shares: felt252);
+    fn only_oracle(ref self: TContractState);
+    fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
+    fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use starknet::ContractAddress;
+    use starknet::get_caller_address;
     use starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess,
     };
     use super::{ISeasonAndAudition, Season, Audition};
     use OwnableComponent::InternalTrait;
@@ -71,6 +78,7 @@ pub mod SeasonAndAudition {
     #[storage]
     struct Storage {
         owner: ContractAddress,
+        whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
         #[substorage(v0)]
@@ -82,6 +90,9 @@ pub mod SeasonAndAudition {
     pub enum Event {
         SeasonCreated: SeasonCreated,
         AuditionCreated: AuditionCreated,
+        ResultsSubmitted: ResultsSubmitted,
+        OracleAdded: OracleAdded,
+        OracleRemoved: OracleRemoved,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
     }
@@ -99,6 +110,23 @@ pub mod SeasonAndAudition {
         pub season_id: felt252,
         pub genre: felt252,
         pub name: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct ResultsSubmitted {
+        pub audition_id: felt252,
+        pub top_performers: felt252,
+        pub shares: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct OracleAdded {
+        pub oracle_address: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct OracleRemoved {
+        pub oracle_address: ContractAddress,
     }
 
     #[constructor]
@@ -190,5 +218,30 @@ pub mod SeasonAndAudition {
 
             self.auditions.entry(audition_id).write(default_audition);
         }
+
+        fn submit_results(ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252) {
+            self.only_oracle();
+
+            self.emit(Event::ResultsSubmitted(ResultsSubmitted { audition_id, top_performers, shares }));
+        }
+
+        fn only_oracle(ref self: ContractState) {
+            let caller = get_caller_address(); // Get the caller address
+            let is_whitelisted = self.whitelisted_oracles.read(caller);
+            // Check if caller is whitelisted 
+            assert(is_whitelisted, 'Not Authorized');
+        }        
+
+        fn add_oracle(ref self: ContractState, oracle_address: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.whitelisted_oracles.write(oracle_address, true);
+            self.emit(Event::OracleAdded(OracleAdded { oracle_address }));
+        }
+
+        fn remove_oracle(ref self: ContractState, oracle_address: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.whitelisted_oracles.write(oracle_address, false);
+            self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
+        }   
     }
 }
