@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
@@ -73,17 +73,18 @@ export default function ReelsPage() {
   };
 
   // Navigate to next/previous reel
-  const goToNextReel = () => {
+
+  const goToNextReel = useCallback(() => {
     if (currentIndex < performers.length - 1) {
       setCurrentIndex(currentIndex + 1);
     }
-  };
+  }, [currentIndex, performers.length]);
 
-  const goToPrevReel = () => {
+  const goToPrevReel = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
     }
-  };
+  }, [currentIndex]);
 
   // Handle keyboard navigation
   useEffect(() => {
