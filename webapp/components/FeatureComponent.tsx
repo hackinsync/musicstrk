@@ -241,7 +241,7 @@ function FeatureCard({
                         {icon}
                         <h3 className="font-bold text-white text-lg">{title}</h3>
                     </div>
-                    <p className="text-sm text-white/80">{description}</p>
+                    <p className="text-xs text-white/80">{description}</p>
                 </div>
                 
                 {/* Subtle Pulse Effect */}
