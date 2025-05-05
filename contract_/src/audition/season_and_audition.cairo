@@ -50,7 +50,9 @@ pub trait ISeasonAndAudition<TContractState> {
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn delete_audition(ref self: TContractState, audition_id: felt252);
-    fn submit_results(ref self: TContractState, audition_id: felt252, top_performers: felt252, shares: felt252);
+    fn submit_results(
+        ref self: TContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
+    );
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
@@ -61,7 +63,8 @@ pub mod SeasonAndAudition {
     use starknet::ContractAddress;
     use starknet::get_caller_address;
     use starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess,
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+        StorageMapReadAccess, StorageMapWriteAccess,
     };
     use super::{ISeasonAndAudition, Season, Audition};
     use OwnableComponent::InternalTrait;
@@ -219,18 +222,25 @@ pub mod SeasonAndAudition {
             self.auditions.entry(audition_id).write(default_audition);
         }
 
-        fn submit_results(ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252) {
+        fn submit_results(
+            ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
+        ) {
             self.only_oracle();
 
-            self.emit(Event::ResultsSubmitted(ResultsSubmitted { audition_id, top_performers, shares }));
+            self
+                .emit(
+                    Event::ResultsSubmitted(
+                        ResultsSubmitted { audition_id, top_performers, shares },
+                    ),
+                );
         }
 
         fn only_oracle(ref self: ContractState) {
             let caller = get_caller_address(); // Get the caller address
             let is_whitelisted = self.whitelisted_oracles.read(caller);
-            // Check if caller is whitelisted 
+            // Check if caller is whitelisted
             assert(is_whitelisted, 'Not Authorized');
-        }        
+        }
 
         fn add_oracle(ref self: ContractState, oracle_address: ContractAddress) {
             self.ownable.assert_only_owner();
@@ -242,6 +252,6 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
             self.whitelisted_oracles.write(oracle_address, false);
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
-        }   
+        }
     }
 }
