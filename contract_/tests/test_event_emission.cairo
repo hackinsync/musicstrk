@@ -5,8 +5,10 @@ use contract_::erc20::{
 use contract_::erc20::MusicStrk::{TokenInitializedEvent, BurnEvent};
 use openzeppelin::token::erc20::ERC20Component::{Event as ERC20Event, Transfer as ERC20Transfer};
 use openzeppelin::utils::serde::SerializedAppend;
-use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare,
-    spy_events, EventSpyTrait, EventSpyAssertionsTrait};
+use snforge_std::{
+    CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events,
+    EventSpyTrait, EventSpyAssertionsTrait,
+};
 use starknet::{ContractAddress, contract_address_const};
 use core::array::ArrayTrait;
 
@@ -65,15 +67,15 @@ fn test_initialization_emits_events() {
     assert(events.events.len() == 2, 'Should emit 2 events');
 
     // Expected ERC20Transfer event emitted by `initialize` function
-    // This event is emitted by the `mint` function 
+    // This event is emitted by the `mint` function
     let expected_erc20_transfer_event = MusicStrk::Event::ERC20Event(
         ERC20Event::Transfer(
             ERC20Transfer {
                 from: zero(), // Minting happens from the zero address
                 to: recipient,
                 value: TOTAL_SHARES,
-            }
-        )
+            },
+        ),
     );
 
     // Expected TokenInitializedEvent emitted by `initialize` function
@@ -81,15 +83,22 @@ fn test_initialization_emits_events() {
         TokenInitializedEvent {
             recipient,
             amount: TOTAL_SHARES,
-            metadata_uri: metadata_uri.clone(), // Use the cloned uri used in the emit call
-        }
+            metadata_uri: metadata_uri.clone() // Use the cloned uri used in the emit call
+        },
     );
     // Assert both events were emitted in MusicStrk contract
     // in order of occurrence of events in the transaction receipt
-    spy.assert_emitted(@array![
-        (contract_address, expected_erc20_transfer_event), // ERC20 Transfer is emitted first
-        (contract_address, expected_token_initialized_event) // MusicStrk custom event is emitted after mint
-    ]);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract_address, expected_erc20_transfer_event,
+                ), // ERC20 Transfer is emitted first
+                (
+                    contract_address, expected_token_initialized_event,
+                ) // MusicStrk custom event is emitted after mint
+            ],
+        );
 }
 
 #[test]
@@ -127,27 +136,21 @@ fn test_burn_emits_events() {
         ERC20Event::Transfer(
             ERC20Transfer {
                 from: zero(), // Mint comes from zero address
-                to: recipient,
-                value: TOTAL_SHARES,
-            }
-        )
+                to: recipient, value: TOTAL_SHARES,
+            },
+        ),
     );
 
     // 2. TokenInitializedEvent (from initialize)
     let expected_init_event = MusicStrk::Event::TokenInitializedEvent(
         TokenInitializedEvent {
-            recipient,
-            amount: TOTAL_SHARES,
-            metadata_uri: metadata_uri.clone(),
-        }
+            recipient, amount: TOTAL_SHARES, metadata_uri: metadata_uri.clone(),
+        },
     );
 
     // 3. BurnEvent (from burn operation)
     let expected_burn_event = MusicStrk::Event::BurnEvent(
-        BurnEvent {
-            from: recipient,
-            amount: burn_amount.clone(),
-        }
+        BurnEvent { from: recipient, amount: burn_amount.clone() },
     );
 
     // 4. Burn Transfer (from burn operation)
@@ -157,19 +160,21 @@ fn test_burn_emits_events() {
                 from: recipient,
                 to: zero(), // Burning sends to zero address
                 value: burn_amount.clone(),
-            }
-        )
+            },
+        ),
     );
 
     // Assert all events were emitted in correct order
-    spy.assert_emitted(@array![
-        (contract_address, expected_mint_transfer),
-        (contract_address, expected_init_event),
-        (contract_address, expected_burn_event),
-        (contract_address, expected_burn_transfer)
-    ]);
+    spy
+        .assert_emitted(
+            @array![
+                (contract_address, expected_mint_transfer),
+                (contract_address, expected_init_event),
+                (contract_address, expected_burn_event),
+                (contract_address, expected_burn_transfer),
+            ],
+        );
 }
-
 // #[test]
 // fn test_zero_amount_transfer_emits_event() {
 //     // Setup
@@ -206,4 +211,5 @@ fn test_burn_emits_events() {
 //         (contract_address, expected_transfer_event)
 //     ]);
 // }
+
 
