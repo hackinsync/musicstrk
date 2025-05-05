@@ -13,17 +13,17 @@ export class NonceManager {
   }
   
   //Generate a new nonce for a wallet address
-  generateNonce(walletAddress: string): string {
-
-    if (!walletAddress || 
-        !walletAddress.match(/^0x[a-fA-F0-9]{40}$/) &&
-        !walletAddress.match(/^0x[a-fA-F0-9]{64}$/)) {
-      throw new Error('Invalid wallet address');
+  generateNonce(walletAddress: string): string { 
+    if (
+      !walletAddress ||
+      !/^0x[a-fA-F0-9]{64}$/.test(walletAddress)
+    ) {
+      throw new Error('Invalid Starknet wallet address. Must be 0x-prefixed and 64 hex characters.');
     }
-    
-    const nonce = crypto.randomBytes(32).toString('hex');
+
+    const nonce = '0x' + crypto.randomBytes(32).toString('hex');
     const expiry = Date.now() + this.NONCE_EXPIRY_MS;
-    
+
     this.nonces.set(walletAddress.toLowerCase(), { nonce, expiry });
     return nonce;
   }
