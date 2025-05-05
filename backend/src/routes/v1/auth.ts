@@ -1,15 +1,13 @@
-export default AuthRoutes;
 import { Router, Request, Response } from "express";
 import { TypedData, BigNumberish, constants, ec, Provider } from "starknet";
 import rateLimit from 'express-rate-limit';
 
-import UserModel, { createUser, findUserByaddress } from "models/UserModel";
-import { AUTHENTICATION_SNIP12_MESSAGE } from "constants/index";
-import { createJWT } from "utilities/jwt";
-import { Role } from "types";
-import { verifyWalletSignature } from '../../utilities/verifySignature';
-import { nonceManager } from '../../utilities/nonceManager';
-
+import UserModel, { createUser, findUserByaddress } from "../models/UserModel";
+import { AUTHENTICATION_SNIP12_MESSAGE } from "../constants/index";
+import { createJWT } from "../utilities/jwt";
+import { Role } from "../types";
+import { verifyStarknetSignature } from '../utilities/verifySignature';
+import { nonceManager } from '../utilities/nonceManager';
 
 const provider = new Provider({
   nodeUrl:
@@ -26,8 +24,8 @@ const AuthRoutes = Router();
 
 //Rate Limiter for auth endpoints
 const authLimiter = rateLimit({
-  windowMs: 15*60*1000, // 15 min
-  max: 10, // 10 request per ip-windowMs
+  windowMs: 15*60*1000, //15 min
+  max: 10, //10 request per ip-windowMs
   message: {success: false, message: 'Too many authentication attempts, please try again later'}
 });
 
@@ -40,27 +38,28 @@ AuthRoutes.get('/nonce', authLimiter, (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Valid wallet address is required'});
     }
 
-    //checks wallet add and validates (Eth or Strk)
-    const isEthereumAddress = walletAddress.match(/^0x[a-fA-F0-9]{40}$/);
+    //checks wallet add and validates
     const isStarknetAddress = walletAddress.match(/^0x[a-fA-F0-9]{64}$/);
 
     if (!isEthereumAddress && !isStarknetAddress) {
       return res.status(400).json({ success: false, message: 'Invalid wallet address format' });
     }
     
-    //generate a dynamic nonce for this wallet address
-    const nonce = nonceManager.generateNonce(walletAddress);
+let nonce: string;
     
-    // Create the message to be signed (different format for Eth vs Starknet)
-    const message = isEthereumAddress
-      ? `Sign this message to authenticate with MusicStrk.\n\nNonce: ${nonce}\nDomain: musicstrk.fun\nTimestamp: ${Date.now()}`
-      : null; // For Starknet we'll use the SNIP-12 format
+    try {
+      // Generate a dynamic nonce for this wallet address
+      nonce = nonceManager.generateNonce(walletAddress);
+    } catch (error) {
+      console.error('Nonce generation error:', error);
+      return res.status(500).json({ success: false, message: 'Error generating secure nonce' });
+    }
     
     return res.status(200).json({ 
       success: true, 
-      message, 
+      message: AUTHENTICATION_SNIP12_MESSAGE, 
       nonce,
-      walletType: isEthereumAddress ? 'ethereum' : 'starknet'
+      walletType: 'starknet'
     });
   } catch (error) {
     console.error('Nonce generation error:', error);
@@ -68,18 +67,19 @@ AuthRoutes.get('/nonce', authLimiter, (req: Request, res: Response) => {
   }
 });
 
-type ReqBody_Authenticate = {
-  walletAddress: BigNumberish;
-  signature: string[];
-};
+interface AuthenticateRequestBody {
+  walletAddress: string;
+  signature: any; //Can be string[] for different wallet formats
+  nonce: string;
+}
 
 AuthRoutes.post(
   "/authenticate", "/verify-wallet",
   authLimiter, async (req: Request<{}, {}, ReqBody_Authenticate>, res: Response) => {
-    const { walletAddress, message, signature, nonce, walletType } = req.body;
+    const { walletAddress, message, signature, nonce } = req.body;
     // console.log("[/authenticate | ReqBody]: ", walletAddress, walletPubKey, msgHash);
 
-    if (!walletAddress || !signature || !nonce || !walletType) {
+    if (!walletAddress || !signature || !nonce) {
       return res.status(401).json({
         error: true,
         msg: "Invalid payload received",
@@ -87,36 +87,27 @@ AuthRoutes.post(
     }
 
     //Validate wallet address format based on type
-    const isEthereumAddress = walletType === 'ethereum' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/);
-    const isStarknetAddress = walletType === 'starknet' && walletAddress.match(/^0x[a-fA-F0-9]{64}$/);
+    const isStarknetAddress = /^0x[a-fA-F0-9]{64}$/.test(walletAddress);
     
-    if (!isEthereumAddress && !isStarknetAddress) {
-      return res.status(401).json({ success: false, message: 'Invalid wallet address format or type' });
+    if (!isStarknetAddress) {
+      return res.status(401).json({ success: false, message: 'Invalid Starknet wallet address format' });
     }
-    
+
+    const isNonceValid = nonceManager.verifyNonce(walletAddress, nonce);
+
     //Verify the nonce is valid and hasn't expired
-    if (!nonceManager.verifyNonce(walletAddress, nonce)) {
+    if (!isNonceValid.verifyNonce(walletAddress, nonce)) {
       return res.status(401).json({ success: false, message: 'Invalid or expired nonce' });
     }
     
     let isVerified = false;
     
-    //Different verification based on wallet type
-    if (isEthereumAddress) {
-      if (!message) {
-        return res.status(401).json({ success: false, message: 'Message is required for Ethereum verification' });
-      }
-      isVerified = verifyWalletSignature(message, signature, walletAddress);
-    } else {
-
-      try {
+    try {
       // https://github.com/argentlabs/argent-contracts-starknet/blob/1352198956f36fb35fa544c4e46a3507a3ec20e3/docs/argent_account.md#Signatures
       // console.log("[/authenticate | Signature]:", signature);
 
       // https://docs.argent.xyz/aa-use-cases/verifying-signatures-and-cosigners#verifying-multi-signatures
       let rIndex, sIndex;
-      const sigArray = Array.isArray(signature) ? signature : JSON.parse(signature);
-
       if (sigArray.length === 3) {
         rIndex = 1;
         sIndex = 2;
@@ -155,7 +146,7 @@ AuthRoutes.post(
 
 
       let user = await findUserByaddress(walletAddress);
-      // Stores wallet address in MongoDB (if not already stored).
+      //Stores wallet address in MongoDB (if not already stored).
       if (!user) {
         user = await createUser({
           walletAddress: walletAddress.toString(),
