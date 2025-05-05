@@ -1,4 +1,4 @@
-import { hash, ec, Signature } from 'starknet';
+import { hash, ec, Signature } from 'starknet.js';
 
 const HEX_PREFIX = '0x';
 const WALLET_ADDRESS_LENGTH = 66; // 0x + 64 chars
