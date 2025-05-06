@@ -8,11 +8,12 @@ use core::result::ResultTrait;
 use core::traits::Into;
 use openzeppelin::token::erc20::interface::{IERC20MixinDispatcher, IERC20MixinDispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
-use starknet::{class_hash::ClassHash, ContractAddress, contract_address_const};
 use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
     cheat_caller_address, declare, spy_events,
 };
+use starknet::class_hash::ClassHash;
+use starknet::{ContractAddress, contract_address_const};
 
 
 // Address constants for testing

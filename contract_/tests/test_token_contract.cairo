@@ -2,8 +2,8 @@ use contract_::erc20::{
     IBurnableDispatcher, IBurnableDispatcherTrait, IMusicShareTokenDispatcher,
     IMusicShareTokenDispatcherTrait,
 };
-use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
+use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
 use starknet::{ContractAddress, contract_address_const};
