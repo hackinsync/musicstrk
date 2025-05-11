@@ -67,19 +67,20 @@ Artists will be given a personal webspace to represent their on-chain record lab
 ## Roadmap
 
 ### Phase 1: MVP Development
-- Build the **smart contract framework** on on-chain record label factory on Starknet.
+- Build the **smart contract framework** through the on-chain record label factory on Starknet.
 - Define and standardize the **deWhitepaper** UI generator structure.
 - Develop basic functionality for artist onboarding and webspace creation.
 
 ### Phase 2: Webspace and Share Management
 - Implement **default webspace** with options for customization.
 - Enable **share selling** and **revenue pool distribution** mechanics.
-- Introduce the **Contact Us broadcasting system**.
+- Introduce the **Contact Us broadcasting system** for stakeholders to be in sync & abreast with external deals (endorsement, licensing, etc) about their talent.
 
 ### Phase 3: Community Engagement and Upgrades
 - Build a platform for artists to interact with their shareholders.
 - Add analytics and updates for shareholders on the artist’s progress.
 - Explore partnerships with music studios, promoters, and merchandisers.
+- Building on-chain auditions for onboarding musical talents on Starknet.
 
 ---
 
@@ -94,7 +95,7 @@ We are actively seeking:
 
 ## How to Support
 
-- **Contribute Code**: Check out our GitHub repository (coming soon).
+- **Contribute Code**: Check out our GitHub repository.
 - **Spread the Word**: Share this project with indie artists and music enthusiasts.
 - **Provide Feedback**: Help us improve the platform by sharing your thoughts and suggestions.
 
@@ -104,4 +105,4 @@ We are actively seeking:
 
 For inquiries and collaboration, reach out to [buidl@musicstrk.fun](mailto:buidl@musicstrk.fun). Here's our [TG community](https://t.me/MusicStrk_CJ)
 
-Let’s build the future of music. As we pump talents on Starknet! 🎵
+Let’s build the future of music. As we pump talent on Starknet! 🎵
