@@ -4,7 +4,8 @@ pub mod RevenueDistribution {
     use core::num::traits::Zero;
 
     use starknet::storage::{
-        StoragePointerReadAccess, StoragePointerWriteAccess, Map, StorageMapReadAccess, StorageMapWriteAccess,
+        StoragePointerReadAccess, StoragePointerWriteAccess, Map, StorageMapReadAccess,
+        StorageMapWriteAccess,
     };
     use contract_::IRevenueDistribution::{
         IRevenueDistribution, Category, RevenueAddedEvent, RevenueDistributedEvent,
