@@ -28,6 +28,37 @@ jest.mock(
       }
       return null
     }),
+    findPerformersByAudition: jest.fn((auditionId, sort) => {
+      if (auditionId === "audition_abc") {
+        return [
+          {
+            _id: "performer_id_2",
+            walletAddress: "0x222",
+            stageName: "Beta Performer",
+            auditionId: "audition_abc",
+            genre: "afrobeat",
+            country: "Ghana",
+            tiktokAuditionUrl: "https://tiktok.com/audition2",
+            tiktokProfileUrl: "https://tiktok.com/@beta",
+            socialX: "https://twitter.com/beta",
+            createdAt: new Date("2025-04-15"),
+          },
+          {
+            _id: "performer_id_1",
+            walletAddress: "0x111",
+            stageName: "Alpha Performer",
+            auditionId: "audition_abc",
+            genre: "alte",
+            country: "Nigeria",
+            tiktokAuditionUrl: "https://tiktok.com/audition1",
+            tiktokProfileUrl: "https://tiktok.com/@alpha",
+            socialX: "https://twitter.com/alpha",
+            createdAt: new Date("2025-04-10"),
+          },
+        ]
+      }
+      return []
+    }),
   }),
   { virtual: true },
 )
@@ -127,4 +158,135 @@ describe("Performer Registration API", () => {
     expect(response.body.error).toBe(true)
     expect(response.body.msg).toContain("Missing required fields")
   })
+})
+
+// Tests for GET endpoint
+  
+describe("GET Performers by AuditionId", () => {
+  test("should fetch performers for a valid auditionId", async () => {
+    const response = await request(app)
+    .get("/api/v1/performers?auditionId=audition_abc")
+    .set("Accept", "application/json")
+
+    expect(response.status).toBe(200)
+    expect(response.body.error).toBe(false)
+    expect(response.body.performers).toHaveLength(2)
+    expect(response.body.performers[0].stageName).toBe("Beta Performer")
+    expect(response.body.performers[1].stageName).toBe("Alpha Performer")
+  })
+
+  test("should return 400 if auditionId is missing", async () => {
+    const response = await request(app)
+    .get("/api/v1/performers")
+    .set("Accept", "application/json")
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe(true)
+    expect(response.body.msg).toContain("auditionId query parameter is required")
+  })
+
+  test("should return empty array for non-existent audition", async () => {
+    const response = await request(app)
+    .get("/api/v1/performers?auditionId=non_existent")
+    .set("Accept", "application/json")
+
+    expect(response.status).toBe(200)
+    expect(response.body.error).toBe(false)
+    expect(response.body.performers).toHaveLength(0)
+  })
+
+  test("should sort performers by stageName ascending when specified", async () => {
+    // Mock implementation for sorting by stageName in ascending order
+    const findPerformersMock = jest.requireMock("../src/models/PerformerModel").findPerformersByAudition;
+    findPerformersMock.mockImplementationOnce((auditionId, sort) => {
+      return [
+          {
+          _id: "performer_id_1",
+          walletAddress: "0x111",
+          stageName: "Alpha Performer",
+          auditionId: "audition_abc",
+          genre: "alte",
+          country: "Nigeria",
+          tiktokAuditionUrl: "https://tiktok.com/audition1",
+          tiktokProfileUrl: "https://tiktok.com/@alpha",
+          socialX: "https://twitter.com/alpha",
+          createdAt: new Date("2025-04-10"),
+          },
+          {
+          _id: "performer_id_2",
+          walletAddress: "0x222",
+          stageName: "Beta Performer",
+          auditionId: "audition_abc",
+          genre: "afrobeat",
+          country: "Ghana",
+          tiktokAuditionUrl: "https://tiktok.com/audition2",
+          tiktokProfileUrl: "https://tiktok.com/@beta",
+          socialX: "https://twitter.com/beta",
+          createdAt: new Date("2025-04-15"),
+          }
+      ];
+    });
+
+    const response = await request(app)
+    .get("/api/v1/performers?auditionId=audition_abc&sortBy=stageName&order=asc")
+    .set("Accept", "application/json");
+
+    expect(response.status).toBe(200);
+    expect(response.body.error).toBe(false);
+    expect(response.body.performers).toHaveLength(2);
+    expect(response.body.performers[0].stageName).toBe("Alpha Performer");
+    expect(response.body.performers[1].stageName).toBe("Beta Performer");
+  });
+
+  test("should sort performers by createdAt ascending when specified", async () => {
+    // Mock implementation for sorting by createdAt
+    const findPerformersMock = jest.requireMock("../src/models/PerformerModel").findPerformersByAudition;
+    findPerformersMock.mockImplementationOnce((auditionId, sort) => {
+    return [
+        {
+        _id: "performer_id_1",
+        walletAddress: "0x111",
+        stageName: "Alpha Performer",
+        auditionId: "audition_abc", 
+        genre: "alte",
+        country: "Nigeria",
+        tiktokAuditionUrl: "https://tiktok.com/audition1",
+        tiktokProfileUrl: "https://tiktok.com/@alpha",
+        socialX: "https://twitter.com/alpha",
+        createdAt: new Date("2025-04-10"),
+        },
+        {
+        _id: "performer_id_2",
+        walletAddress: "0x222",
+        stageName: "Beta Performer",
+        auditionId: "audition_abc",
+        genre: "afrobeat",
+        country: "Ghana",
+        tiktokAuditionUrl: "https://tiktok.com/audition2",
+        tiktokProfileUrl: "https://tiktok.com/@beta",
+        socialX: "https://twitter.com/beta",
+        createdAt: new Date("2025-04-15"),
+        }
+    ];
+    });
+    
+    const response = await request(app)
+    .get("/api/v1/performers?auditionId=audition_abc&sortBy=createdAt&order=asc")
+    .set("Accept", "application/json");
+
+    expect(response.status).toBe(200);
+    expect(response.body.error).toBe(false);
+    expect(response.body.performers).toHaveLength(2);
+  });
+
+  test("should handle invalid sort parameter gracefully", async () => {
+    const response = await request(app)
+    .get("/api/v1/performers?auditionId=audition_abc&sortBy=invalidField")
+    .set("Accept", "application/json");
+
+    expect(response.status).toBe(200);
+    expect(response.body.error).toBe(false);
+    // Should fall back to default sort
+    expect(response.body.performers).toHaveLength(2);
+  });
 })
