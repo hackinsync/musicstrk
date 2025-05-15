@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose"
+import { Schema, model, SortOrder } from "mongoose"
 import { Performer } from "../types"
 
 const PerformerSchema = new Schema<Performer>({
@@ -40,7 +40,7 @@ export const findPerformerByWalletAndAudition = async (walletAddress: string, au
  * @param auditionId The ID of the audition
  * @param sort Optional sorting configuration (e.g., { createdAt: -1 })
  */
-export const findPerformersByAudition = async (auditionId: string, sort: Record<string, number> = { createdAt: -1 }) => {
+export const findPerformersByAudition = async (auditionId: string, sort: Record<string, SortOrder> = { createdAt: -1 }) => {
   return await PerformerModel.find({ auditionId }).sort(sort)
 }
 

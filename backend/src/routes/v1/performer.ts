@@ -26,8 +26,8 @@ PerformerRoutes.get("/", validateJWT, async (req: Request, res: Response): Promi
     const sortField = validSortFields.includes(sortBy as string) ? sortBy : "createdAt";
     const sortOrder = validOrders.includes(order as string) ? order : "desc";
     
-    console.log(`Fetching performers for auditionId: ${auditionId}, sorting by: ${sortField} ${sortOrder}`);
-    
+      console.log(`Fetching performers for auditionId: ${auditionId}, sorting by: ${sortField} ${sortOrder}`);
+  
     // Get performers with sorting
     const performers = await findPerformersByAudition(
       auditionId as string, 
