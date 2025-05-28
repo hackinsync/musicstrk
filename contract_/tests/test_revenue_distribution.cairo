@@ -5,27 +5,27 @@ use contract_::IRevenueDistribution::{
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
-use starknet::{ContractAddress, contract_address_const};
+use starknet::ContractAddress;
 
 
 fn owner() -> ContractAddress {
-    contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 fn zero() -> ContractAddress {
-    contract_address_const::<0>()
+    0.try_into().unwrap()
 }
 
 fn kim() -> ContractAddress {
-    contract_address_const::<'kim'>()
+    'kim'.try_into().unwrap()
 }
 
-fn bob() -> ContractAddress {
-    contract_address_const::<'thurston'>()
+fn thurston() -> ContractAddress {
+    'thurston'.try_into().unwrap()
 }
 
 fn lee() -> ContractAddress {
-    contract_address_const::<'lee'>()
+    'lee'.try_into().unwrap()
 }
 
 
@@ -60,13 +60,13 @@ fn test_revenue_distribution() {
     // Initialize the token
     cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     IMusicShareTokenDispatcher { contract_address }
-        .initialize(bob(), "ipfs://test", "RecordToken", "REC", 6 // decimals
+        .initialize(thurston(), "ipfs://test", "RecordToken", "REC", 6 // decimals
         );
 
     // Verify initial balances
-    assert(token.balance_of(bob()) == 100_u256, 'Initial from balance wrong');
+    assert(token.balance_of(thurston()) == 100_u256, 'Initial from balance wrong');
     // Transfer 30 tokens from kim to thurston
-    cheat_caller_address(contract_address, bob(), CheatSpan::TargetCalls(2));
+    cheat_caller_address(contract_address, thurston(), CheatSpan::TargetCalls(2));
     revenue_distribution.transfer_token_share(kim(), 30_u256);
     revenue_distribution.transfer_token_share(lee(), 70_u256);
 
@@ -113,30 +113,30 @@ fn test_Calculate_revenue_share() {
     // Initialize the token
     cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     IMusicShareTokenDispatcher { contract_address }
-        .initialize(bob(), "ipfs://test", "RecordToken", "REC", 6 // decimals
+        .initialize(thurston(), "ipfs://test", "RecordToken", "REC", 6 // decimals
         );
 
     // Verify initial balances
-    assert(token.balance_of(bob()) == 100_u256, 'Initial from balance wrong');
+    assert(token.balance_of(thurston()) == 100_u256, 'Initial from balance wrong');
     // Transfer 30 tokens from kim to thurston
-    cheat_caller_address(contract_address, bob(), CheatSpan::TargetCalls(2));
+    cheat_caller_address(contract_address, thurston(), CheatSpan::TargetCalls(2));
     revenue_distribution.transfer_token_share(kim(), 30_u256);
     revenue_distribution.transfer_token_share(lee(), 70_u256);
 
     let kim_share = revenue_distribution.calculate_revenue_share(kim());
     let lee_share = revenue_distribution.calculate_revenue_share(lee());
-    let bob_share = revenue_distribution.calculate_revenue_share(bob());
+    let thurston_share = revenue_distribution.calculate_revenue_share(thurston());
 
     assert(kim_share == 30000000_u256, 'kim_should_have_30000000');
     assert(lee_share == 70000000_u256, 'lee_should_have_70000000');
-    assert(bob_share == 0_u256, 'bob_should_have_0');
+    assert(thurston_share == 0_u256, 'thurston_should_have_0');
 }
 
 #[test]
 fn test_transfer_token_share() {
     // Setup
     let from_address = kim();
-    let to_address = bob();
+    let to_address = thurston();
     let contract_address = deploy_music_share_token();
     let revenue_address = deploy_revenue_contract(owner(), contract_address);
     let revenue_distribution = IRevenueDistributionDispatcher { contract_address: revenue_address };
@@ -172,13 +172,13 @@ fn test_get_holders_of_token() {
     // Initialize the token
     cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     IMusicShareTokenDispatcher { contract_address }
-        .initialize(bob(), "ipfs://test", "RecordToken", "REC", 6 // decimals
+        .initialize(thurston(), "ipfs://test", "RecordToken", "REC", 6 // decimals
         );
 
     // Verify initial balances
-    assert(token.balance_of(bob()) == 100_u256, 'Initial from balance wrong');
+    assert(token.balance_of(thurston()) == 100_u256, 'Initial from balance wrong');
     // Transfer 30 tokens from kim to thurston
-    cheat_caller_address(contract_address, bob(), CheatSpan::TargetCalls(2));
+    cheat_caller_address(contract_address, thurston(), CheatSpan::TargetCalls(2));
     revenue_distribution.transfer_token_share(kim(), 30_u256);
     revenue_distribution.transfer_token_share(lee(), 70_u256);
 
@@ -200,13 +200,13 @@ fn test_revenue_distribution_history() {
     // Initialize the token
     cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
     IMusicShareTokenDispatcher { contract_address }
-        .initialize(bob(), "ipfs://test", "RecordToken", "REC", 6 // decimals
+        .initialize(thurston(), "ipfs://test", "RecordToken", "REC", 6 // decimals
         );
 
     // Verify initial balances
-    assert(token.balance_of(bob()) == 100_u256, 'Initial from balance wrong');
+    assert(token.balance_of(thurston()) == 100_u256, 'Initial from balance wrong');
     // Transfer 30 tokens from kim to thurston
-    cheat_caller_address(contract_address, bob(), CheatSpan::TargetCalls(2));
+    cheat_caller_address(contract_address, thurston(), CheatSpan::TargetCalls(2));
     revenue_distribution.transfer_token_share(kim(), 30_u256);
     revenue_distribution.transfer_token_share(lee(), 70_u256);
 

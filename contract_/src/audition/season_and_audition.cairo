@@ -21,6 +21,14 @@ pub struct Audition {
     pub paused: bool,
 }
 
+#[derive(Drop, Serde, Default, starknet::Store)]
+pub struct Vote {
+    pub audition_id: felt252,
+    pub performer: felt252,
+    pub voter: felt252,
+    pub weight: felt252,
+}
+
 // Define the contract interface
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
@@ -56,6 +64,21 @@ pub trait ISeasonAndAudition<TContractState> {
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
+    
+    // Vote recording functionality
+    fn record_vote(
+        ref self: TContractState,
+        audition_id: felt252,
+        performer: felt252,
+        voter: felt252,
+        weight: felt252,
+    );
+    fn get_vote(
+        self: @TContractState,
+        audition_id: felt252,
+        performer: felt252,
+        voter: felt252,
+    ) -> Vote;
 }
 
 #[starknet::contract]
@@ -66,9 +89,10 @@ pub mod SeasonAndAudition {
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         StorageMapReadAccess, StorageMapWriteAccess,
     };
-    use super::{ISeasonAndAudition, Season, Audition};
+    use super::{ISeasonAndAudition, Season, Audition, Vote};
     use OwnableComponent::InternalTrait;
     use openzeppelin::access::ownable::OwnableComponent;
+    use contract_::errors::errors;
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -84,6 +108,7 @@ pub mod SeasonAndAudition {
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
+        votes: Map<(felt252, felt252, felt252), Vote>,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
     }
@@ -96,6 +121,7 @@ pub mod SeasonAndAudition {
         ResultsSubmitted: ResultsSubmitted,
         OracleAdded: OracleAdded,
         OracleRemoved: OracleRemoved,
+        VoteRecorded: VoteRecorded,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
     }
@@ -130,6 +156,14 @@ pub mod SeasonAndAudition {
     #[derive(Drop, starknet::Event)]
     pub struct OracleRemoved {
         pub oracle_address: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct VoteRecorded {
+        pub audition_id: felt252,
+        pub performer: felt252,
+        pub voter: felt252,
+        pub weight: felt252,
     }
 
     #[constructor]
@@ -252,6 +286,48 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
             self.whitelisted_oracles.write(oracle_address, false);
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
+        }
+
+        fn record_vote(
+            ref self: ContractState,
+            audition_id: felt252,
+            performer: felt252,
+            voter: felt252,
+            weight: felt252,
+        ) {
+            self.only_oracle();
+
+            // Check if vote already exists (duplicate vote prevention)
+            let vote_key = (audition_id, performer, voter);
+            let existing_vote = self.votes.entry(vote_key).read();
+            
+            // If the vote has a non-zero audition_id, it means a vote already exists
+            assert(existing_vote.audition_id == 0, errors::DUPLICATE_VOTE);
+
+            self
+                .votes
+                .entry(vote_key)
+                .write(
+                    Vote {
+                        audition_id,
+                        performer,
+                        voter,
+                        weight,
+                    },
+                );
+
+            self.emit(Event::VoteRecorded(VoteRecorded { audition_id, performer, voter, weight }));
+        }
+
+        fn get_vote(
+            self: @ContractState,
+            audition_id: felt252,
+            performer: felt252,
+            voter: felt252,
+        ) -> Vote {
+            self.ownable.assert_only_owner();
+
+            self.votes.entry((audition_id, performer, voter)).read()
         }
     }
 }
