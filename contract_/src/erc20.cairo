@@ -33,7 +33,7 @@ pub mod MusicStrk {
     use starknet::{ClassHash, ContractAddress, get_caller_address};
     use core::num::traits::Zero;
     use core::byte_array::ByteArray;
-    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use core::clone::Clone;
 
     use super::{IBurnable, IMusicShareToken};

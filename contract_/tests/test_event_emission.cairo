@@ -9,27 +9,27 @@ use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events,
     EventSpyTrait, EventSpyAssertionsTrait,
 };
-use starknet::{ContractAddress, contract_address_const};
+use starknet::ContractAddress;
 use core::array::ArrayTrait;
 
 fn owner() -> ContractAddress {
-    contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 fn zero() -> ContractAddress {
-    contract_address_const::<0>()
+    0.try_into().unwrap()
 }
 
 fn kim() -> ContractAddress {
-    contract_address_const::<'kim'>()
+    'kim'.try_into().unwrap()
 }
 
 fn thurston() -> ContractAddress {
-    contract_address_const::<'thurston'>()
+    'thurston'.try_into().unwrap()
 }
 
 fn lee() -> ContractAddress {
-    contract_address_const::<'lee'>()
+    'lee'.try_into().unwrap()
 }
 
 pub const TOTAL_SHARES: u256 = 100_u256;
