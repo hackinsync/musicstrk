@@ -11,7 +11,7 @@ import { getMockVotes } from "@/utils/mockVotes";
 
 export default function AnalyticsPage() {
   const params = useParams();
-  const auditionId = params?.auditionId as string;
+  const auditionId = decodeURIComponent(params?.auditionId as string);
 
   const [selectedPerformerId, setSelectedPerformerId] = useState<string | null>(
     null
@@ -31,7 +31,7 @@ export default function AnalyticsPage() {
         <header className="mb-8">
           <h1 className="text-2xl font-bold text-white">Audition Analytics</h1>
           <p className="mt-2 text-lg text-slate-300">
-            Detailed voting analysis for audition
+            Detailed voting analysis for audition #[auditionId]
           </p>
         </header>
 
