@@ -64,7 +64,7 @@ pub trait ISeasonAndAudition<TContractState> {
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
-    
+
     // Vote recording functionality
     fn record_vote(
         ref self: TContractState,
@@ -74,25 +74,21 @@ pub trait ISeasonAndAudition<TContractState> {
         weight: felt252,
     );
     fn get_vote(
-        self: @TContractState,
-        audition_id: felt252,
-        performer: felt252,
-        voter: felt252,
+        self: @TContractState, audition_id: felt252, performer: felt252, voter: felt252,
     ) -> Vote;
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
-    use starknet::ContractAddress;
-    use starknet::get_caller_address;
-    use starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
-        StorageMapReadAccess, StorageMapWriteAccess,
-    };
-    use super::{ISeasonAndAudition, Season, Audition, Vote};
     use OwnableComponent::InternalTrait;
-    use openzeppelin::access::ownable::OwnableComponent;
     use contract_::errors::errors;
+    use openzeppelin::access::ownable::OwnableComponent;
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
+        StoragePointerReadAccess, StoragePointerWriteAccess,
+    };
+    use starknet::{ContractAddress, get_caller_address};
+    use super::{Audition, ISeasonAndAudition, Season, Vote};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -300,30 +296,17 @@ pub mod SeasonAndAudition {
             // Check if vote already exists (duplicate vote prevention)
             let vote_key = (audition_id, performer, voter);
             let existing_vote = self.votes.entry(vote_key).read();
-            
+
             // If the vote has a non-zero audition_id, it means a vote already exists
             assert(existing_vote.audition_id == 0, errors::DUPLICATE_VOTE);
 
-            self
-                .votes
-                .entry(vote_key)
-                .write(
-                    Vote {
-                        audition_id,
-                        performer,
-                        voter,
-                        weight,
-                    },
-                );
+            self.votes.entry(vote_key).write(Vote { audition_id, performer, voter, weight });
 
             self.emit(Event::VoteRecorded(VoteRecorded { audition_id, performer, voter, weight }));
         }
 
         fn get_vote(
-            self: @ContractState,
-            audition_id: felt252,
-            performer: felt252,
-            voter: felt252,
+            self: @ContractState, audition_id: felt252, performer: felt252, voter: felt252,
         ) -> Vote {
             self.ownable.assert_only_owner();
 

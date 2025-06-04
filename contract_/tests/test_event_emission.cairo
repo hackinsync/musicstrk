@@ -1,16 +1,16 @@
+use contract_::erc20::MusicStrk::{BurnEvent, TokenInitializedEvent};
 use contract_::erc20::{
-    IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, IBurnableDispatcher,
-    IBurnableDispatcherTrait, MusicStrk,
+    IBurnableDispatcher, IBurnableDispatcherTrait, IMusicShareTokenDispatcher,
+    IMusicShareTokenDispatcherTrait, MusicStrk,
 };
-use contract_::erc20::MusicStrk::{TokenInitializedEvent, BurnEvent};
+use core::array::ArrayTrait;
 use openzeppelin::token::erc20::ERC20Component::{Event as ERC20Event, Transfer as ERC20Transfer};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{
-    CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events,
-    EventSpyTrait, EventSpyAssertionsTrait,
+    CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, EventSpyTrait,
+    cheat_caller_address, declare, spy_events,
 };
 use starknet::ContractAddress;
-use core::array::ArrayTrait;
 
 fn owner() -> ContractAddress {
     'owner'.try_into().unwrap()

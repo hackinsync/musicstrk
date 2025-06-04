@@ -1,7 +1,7 @@
-use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
 use contract_::IRevenueDistribution::{
-    IRevenueDistributionDispatcher, IRevenueDistributionDispatcherTrait, Category,
+    Category, IRevenueDistributionDispatcher, IRevenueDistributionDispatcherTrait,
 };
+use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
