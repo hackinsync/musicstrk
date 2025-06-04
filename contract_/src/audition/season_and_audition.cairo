@@ -21,6 +21,14 @@ pub struct Audition {
     pub paused: bool,
 }
 
+#[derive(Drop, Serde, starknet::Store)]
+pub struct Registration {
+    pub performer: ContractAddress,
+    pub token_address: ContractAddress,
+    pub fee_amount: u256,
+    pub refunded: bool,
+}
+
 // Define the contract interface
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
@@ -56,19 +64,27 @@ pub trait ISeasonAndAudition<TContractState> {
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
+    fn register_performer(
+        ref self: TContractState,
+        audition_id: felt252,
+        token_address: ContractAddress,
+        fee_amount: u256,
+    );
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use starknet::ContractAddress;
-    use starknet::get_caller_address;
+
+    use starknet::{get_caller_address,get_contract_address, contract_address_const};
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         StorageMapReadAccess, StorageMapWriteAccess,
     };
-    use super::{ISeasonAndAudition, Season, Audition};
+    use super::{ISeasonAndAudition, Season, Audition, Registration};
     use OwnableComponent::InternalTrait;
     use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -84,6 +100,8 @@ pub mod SeasonAndAudition {
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
+        registrations: Map<(felt252, ContractAddress), Registration>,
+        collected_fees: Map<ContractAddress, u256>,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
     }
@@ -96,6 +114,7 @@ pub mod SeasonAndAudition {
         ResultsSubmitted: ResultsSubmitted,
         OracleAdded: OracleAdded,
         OracleRemoved: OracleRemoved,
+        RegisteredPerformer: RegisteredPerformer,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
     }
@@ -130,6 +149,14 @@ pub mod SeasonAndAudition {
     #[derive(Drop, starknet::Event)]
     pub struct OracleRemoved {
         pub oracle_address: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct RegisteredPerformer {
+        pub audition_id: felt252,
+        pub performer: ContractAddress,
+        pub token_address: ContractAddress,
+        pub fee_amount: u256,
     }
 
     #[constructor]
@@ -252,6 +279,47 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
             self.whitelisted_oracles.write(oracle_address, false);
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
+        }
+
+        fn register_performer(
+            ref self: ContractState,
+            audition_id: felt252,
+            token_address: ContractAddress,
+            fee_amount: u256,
+        ) {
+            // Verify the audition exists and is not paused
+            let audition = self.auditions.entry(audition_id).read();
+            assert(audition.audition_id != 0, 'Audition does not exist');
+            assert(!audition.paused, 'Audition is paused');
+
+            let performer = get_caller_address();
+
+            // Check if already registered
+            let existing = self.registrations.entry((audition_id, performer)).read();
+
+            let zero_address = contract_address_const::<0x0>();
+            assert(existing.performer == zero_address, 'Already registered');
+
+            // Handle payment if fee is required
+            if fee_amount > 0 {
+                assert(token_address != zero_address, 'Invalid token address');
+                // ERC20 payment
+                let token = IERC20Dispatcher { contract_address: token_address };
+                token.transfer_from(performer, get_contract_address(), fee_amount);
+            }
+
+            // Update collected fees
+            let current_fees = self.collected_fees.read(token_address);
+            self.collected_fees.write(token_address, current_fees + fee_amount);
+
+            // Record registration
+            self
+                .registrations
+                .entry((audition_id, performer))
+                .write(Registration { performer, token_address, fee_amount, refunded: false });
+
+            // Emit registration event
+            self.emit(RegisteredPerformer { audition_id, performer, token_address, fee_amount });
         }
     }
 }

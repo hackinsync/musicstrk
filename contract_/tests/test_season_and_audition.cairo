@@ -484,3 +484,42 @@ fn test_safe_painc_only_owner_can_call_functions() {
         Result::Err(e) => assert(*e.at(0) == 'Caller is not the owner', *e.at(0)),
     }
 }
+
+#[test]
+fn register_performer() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract.create_audition(audition_id, season_id, default_audition.genre, default_audition.name, default_audition.start_timestamp, default_audition.end_timestamp, default_audition.paused);
+
+    // Register Performer
+    contract.register_performer(audition_id, USER(), '0x0', 100);
+
+    // Stop prank
+    stop_cheat_caller_address(contract.contract_address);
+
+    spy.assert_emitted(
+        @array![
+            (contract.contract_address, SeasonAndAudition::Event::RegisteredPerformer(SeasonAndAudition::RegisteredPerformer { audition_id, performer, token_address, fee_amount })),
+        ],
+    );
+
+    // READ Registration
+    let registration = contract.read_registration(audition_id, USER());
+
+    assert!(registration.performer == USER(), "Failed to read registration");
+    assert!(registration.token_address == '0x0', "Failed to read registration token address");
+    assert!(registration.fee_amount == 100, "Failed to read registration fee amount");
+    assert!(!registration.refunded, "Failed to read registration refunded");
+}
