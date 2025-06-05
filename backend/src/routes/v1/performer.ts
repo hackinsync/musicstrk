@@ -1,9 +1,45 @@
 import { Router, Request, Response } from "express"
 import { validateJWT } from "../../middlewares"
-import { createPerformer, findPerformerByWalletAndAudition } from "../../models/PerformerModel"
+import { createPerformer, findPerformerByWalletAndAudition, findPerformersByAudition } from "../../models/PerformerModel"
 import { PerformerRegistrationPayload } from "../../types"
 
 const PerformerRoutes = Router()
+
+/**
+ * GET /api/v1/performers?auditionId=<audition_id>&sortBy=<field>&order=<asc|desc>
+ * Fetch performers for a specific audition with optional sorting
+ */
+PerformerRoutes.get("/", validateJWT, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { auditionId, sortBy = "createdAt", order = "desc" } = req.query;
+    
+    // Validate required auditionId parameter
+    if (!auditionId) {
+      res.status(400).json({ error: true, msg: "auditionId query parameter is required" });
+      return;
+    }
+    
+    // Validate sort parameters
+    const validSortFields = ["createdAt", "stageName"];
+    const validOrders = ["asc", "desc"];
+    
+    const sortField = validSortFields.includes(sortBy as string) ? sortBy : "createdAt";
+    const sortOrder = validOrders.includes(order as string) ? order : "desc";
+    
+      console.log(`Fetching performers for auditionId: ${auditionId}, sorting by: ${sortField} ${sortOrder}`);
+  
+    // Get performers with sorting
+    const performers = await findPerformersByAudition(
+      auditionId as string, 
+      { [sortField as string]: sortOrder === "asc" ? 1 : -1 }
+    );
+    
+    res.status(200).json({ error: false, performers });
+  } catch (error) {
+    console.error("Failed to fetch performers:", error);
+    res.status(500).json({ error: true, msg: "Server error" });
+  }
+});
 
 PerformerRoutes.post("/", validateJWT, async (req: Request<{}, {}, PerformerRegistrationPayload>, res: Response): Promise<void> => {
     try {
