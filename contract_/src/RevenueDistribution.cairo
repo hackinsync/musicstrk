@@ -7,6 +7,7 @@ pub mod RevenueDistribution {
     use contract_::erc20::MusicStrk::TOTAL_SHARES;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
