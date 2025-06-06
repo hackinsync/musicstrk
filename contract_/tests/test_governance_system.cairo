@@ -1,24 +1,22 @@
-use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, MusicStrk};
 use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
-    MusicShareTokenFactory,
 };
 use contract_::governance::{
     ProposalSystem::{
         IProposalSystemDispatcher, IProposalSystemDispatcherTrait, ProposalSystem},
     VotingMechanism::{
         IVotingMechanismDispatcher, IVotingMechanismDispatcherTrait, VotingMechanism},
-    types::{Proposal, ProposalMetrics, Comment, VoteType, Vote, VoteBreakdown},
+    types::VoteType,
 };
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
 use core::traits::Into;
 use openzeppelin::token::erc20::interface::{IERC20MixinDispatcher, IERC20MixinDispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
-use starknet::{class_hash::ClassHash, ContractAddress, contract_address_const, get_block_timestamp};
+use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
-    cheat_caller_address, cheat_block_timestamp_global, declare, spy_events,
+    cheat_block_timestamp, cheat_caller_address, declare, spy_events,
 };
 
 // Address constants for testing
@@ -55,7 +53,7 @@ const DEFAULT_VOTING_PERIOD: u64 = 604800_u64; // 7 days in seconds
 const MIN_THRESHOLD_PERCENTAGE: u8 = 3_u8; // 3% minimum threshold
 
 /// Helper function to deploy a music token for testing
-fn deploy_music_token_for_test(artist: ContractAddress) -> ContractAddress {
+fn deploy_music_token(artist: ContractAddress) -> ContractAddress {
     let contract_class = declare("MusicStrk").unwrap().contract_class();
     let mut calldata = array![];
     calldata.append_serde(artist);
@@ -65,7 +63,7 @@ fn deploy_music_token_for_test(artist: ContractAddress) -> ContractAddress {
 
 /// Helper function to deploy the token factory
 fn deploy_token_factory(owner: ContractAddress) -> IMusicShareTokenFactoryDispatcher {
-    let _music_token_address = deploy_music_token_for_test(owner);
+    let _music_token_address = deploy_music_token(owner);
     let music_token_class = declare("MusicStrk").unwrap().contract_class();
     let music_token_class_hash = music_token_class.class_hash;
 
@@ -379,7 +377,7 @@ fn test_proposal_system_initialization() {
     
     // Test empty arrays
     let all_proposals = proposal_system.get_proposals(ZERO_ADDRESS(), 255, 'ALL', 0, 10);
-    assert(all_proposals.len() == 0, 'Should have no proposals initially');
+    assert(all_proposals.len() == 0, 'Should have no proposals');
 }
 
 #[test]
@@ -393,8 +391,8 @@ fn test_voting_mechanism_initialization() {
     // Test initial voting state for non-existent proposal
     let breakdown = voting_mechanism.get_vote_breakdown(1);
     assert(breakdown.votes_for == 0, 'Should start with 0 for votes');
-    assert(breakdown.votes_against == 0, 'Should start with 0 against votes');
-    assert(breakdown.votes_abstain == 0, 'Should start with 0 abstain votes');
+    assert(breakdown.votes_against == 0, 'Should start with 0 votes');
+    assert(breakdown.votes_abstain == 0, 'Should start with 0 votes');
     assert(breakdown.total_voters == 0, 'Should start with 0 voters');
 }
 
@@ -608,7 +606,7 @@ fn test_vote_tracking_functions() {
     cheat_caller_address(token_address, artist, CheatSpan::TargetCalls(2));
     token.transfer(shareholder1, 30_u256);
     token.transfer(shareholder2, 20_u256);
-    
+
     cheat_caller_address(proposal_system.contract_address, shareholder1, CheatSpan::TargetCalls(1));
     let proposal_id = proposal_system.submit_proposal(token_address, "Tracking Test", "Testing vote tracking", 'OTHER');
     
@@ -624,7 +622,7 @@ fn test_vote_tracking_functions() {
     cheat_caller_address(voting_mechanism.contract_address, shareholder2, CheatSpan::TargetCalls(1));
     voting_mechanism.cast_vote(proposal_id, VoteType::Against, token_address);
     
-    // Test tracking functions
+    // Test tracking function
     assert(voting_mechanism.has_voted(proposal_id, shareholder1), 'Should have voted');
     assert(voting_mechanism.has_voted(proposal_id, shareholder2), 'Should have voted');
     assert(voting_mechanism.get_voter_count(proposal_id) == 2, 'Should have 2 voters');
@@ -657,13 +655,13 @@ fn test_voting_period_management() {
     assert(voting_mechanism.is_voting_active(proposal_id), 'Should still be active');
     
     // Simulate time passing beyond voting period
-    cheat_block_timestamp_global(end_time + 1);
+    cheat_block_timestamp(voting_mechanism.contract_address, end_time + 1, CheatSpan::TargetCalls(1));
     assert(!voting_mechanism.is_voting_active(proposal_id), 'Should be inactive after period');
 }
 
 #[test]
 fn test_delegation_system() {
-    let (token_address, artist, proposal_system, voting_mechanism, token) = setup_governance_environment();
+    let (token_address, artist, _, voting_mechanism, token) = setup_governance_environment();
     let shareholder1 = SHAREHOLDER_1();
     let shareholder2 = SHAREHOLDER_2();
     
@@ -673,7 +671,7 @@ fn test_delegation_system() {
     token.transfer(shareholder2, 25_u256);
     
     // Test initial delegation state
-    assert(voting_mechanism.get_delegation(shareholder1) == ZERO_ADDRESS(), 'Should have no delegation initially');
+    assert(voting_mechanism.get_delegation(shareholder1) == ZERO_ADDRESS(), 'Should have no delegations');
     
     // Delegate vote
     cheat_caller_address(voting_mechanism.contract_address, shareholder1, CheatSpan::TargetCalls(1));
@@ -701,18 +699,18 @@ fn test_proposal_categories() {
     // Create proposals with different categories
     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(4));
     
-    let revenue_id = proposal_system.submit_proposal(token_address, "Revenue Proposal", "Revenue desc", 'REVENUE');
-    let marketing_id = proposal_system.submit_proposal(token_address, "Marketing Proposal", "Marketing desc", 'MARKETING');
-    let creative_id = proposal_system.submit_proposal(token_address, "Creative Proposal", "Creative desc", 'CREATIVE');
-    let other_id = proposal_system.submit_proposal(token_address, "Other Proposal", "Other desc", 'OTHER');
+    let _revenue_id = proposal_system.submit_proposal(token_address, "Revenue Proposal", "Revenue desc", 'REVENUE');
+    let _marketing_id = proposal_system.submit_proposal(token_address, "Marketing Proposal", "Marketing desc", 'MARKETING');
+    let _creative_id = proposal_system.submit_proposal(token_address, "Creative Proposal", "Creative desc", 'CREATIVE');
+    let _other_id = proposal_system.submit_proposal(token_address, "Other Proposal", "Other desc", 'OTHER');
     
     // Test category filtering
     let revenue_proposals = proposal_system.get_proposals(ZERO_ADDRESS(), 255, 'REVENUE', 0, 10);
     assert(revenue_proposals.len() == 1, 'Should have 1 revenue proposal');
-    assert(revenue_proposals.at(0).category == 'REVENUE', 'Category mismatch');
+    assert(*revenue_proposals.at(0).category == 'REVENUE', 'Category mismatch');
     
     let marketing_proposals = proposal_system.get_proposals(ZERO_ADDRESS(), 255, 'MARKETING', 0, 10);
-    assert(marketing_proposals.len() == 1, 'Should have 1 marketing proposal');
+    assert(marketing_proposals.len() == 1, 'Marketing proposals should be 1');
     
     let creative_proposals = proposal_system.get_proposals(ZERO_ADDRESS(), 255, 'CREATIVE', 0, 10);
     assert(creative_proposals.len() == 1, 'Should have 1 creative proposal');
@@ -737,7 +735,7 @@ fn test_proposal_status_filtering() {
     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(3));
     let proposal1 = proposal_system.submit_proposal(token_address, "Proposal 1", "Desc 1", 'OTHER');
     let proposal2 = proposal_system.submit_proposal(token_address, "Proposal 2", "Desc 2", 'OTHER');
-    let proposal3 = proposal_system.submit_proposal(token_address, "Proposal 3", "Desc 3", 'OTHER');
+    let _proposal3 = proposal_system.submit_proposal(token_address, "Proposal 3", "Desc 3", 'OTHER');
     
     // Change statuses
     cheat_caller_address(proposal_system.contract_address, artist, CheatSpan::TargetCalls(2));
@@ -771,8 +769,8 @@ fn test_pagination() {
     
     // Create 5 proposals
     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(5));
-    let mut i = 0;
-    while i < 5 {
+    let mut i: u64 = 0;
+    while i < 5_u64 {
         proposal_system.submit_proposal(token_address, "Proposal", "Description", 'OTHER');
         i += 1;
     };
@@ -821,7 +819,7 @@ fn test_proposal_metrics_tracking() {
     
     // Check initial metrics
     let initial_metrics = proposal_system.get_proposal_metrics(proposal_id);
-    assert(initial_metrics.comment_count == 0, 'Initial comment count should be 0');
+    assert(initial_metrics.comment_count == 0, 'Comment count should be 0');
     assert(initial_metrics.total_voters == 0, 'Initial voter count should be 0');
     
     // Add comments and check metrics update
@@ -847,7 +845,7 @@ fn test_threshold_management() {
     
     // Update threshold
     proposal_system.update_minimum_threshold(10);
-    assert(proposal_system.get_minimum_threshold() == 10, 'Threshold should be updated to 10%');
+    assert(proposal_system.get_minimum_threshold() == 10, 'Threshold should be 10%');
     
     // Test with different threshold values
     proposal_system.update_minimum_threshold(1);
@@ -894,10 +892,10 @@ fn test_artist_management() {
     proposal_system.submit_proposal(token1, "Artist 1 Proposal", "Description", 'OTHER');
     
     let artist1_proposals = proposal_system.get_proposals_by_artist(token1);
-    assert(artist1_proposals.len() == 1, 'Should have 1 proposal for artist 1');
+    assert(artist1_proposals.len() == 1, 'Should have 1 proposal');
     
     let artist2_proposals = proposal_system.get_proposals_by_artist(token2);
-    assert(artist2_proposals.len() == 0, 'Should have 0 proposals for artist 2');
+    assert(artist2_proposals.len() == 0, 'Should have 0 proposals');
 }
 
 // Edge case tests
@@ -915,9 +913,10 @@ fn test_double_voting_fails() {
     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(1));
     let proposal_id = proposal_system.submit_proposal(token_address, "Double Vote Test", "Test", 'OTHER');
     
-    cheat_caller_address(voting_mechanism.contract_address, shareholder, CheatSpan::TargetCalls(1));
+    cheat_caller_address(voting_mechanism.contract_address, shareholder, CheatSpan::TargetCalls(2));
+    // First vote
     voting_mechanism.cast_vote(proposal_id, VoteType::For, token_address);
-    // This should fail
+    // Second vote - this should fail
     voting_mechanism.cast_vote(proposal_id, VoteType::Against, token_address);
 }
 
@@ -1022,7 +1021,7 @@ fn test_empty_content_edge_cases() {
     
     let comments = proposal_system.get_comments(proposal_id, 0, 10);
     assert(comments.len() == 1, 'Empty comment should be added');
-    assert(comments.at(0).content == "", 'Comment content should be empty');
+    assert(comments.at(0).content.len() == 0, 'Comment content should be empty');
     
     // Test empty artist response
     cheat_caller_address(proposal_system.contract_address, artist, CheatSpan::TargetCalls(1));
@@ -1046,11 +1045,11 @@ fn test_large_content_handling() {
     let long_description = "This is an extremely long description that tests the system's capability to store and retrieve large amounts of text data. It should work properly even with extensive content that might be used in real-world governance proposals with detailed explanations and comprehensive information.";
     
     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(1));
-    let proposal_id = proposal_system.submit_proposal(token_address, long_title, long_description, 'OTHER');
+    let proposal_id = proposal_system.submit_proposal(token_address, long_title.clone(), long_description.clone(), 'OTHER');
     
     let proposal = proposal_system.get_proposal(proposal_id);
-    assert(proposal.title == long_title, 'Long title should be stored correctly');
-    assert(proposal.description == long_description, 'Long description should be stored correctly');
+    assert(proposal.title == long_title, 'Long title is incorrect');
+    assert(proposal.description == long_description, 'Long description is incorrect');
 }
 
 #[test]
@@ -1066,7 +1065,7 @@ fn test_boundary_conditions() {
     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(1));
     let proposal_id = proposal_system.submit_proposal(token_address, "Boundary Test", "Testing threshold boundary", 'OTHER');
     
-    assert(proposal_id == 1, 'Proposal should be created at boundary');
+    assert(proposal_id == 1, 'Proposal should be created');
     
     // Test voting with exactly 1 token
     let small_holder = SHAREHOLDER_2();
@@ -1094,9 +1093,9 @@ fn test_proposal_id_sequence() {
     let id2 = proposal_system.submit_proposal(token_address, "Proposal 2", "Desc 2", 'OTHER');
     let id3 = proposal_system.submit_proposal(token_address, "Proposal 3", "Desc 3", 'OTHER');
     
-    assert(id1 == 1, 'First proposal should have ID 1');
-    assert(id2 == 2, 'Second proposal should have ID 2');
-    assert(id3 == 3, 'Third proposal should have ID 3');
+    assert(id1 == 1, '1st proposal should have ID 1');
+    assert(id2 == 2, '2nd proposal should have ID 2');
+    assert(id3 == 3, '3rd proposal should have ID 3');
     
     // Verify total count
     assert(proposal_system.get_total_proposals() == 3, 'Should have 3 total proposals');
