@@ -58,12 +58,18 @@ pub trait ISeasonAndAudition<TContractState> {
     fn pause_all(ref self: TContractState);
     fn resume_all(ref self: TContractState);
     fn is_paused(self: @TContractState) -> bool;
+    fn pause_audition(ref self: TContractState, audition_id: felt252) -> bool;
+    fn resume_audition(ref self: TContractState, audition_id: felt252) -> bool;
+    fn end_audition(ref self: TContractState, audition_id: felt252) -> bool;
+    fn is_audition_paused(self: @TContractState, audition_id: felt252) -> bool;
+    fn is_audition_ended(self: @TContractState, audition_id: felt252) -> bool;
+    fn audition_exists(self: @TContractState, audition_id: felt252) -> bool;
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use super::{ContractAddress, ISeasonAndAudition, Season, Audition};
-    use starknet::get_caller_address;
+    use starknet::{get_caller_address, get_block_timestamp};
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         StorageMapReadAccess, StorageMapWriteAccess,
@@ -94,6 +100,9 @@ pub mod SeasonAndAudition {
     pub enum Event {
         SeasonCreated: SeasonCreated,
         AuditionCreated: AuditionCreated,
+        AuditionPaused: AuditionPaused,
+        AuditionResumed: AuditionResumed,
+        AuditionEnded: AuditionEnded,
         ResultsSubmitted: ResultsSubmitted,
         OracleAdded: OracleAdded,
         OracleRemoved: OracleRemoved,
@@ -116,6 +125,21 @@ pub mod SeasonAndAudition {
         pub season_id: felt252,
         pub genre: felt252,
         pub name: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct AuditionPaused {
+        pub audition_id: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct AuditionResumed {
+        pub audition_id: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct AuditionEnded {
+        pub audition_id: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -221,13 +245,16 @@ pub mod SeasonAndAudition {
         fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
-
+            assert(!self.is_audition_paused(audition_id), 'Cannot update paused audition');
+            assert(!self.is_audition_ended(audition_id), 'Cannot update ended audition');
             self.auditions.entry(audition_id).write(audition);
         }
 
         fn delete_audition(ref self: ContractState, audition_id: felt252) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.is_audition_paused(audition_id), 'Cannot delete paused audition');
+            assert(!self.is_audition_ended(audition_id), 'Cannot delete ended audition');
 
             let default_audition: Audition = Default::default();
 
@@ -280,6 +307,81 @@ pub mod SeasonAndAudition {
 
         fn is_paused(self: @ContractState) -> bool {
             self.global_paused.read()
+        }
+
+        fn pause_audition(ref self: ContractState, audition_id: felt252) -> bool {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
+            assert(!self.is_audition_paused(audition_id), 'Audition is already paused');
+
+            let mut audition = self.auditions.entry(audition_id).read();
+            audition.paused = true;
+            self.auditions.entry(audition_id).write(audition);
+
+            self.emit(Event::AuditionPaused(AuditionPaused { audition_id }));
+            true
+        }
+
+        fn resume_audition(ref self: ContractState, audition_id: felt252) -> bool {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
+            assert(self.is_audition_paused(audition_id), 'Audition is not paused');
+
+            let mut audition = self.auditions.entry(audition_id).read();
+            audition.paused = false;
+            self.auditions.entry(audition_id).write(audition);
+
+            self.emit(Event::AuditionResumed(AuditionResumed { audition_id }));
+            true
+        }
+
+        fn end_audition(ref self: ContractState, audition_id: felt252) -> bool {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition already ended');
+
+            let mut audition = self.auditions.entry(audition_id).read();
+            let current_time = get_block_timestamp();
+
+            // Set end_timestamp to current time to end audition immediately
+            audition.end_timestamp = current_time.into();
+            self.auditions.entry(audition_id).write(audition);
+
+            self.emit(Event::AuditionEnded(AuditionEnded { audition_id }));
+            true
+        }
+
+
+        fn is_audition_paused(self: @ContractState, audition_id: felt252) -> bool {
+            let audition = self.auditions.entry(audition_id).read();
+            audition.paused
+        }
+
+        fn is_audition_ended(self: @ContractState, audition_id: felt252) -> bool {
+            let audition = self.auditions.entry(audition_id).read();
+            let current_time = get_block_timestamp();
+
+            if audition.end_timestamp != 0 {
+                let end_time_u64: u64 = audition.end_timestamp.try_into().unwrap();
+                let current_time_u64: u64 = current_time;
+
+                current_time_u64 >= end_time_u64
+            } else {
+                false
+            }
+        }
+
+        fn audition_exists(self: @ContractState, audition_id: felt252) -> bool {
+            let audition = self.auditions.entry(audition_id).read();
+            audition.audition_id != 0
         }
     }
 }
