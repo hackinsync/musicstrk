@@ -302,10 +302,9 @@ pub mod SeasonAndAudition {
 
             // Handle payment if fee is required
             if fee_amount > 0 {
-                assert(token_address != zero_address, 'Invalid token address');
-                // ERC20 payment
-                let token = IERC20Dispatcher { contract_address: token_address };
-                token.transfer_from(performer, get_contract_address(), fee_amount);
+                let token = IERC20Dispatcher { contract_address: token_address.try_into().expect('Invalid token address') };
+                assert(token.allowance(performer, get_contract_address()) >= fee_amount.try_into().unwrap(), 'Insufficient allowance');
+                token.transfer_from(performer, get_contract_address(), fee_amount.try_into().unwrap());
             }
 
             // Update collected fees
