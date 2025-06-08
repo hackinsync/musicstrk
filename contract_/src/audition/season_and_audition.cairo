@@ -44,7 +44,6 @@ pub trait ISeasonAndAudition<TContractState> {
     fn read_season(self: @TContractState, season_id: felt252) -> Season;
     fn update_season(ref self: TContractState, season_id: felt252, season: Season);
     fn delete_season(ref self: TContractState, season_id: felt252);
-
     fn create_audition(
         ref self: TContractState,
         audition_id: felt252,
@@ -64,27 +63,42 @@ pub trait ISeasonAndAudition<TContractState> {
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
+
     fn register_performer(
         ref self: TContractState,
         audition_id: felt252,
         token_address: ContractAddress,
         fee_amount: u256,
     );
+
+    fn pause_all(ref self: TContractState);
+    fn resume_all(ref self: TContractState);
+    fn is_paused(self: @TContractState) -> bool;
+
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
+
     use starknet::ContractAddress;
 
     use starknet::{get_caller_address,get_contract_address, contract_address_const};
+
+    use super::{ContractAddress, ISeasonAndAudition, Season, Audition};
+    use starknet::get_caller_address;
+
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
         StorageMapReadAccess, StorageMapWriteAccess,
     };
+
     use super::{ISeasonAndAudition, Season, Audition, Registration};
     use OwnableComponent::InternalTrait;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+
+    use openzeppelin::access::ownable::OwnableComponent;
+    use OwnableComponent::InternalTrait;
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -96,12 +110,15 @@ pub mod SeasonAndAudition {
 
     #[storage]
     struct Storage {
-        owner: ContractAddress,
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
+
         registrations: Map<(felt252, ContractAddress), Registration>,
         collected_fees: Map<ContractAddress, u256>,
+
+        global_paused: bool,
+
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
     }
@@ -114,7 +131,12 @@ pub mod SeasonAndAudition {
         ResultsSubmitted: ResultsSubmitted,
         OracleAdded: OracleAdded,
         OracleRemoved: OracleRemoved,
+
         RegisteredPerformer: RegisteredPerformer,
+
+        PausedAll: PausedAll,
+        ResumedAll: ResumedAll,
+
         #[flat]
         OwnableEvent: OwnableComponent::Event,
     }
@@ -152,6 +174,7 @@ pub mod SeasonAndAudition {
     }
 
     #[derive(Drop, starknet::Event)]
+
     pub struct RegisteredPerformer {
         pub audition_id: felt252,
         pub performer: ContractAddress,
@@ -159,9 +182,15 @@ pub mod SeasonAndAudition {
         pub fee_amount: u256,
     }
 
+    pub struct PausedAll {}
+
+    #[derive(Drop, starknet::Event)]
+    pub struct ResumedAll {}
+
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
         self.ownable.initializer(owner);
+        self.global_paused.write(false);
     }
 
     #[abi(embed_v0)]
@@ -176,6 +205,7 @@ pub mod SeasonAndAudition {
             paused: bool,
         ) {
             self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
 
             self
                 .seasons
@@ -186,19 +216,19 @@ pub mod SeasonAndAudition {
         }
 
         fn read_season(self: @ContractState, season_id: felt252) -> Season {
-            self.ownable.assert_only_owner();
-
             self.seasons.entry(season_id).read()
         }
 
         fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
             self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
 
             self.seasons.entry(season_id).write(season);
         }
 
         fn delete_season(ref self: ContractState, season_id: felt252) {
             self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
 
             let default_season: Season = Default::default();
 
@@ -216,6 +246,7 @@ pub mod SeasonAndAudition {
             paused: bool,
         ) {
             self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
 
             self
                 .auditions
@@ -230,19 +261,19 @@ pub mod SeasonAndAudition {
         }
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
-            self.ownable.assert_only_owner();
-
             self.auditions.entry(audition_id).read()
         }
 
         fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {
             self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
 
             self.auditions.entry(audition_id).write(audition);
         }
 
         fn delete_audition(ref self: ContractState, audition_id: felt252) {
             self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
 
             let default_audition: Audition = Default::default();
 
@@ -253,6 +284,7 @@ pub mod SeasonAndAudition {
             ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
         ) {
             self.only_oracle();
+            assert(!self.global_paused.read(), 'Contract is paused');
 
             self
                 .emit(
@@ -263,9 +295,8 @@ pub mod SeasonAndAudition {
         }
 
         fn only_oracle(ref self: ContractState) {
-            let caller = get_caller_address(); // Get the caller address
+            let caller = get_caller_address();
             let is_whitelisted = self.whitelisted_oracles.read(caller);
-            // Check if caller is whitelisted
             assert(is_whitelisted, 'Not Authorized');
         }
 
@@ -319,6 +350,22 @@ pub mod SeasonAndAudition {
 
             // Emit registration event
             self.emit(RegisteredPerformer { audition_id, performer, token_address, fee_amount });
+
+        fn pause_all(ref self: ContractState) {
+            self.ownable.assert_only_owner();
+            self.global_paused.write(true);
+            self.emit(Event::PausedAll(PausedAll {}));
+        }
+
+        fn resume_all(ref self: ContractState) {
+            self.ownable.assert_only_owner();
+            self.global_paused.write(false);
+            self.emit(Event::ResumedAll(ResumedAll {}));
+        }
+
+        fn is_paused(self: @ContractState) -> bool {
+            self.global_paused.read()
+
         }
     }
 }
