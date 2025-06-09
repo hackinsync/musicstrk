@@ -70,3 +70,23 @@ export interface VotePayload {
   score?: number
   personalityScale: PersonalityScale
 }
+
+export interface WalletVerificationPayload {
+  walletAddress: string
+  message: string
+  signature: string[]
+}
+
+export interface WalletVerificationResponse {
+  error: boolean
+  msg: string
+  code?: string
+  data?: {
+    walletAddress: string
+    verified: boolean
+    timestamp: string
+    processingTimeMs: number
+  }
+  details?: any
+}
+
