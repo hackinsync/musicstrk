@@ -37,6 +37,7 @@ pub trait IProposalSystem<TContractState> {
         self: @TContractState, token_contract: ContractAddress,
     ) -> Array<Proposal>;
     fn get_proposals_by_status(self: @TContractState, status: u8) -> Array<Proposal>;
+    fn get_active_proposals(self: @TContractState, token_contract: ContractAddress) -> Array<u64>;
     fn get_artist_for_token(
         self: @TContractState, token_contract: ContractAddress,
     ) -> ContractAddress;
@@ -345,6 +346,24 @@ pub mod ProposalSystem {
             };
 
             proposals
+        }
+
+        fn get_active_proposals(
+            self: @ContractState, token_contract: ContractAddress,
+        ) -> Array<u64> {
+            let mut active_proposals = ArrayTrait::new();
+            let mut current_id = 1_u64;
+            let max_id = self.next_proposal_id.read();
+
+            while current_id < max_id {
+                let proposal = self.proposals.read(current_id);
+                if proposal.token_contract == token_contract && proposal.status == 0 {
+                    active_proposals.append(proposal.id);
+                }
+                current_id += 1;
+            };
+
+            active_proposals
         }
 
         fn get_artist_for_token(
