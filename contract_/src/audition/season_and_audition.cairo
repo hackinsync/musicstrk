@@ -372,7 +372,6 @@ pub mod SeasonAndAudition {
 
         fn is_paused(self: @ContractState) -> bool {
             self.global_paused.read()
-      
         }
 
         fn pause_audition(ref self: ContractState, audition_id: felt252) -> bool {
