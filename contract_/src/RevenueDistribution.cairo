@@ -1,19 +1,18 @@
 #[starknet::contract]
 pub mod RevenueDistribution {
-    use starknet::{ContractAddress, get_block_timestamp};
-    use core::num::traits::Zero;
-
-    use starknet::storage::{
-        StoragePointerReadAccess, StoragePointerWriteAccess, Map, StorageMapReadAccess,
-        StorageMapWriteAccess,
-    };
+    use alexandria_storage::{List, ListTrait};
     use contract_::IRevenueDistribution::{
-        IRevenueDistribution, Category, RevenueAddedEvent, RevenueDistributedEvent,
+        Category, IRevenueDistribution, RevenueAddedEvent, RevenueDistributedEvent,
     };
+    use contract_::erc20::MusicStrk::TOTAL_SHARES;
+    use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use contract_::erc20::MusicStrk::TOTAL_SHARES;
-    use alexandria_storage::{ListTrait, List};
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
+    };
+    use starknet::{ContractAddress, get_block_timestamp};
 
     const DECIMALS: u256 = 1_000_000;
 

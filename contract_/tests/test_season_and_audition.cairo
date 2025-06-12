@@ -1,7 +1,7 @@
 use contract_::audition::season_and_audition::{
-    SeasonAndAudition, Season, Audition, ISeasonAndAuditionDispatcher,
-    ISeasonAndAuditionDispatcherTrait, ISeasonAndAuditionSafeDispatcher,
-    ISeasonAndAuditionSafeDispatcherTrait,
+    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+    ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait, Season,
+    SeasonAndAudition,
 };
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use starknet::ContractAddress;
@@ -12,6 +12,7 @@ use snforge_std::{
     start_cheat_caller_address, stop_cheat_caller_address, spy_events, start_cheat_block_timestamp,
     stop_cheat_block_timestamp,
 };
+use starknet::ContractAddress;
 
 // Test account -> Owner
 fn OWNER() -> ContractAddress {
