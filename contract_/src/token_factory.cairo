@@ -237,7 +237,7 @@ pub mod MusicShareTokenFactory {
             while i < count {
                 tokens_array.append(self.artist_tokens_items.read((artist, i)));
                 i += 1;
-            }
+            };
             tokens_array
         }
 
@@ -250,7 +250,7 @@ pub mod MusicShareTokenFactory {
             while i < token_count {
                 all_tokens.append(self.tokens.read(i));
                 i += 1;
-            }
+            };
 
             all_tokens
         }

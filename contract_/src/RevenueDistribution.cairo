@@ -7,7 +7,7 @@ pub mod RevenueDistribution {
     use contract_::erc20::MusicStrk::TOTAL_SHARES;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
-    use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
+
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
@@ -128,7 +128,7 @@ pub mod RevenueDistribution {
                 self.distribution_history.write(history);
 
                 i += 1;
-            }
+            };
 
             self.total_revenue.write(0);
             self
@@ -172,7 +172,7 @@ pub mod RevenueDistribution {
                 artist_array.append(id);
 
                 i += 1;
-            }
+            };
 
             artist_array
         }
@@ -193,7 +193,7 @@ pub mod RevenueDistribution {
                 history_array.append(id);
 
                 i += 1;
-            }
+            };
 
             history_array
         }
