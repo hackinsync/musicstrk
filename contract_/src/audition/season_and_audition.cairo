@@ -93,14 +93,12 @@ pub mod SeasonAndAudition {
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
-    use super::{ContractAddress, ISeasonAndAudition, Season, Audition};
-    use starknet::{get_caller_address, get_block_timestamp};
+    use super::{Audition, ISeasonAndAudition, Season, Vote};
+    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_caller_address};
-    use super::{Audition, ISeasonAndAudition, Season, Vote};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
