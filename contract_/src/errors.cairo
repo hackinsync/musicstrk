@@ -13,13 +13,12 @@ pub mod errors {
     pub const ZERO_ADDRESS_DETECTED: felt252 = 'Caller is address zero';
 
     // Token operation errors (3000-3999)
+    pub const TOKEN_NOT_DEPLOYED: felt252 = 'Token not yet deployed';
+    pub const TOKEN_ALREADY_INITIALIZED: felt252 = 'Token already initialized';
     pub const INSUFFICIENT_BALANCE: felt252 = 'Insufficient balance';
     pub const INSUFFICIENT_ALLOWANCE: felt252 = 'Insufficient allowance';
 
-    // Initialization errors (4000-4999)
-    pub const TOKEN_ALREADY_INITIALIZED: felt252 = 'Token already initialized';
-
-    // Validation errors (5000-5999)
+    // Validation errors (4000-4999)
     pub const INDEX_OUT_OF_BOUNDS: felt252 = 'Index out of bounds;';
     pub const INVALID_CLASS_HASH: felt252 = 'Class hash cannot be zero';
 }

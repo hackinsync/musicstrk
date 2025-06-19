@@ -37,10 +37,10 @@ pub struct ProposalMetrics {
 #[derive(Copy, Drop, Serde, starknet::Store, PartialEq)]
 pub enum VoteType {
     #[default]
-    None: (),
-    For: (),
-    Against: (),
-    Abstain: (),
+    None,
+    For,
+    Against,
+    Abstain,
 }
 
 #[derive(Copy, Drop, Serde, starknet::Store)]
