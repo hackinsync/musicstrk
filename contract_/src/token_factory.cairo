@@ -15,7 +15,8 @@ pub trait IMusicShareTokenFactory<ContractState> {
         metadata_uri: ByteArray,
     ) -> ContractAddress;
 
-    // Access control for artists
+    // Access control
+    fn get_owner(self: @ContractState) -> ContractAddress;
     fn grant_artist_role(ref self: ContractState, artist: ContractAddress);
     fn revoke_artist_role(ref self: ContractState, artist: ContractAddress);
     fn has_artist_role(self: @ContractState, artist: ContractAddress) -> bool;
@@ -26,6 +27,7 @@ pub trait IMusicShareTokenFactory<ContractState> {
     fn get_tokens_by_artist(
         self: @ContractState, artist: ContractAddress,
     ) -> Array<ContractAddress>;
+    fn get_artist_for_token(self: @ContractState, token_address: ContractAddress) -> ContractAddress;
     fn get_all_tokens(self: @ContractState) -> Array<ContractAddress>;
     fn is_token_deployed(self: @ContractState, token_address: ContractAddress) -> bool;
 
@@ -46,7 +48,7 @@ pub mod MusicShareTokenFactory {
     };
     use openzeppelin::upgrades::{interface::IUpgradeable, UpgradeableComponent};
     use starknet::{
-        get_caller_address,
+        get_caller_address, get_contract_address,
         storage::{
             Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
             StoragePointerWriteAccess,
@@ -77,10 +79,12 @@ pub mod MusicShareTokenFactory {
         token_class_hash: ClassHash,
         token_count: u64,
         tokens: Map<u64, ContractAddress>,
+        token_owners: Map<ContractAddress, ContractAddress>,
         deployed_tokens: Map<ContractAddress, bool>,
-        artist_tokens_count: Map<ContractAddress, u64>,
-        artist_tokens_items: Map<(ContractAddress, u64), ContractAddress>,
         artist_role: Map<ContractAddress, bool>,
+        artist_tokens_count: Map<ContractAddress, u64>,
+        // artist -> artist token id -> artist token address
+        artist_tokens: Map<(ContractAddress, u64), ContractAddress>,
     }
 
     #[event]
@@ -136,7 +140,7 @@ pub mod MusicShareTokenFactory {
             let class_hash = self.token_class_hash.read();
 
             // Get the factory (this contract) address
-            let factory_address = starknet::get_contract_address();
+            let factory_address = get_contract_address();
 
             // Create calldata for the token constructor
             let mut constructor_calldata = ArrayTrait::new();
@@ -164,9 +168,12 @@ pub mod MusicShareTokenFactory {
             self.deployed_tokens.write(token_address, true);
 
             // Add token to artist's list
-            let user_count = self.artist_tokens_count.read(caller);
-            self.artist_tokens_items.write((caller, user_count), token_address);
-            self.artist_tokens_count.write(caller, user_count + 1);
+            let artist_tokens_counter = self.artist_tokens_count.read(caller);
+            self.artist_tokens.write((caller, artist_tokens_counter), token_address);
+            self.artist_tokens_count.write(caller, artist_tokens_counter + 1);
+
+            // Map token address to its owner
+            self.token_owners.write(token_address, caller);
 
             // Transfer ownership of token to artist
             let ownable = IOwnableDispatcher { contract_address: token_address };
@@ -187,7 +194,11 @@ pub mod MusicShareTokenFactory {
             token_address
         }
 
-        // Artist role management
+        // Access Role management
+        fn get_owner(self: @ContractState) -> ContractAddress {
+            self.ownable.owner()
+        }
+
         fn grant_artist_role(ref self: ContractState, artist: ContractAddress) {
             // Only owner can grant artist role
             self.ownable.assert_only_owner();
@@ -235,12 +246,17 @@ pub mod MusicShareTokenFactory {
             let mut tokens_array = ArrayTrait::new();
             let mut i: u64 = 0;
 
-            // Iterate through artist  tokens and add them to the array
+            // Iterate through artist tokens and add them to the array
             while i < count {
-                tokens_array.append(self.artist_tokens_items.read((artist, i)));
+                tokens_array.append(self.artist_tokens.read((artist, i)));
                 i += 1;
             };
             tokens_array
+        }
+
+        fn get_artist_for_token(self: @ContractState, token_address: ContractAddress) -> ContractAddress {
+            assert(self.deployed_tokens.read(token_address), errors::TOKEN_NOT_DEPLOYED);
+            self.token_owners.read(token_address)
         }
 
         fn get_all_tokens(self: @ContractState) -> Array<ContractAddress> {

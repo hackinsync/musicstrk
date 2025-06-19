@@ -5,7 +5,6 @@ use contract_::audition::season_and_audition::{
 };
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use starknet::ContractAddress;
-use starknet::get_block_timestamp;
 
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare,
@@ -611,7 +610,7 @@ fn test_emission_of_event_for_pause_audition() {
 
 
 #[test]
-#[should_panic(expect: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is not the owner')]
 fn test_pause_audition_as_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -663,7 +662,7 @@ fn test_pause_audition_as_non_owner() {
 }
 
 #[test]
-#[should_panic(expect: 'Audition is already paused')]
+#[should_panic(expected: 'Audition is already paused')]
 fn test_pause_audition_twice_should_fail() {
     let (contract, _, _) = deploy_contract();
 
@@ -720,7 +719,7 @@ fn test_pause_audition_twice_should_fail() {
 }
 
 #[test]
-#[should_panic(expect: 'Cannot update paused audition')]
+#[should_panic(expected: 'Cannot delete paused audition')]
 fn test_function_should_fail_after_pause_audition() {
     let (contract, _, _) = deploy_contract();
 
@@ -837,7 +836,7 @@ fn test_resume_audition() {
 
 
 #[test]
-#[should_panic(expect: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is not the owner')]
 fn test_attempt_resume_audition_as_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -1158,7 +1157,7 @@ fn test_emission_of_event_for_end_audition() {
 
 
 #[test]
-#[should_panic(expect: 'Cannot delete ended audition')]
+#[should_panic(expected: 'Cannot delete ended audition')]
 fn test_end_audition_functionality() {
     let (contract, _, _) = deploy_contract();
 
