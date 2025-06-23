@@ -5,6 +5,8 @@ pub mod errors {
     pub const CALLER_UNAUTHORIZED: felt252 = 'Caller is not authorized';
     pub const CALLER_ZERO_ADDRESS: felt252 = 'Caller is address zero';
     pub const OWNER_ZERO_ADDRESS: felt252 = 'Owner cannot be address zero';
+    pub const PROPOSAL_SYSTEM_ZERO_ADDRESS: felt252 = 'Proposal cannot be address zero';
+    pub const VOTING_MECHANISM_ZERO_ADDRESS: felt252 = 'Voting cannot be address zero';
 
     // Address validation errors (2000-2999)
     pub const INVALID_SENDER: felt252 = 'Invalid spender';

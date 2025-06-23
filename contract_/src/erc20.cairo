@@ -24,7 +24,6 @@ pub trait IBurnable<ContractState> {
 
 #[starknet::contract]
 pub mod MusicStrk {
-    // use openzeppelin_token::erc20::interface::IERC20Mixin;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};

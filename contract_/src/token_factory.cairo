@@ -2,8 +2,7 @@
 
 use core::array::{Array, ArrayTrait};
 use core::byte_array::ByteArray;
-use starknet::{ContractAddress, ClassHash};
-use starknet::syscalls::deploy_syscall;
+use starknet::{ContractAddress, ClassHash, syscalls::deploy_syscall};
 
 #[starknet::interface]
 pub trait IMusicShareTokenFactory<ContractState> {
@@ -21,19 +20,21 @@ pub trait IMusicShareTokenFactory<ContractState> {
     fn revoke_artist_role(ref self: ContractState, artist: ContractAddress);
     fn has_artist_role(self: @ContractState, artist: ContractAddress) -> bool;
 
+    // Class hash management
+    fn update_token_class_hash(ref self: ContractState, new_class_hash: ClassHash);
+    fn get_token_class_hash(self: @ContractState) -> ClassHash;
+
     // Token state getter functions
     fn get_token_count(self: @ContractState) -> u64;
     fn get_token_at_index(self: @ContractState, index: u64) -> ContractAddress;
     fn get_tokens_by_artist(
         self: @ContractState, artist: ContractAddress,
     ) -> Array<ContractAddress>;
-    fn get_artist_for_token(self: @ContractState, token_address: ContractAddress) -> ContractAddress;
+    fn get_artist_for_token(
+        self: @ContractState, token_address: ContractAddress,
+    ) -> ContractAddress;
     fn get_all_tokens(self: @ContractState) -> Array<ContractAddress>;
     fn is_token_deployed(self: @ContractState, token_address: ContractAddress) -> bool;
-
-    // Class hash management
-    fn update_token_class_hash(ref self: ContractState, new_class_hash: ClassHash);
-    fn get_token_class_hash(self: @ContractState) -> ClassHash;
 }
 
 #[starknet::contract]
@@ -54,10 +55,7 @@ pub mod MusicShareTokenFactory {
             StoragePointerWriteAccess,
         },
     };
-    use super::{
-        Array, ArrayTrait, ByteArray, ClassHash, ContractAddress, deploy_syscall,
-        IMusicShareTokenFactory,
-    };
+    use super::*;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
@@ -225,13 +223,13 @@ pub mod MusicShareTokenFactory {
             self.token_class_hash.write(new_class_hash);
         }
 
+        fn get_token_class_hash(self: @ContractState) -> ClassHash {
+            self.token_class_hash.read()
+        }
+
         // Token getter functions
         fn get_token_count(self: @ContractState) -> u64 {
             self.token_count.read()
-        }
-
-        fn get_token_class_hash(self: @ContractState) -> ClassHash {
-            self.token_class_hash.read()
         }
 
         fn get_token_at_index(self: @ContractState, index: u64) -> ContractAddress {
@@ -254,7 +252,9 @@ pub mod MusicShareTokenFactory {
             tokens_array
         }
 
-        fn get_artist_for_token(self: @ContractState, token_address: ContractAddress) -> ContractAddress {
+        fn get_artist_for_token(
+            self: @ContractState, token_address: ContractAddress,
+        ) -> ContractAddress {
             assert(self.deployed_tokens.read(token_address), errors::TOKEN_NOT_DEPLOYED);
             self.token_owners.read(token_address)
         }
