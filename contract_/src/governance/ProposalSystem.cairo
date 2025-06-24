@@ -15,6 +15,8 @@ pub trait IProposalSystem<TContractState> {
     fn respond_to_proposal(
         ref self: TContractState, proposal_id: u64, new_status: u8, response: ByteArray,
     );
+    fn finalize_proposal(ref self: TContractState, proposal_id: u64, outcome: u8);
+    fn veto_proposal(ref self: TContractState, proposal_id: u64, reason: ByteArray);
     fn get_proposal(self: @TContractState, proposal_id: u64) -> Proposal;
     fn get_proposals(
         self: @TContractState,
@@ -43,13 +45,16 @@ pub trait IProposalSystem<TContractState> {
     ) -> ContractAddress;
     fn get_minimum_threshold(self: @TContractState) -> u8;
     fn update_minimum_threshold(ref self: TContractState, new_threshold: u8);
+    fn set_voting_contract(ref self: TContractState, voting_contract: ContractAddress);
 }
 
 #[starknet::contract]
 pub mod ProposalSystem {
-    use contract_::token_factory::{IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait};
-    use starknet::{contract_address_const, get_block_timestamp, get_caller_address};
+    use contract_::token_factory::{
+        IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
+    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use starknet::{contract_address_const, get_block_timestamp, get_caller_address};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
@@ -67,7 +72,9 @@ pub mod ProposalSystem {
         proposal_metrics: Map<u64, ProposalMetrics>,
         artists: Map<ContractAddress, ContractAddress>,
         minimum_token_threshold_percentage: u8,
+        finalized_proposals: Map<u64, u8>,
         factory_contract: ContractAddress,
+        voting_contract: ContractAddress,
     }
 
     #[event]
@@ -201,6 +208,37 @@ pub mod ProposalSystem {
                         proposal_id, old_status, new_status, responder: caller,
                     },
                 );
+        }
+
+        fn finalize_proposal(ref self: ContractState, proposal_id: u64, outcome: u8) {
+            // Ensure caller is voting contract
+            let voting_contract = self.voting_contract.read();
+            assert(get_caller_address() == voting_contract, 'Caller must be voting contract');
+            assert(outcome == 1 || outcome == 2, 'Invalid outcome'); // Approved or Rejected
+
+            // Verify proposal is pending
+            let mut proposal = self.proposals.read(proposal_id);
+            assert(proposal.status == 0, 'Proposal must be pending');
+
+            proposal.status = outcome;
+            self.proposals.write(proposal_id, proposal);
+            self.finalized_proposals.write(proposal_id, outcome);
+
+            // Emit event
+            self
+                .emit(
+                    ProposalStatusChanged {
+                        proposal_id,
+                        old_status: 0, // Pending (0)
+                        new_status: outcome, // Approved (1) or Rejected (2)
+                        responder: get_caller_address(),
+                    },
+                );
+        }
+
+        fn veto_proposal(ref self: ContractState, proposal_id: u64, reason: ByteArray) {
+            // Update proposal status to Vetoed
+            self.respond_to_proposal(proposal_id, 4, reason); // 4 = Vetoed
         }
 
         fn get_proposal(self: @ContractState, proposal_id: u64) -> Proposal {
@@ -361,10 +399,7 @@ pub mod ProposalSystem {
                 contract_address: self.factory_contract.read(),
             };
 
-            assert(
-                factory_dispatcher.has_artist_role(artist),
-                'Artist not saved in factory',
-            );
+            assert(factory_dispatcher.has_artist_role(artist), 'Artist not saved in factory');
 
             assert(
                 factory_dispatcher.is_token_deployed(token_contract),
@@ -396,14 +431,24 @@ pub mod ProposalSystem {
             };
             let caller = get_caller_address();
 
-            assert(
-                caller == factory_dispatcher.get_owner(),
-                'Caller not factory deployer',
-            );
+            assert(caller == factory_dispatcher.get_owner(), 'Caller not factory deployer');
 
             // Verify new threshold is within valid range
             assert(new_threshold <= 100, 'Threshold must be <= 100');
             self.minimum_token_threshold_percentage.write(new_threshold);
+        }
+
+        fn set_voting_contract(ref self: ContractState, voting_contract: ContractAddress) {
+            // Verify caller is token factory owner
+            let factory_dispatcher = IMusicShareTokenFactoryDispatcher {
+                contract_address: self.factory_contract.read(),
+            };
+            let caller = get_caller_address();
+
+            assert(caller == factory_dispatcher.get_owner(), 'Caller not factory deployer');
+
+            // Set voting contract address
+            self.voting_contract.write(voting_contract);
         }
     }
 
@@ -439,12 +484,12 @@ pub mod ProposalSystem {
         fn _register_artist(ref self: ContractState, token_contract: ContractAddress) {
             let current_artist = self.artists.read(token_contract);
 
-            // If no artist is registered, try to register the artist linked to the token in factory contract
+            // If no registered artist, register artist linked to token in factory contract
             if current_artist == contract_address_const::<0>() {
                 let factory_dispatcher = IMusicShareTokenFactoryDispatcher {
                     contract_address: self.factory_contract.read(),
                 };
-                
+
                 // Check if token exists in factory before trying to store verified artist
                 if factory_dispatcher.is_token_deployed(token_contract) {
                     let artist_address = factory_dispatcher.get_artist_for_token(token_contract);
