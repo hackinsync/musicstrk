@@ -31,7 +31,7 @@ pub trait IVotingMechanism<TContractState> {
         amount: u256,
     );
     fn set_proposal_token_threshold(
-        ref self: TContractState, proposal_id: u64, new_threshold: u256,
+        ref self: TContractState, proposal_id: u64, new_threshold: u8,
     );
     fn get_proposal_threshold_status(
         self: @TContractState, proposal_id: u64, token_contract: ContractAddress,
@@ -74,10 +74,10 @@ pub mod VotingMechanism {
         vote_tallies: Map<u64, VoteTally>, //proposal_id -> VoteTally
         voters_count: Map<u64, u64>, // proposal_id -> total_voters
         voting_periods: Map<u64, u64>, // proposal_id -> end_timestamp
-        voting_thresholds: Map<u64, u256>, // proposal_id -> required threshold
+        voting_thresholds: Map<u64, u8>, // proposal_id -> required threshold
         completed_votings: Map<u64, bool>,
         default_voting_period: u64,
-        default_token_threshold_percentage: u256,
+        default_token_threshold_percentage: u8,
         proposal_system: ContractAddress,
     }
 
@@ -162,11 +162,11 @@ pub mod VotingMechanism {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, proposal_system: ContractAddress, default_voting_period: u64,
+        ref self: ContractState, proposal_system: ContractAddress, default_voting_period: u64, minimum_token_threshold_percentage: u8,
     ) {
         self.proposal_system.write(proposal_system);
         self.default_voting_period.write(default_voting_period);
-        self.default_token_threshold_percentage.write(30); // 30% default token supply must vote for approval
+        self.default_token_threshold_percentage.write(minimum_token_threshold_percentage);
     }
 
     #[abi(embed_v0)]
@@ -477,7 +477,7 @@ pub mod VotingMechanism {
         }
 
         fn set_proposal_token_threshold(
-            ref self: ContractState, proposal_id: u64, new_threshold: u256,
+            ref self: ContractState, proposal_id: u64, new_threshold: u8,
         ) {
             assert(self._verify_proposal_id(proposal_id), 'Invalid proposal ID');
 
@@ -505,10 +505,11 @@ pub mod VotingMechanism {
 
             let token = IERC20Dispatcher { contract_address: token_contract };
             let total_supply = token.total_supply();
-            let token_supply_threshold = (token_threshold_percentage * total_supply) / 100;
+            let token_supply_threshold = (token_threshold_percentage.into() * total_supply) / 100;
 
             // Threshold logic: Majority must vote in favor and must meet the token threshold
-            let threshold_met = tally.total_for > tally.total_against && total_votes >= token_supply_threshold;
+            let threshold_met = tally.total_for > tally.total_against
+                && total_votes >= token_supply_threshold;
 
             (threshold_met, tally.total_for, token_supply_threshold)
         }

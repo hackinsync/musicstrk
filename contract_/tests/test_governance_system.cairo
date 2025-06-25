@@ -53,6 +53,7 @@ fn ZERO_ADDRESS() -> ContractAddress {
 const TOTAL_SHARES: u256 = 100_u256;
 const DEFAULT_VOTING_PERIOD: u64 = 604800_u64; // 7 days in seconds
 const MIN_THRESHOLD_PERCENTAGE: u8 = 3_u8; // 3% minimum threshold
+const MIN_TOKEN_THRESHOLD_PERCENTAGE: u8 = 30_u8; // 30% minimum token threshold
 
 /// Helper function to deploy a music token for testing
 fn deploy_music_token(artist: ContractAddress) -> (ContractAddress, ClassHash) {
@@ -93,11 +94,12 @@ fn deploy_proposal_system(
 
 /// Helper function to deploy the VotingMechanism contract
 fn deploy_voting_mechanism(
-    proposal_system: ContractAddress, default_voting_period: u64,
+    proposal_system: ContractAddress, default_voting_period: u64, minimum_token_threshold_percentage: u8,
 ) -> IVotingMechanismDispatcher {
     let mut calldata = array![];
     calldata.append_serde(proposal_system);
     calldata.append_serde(default_voting_period);
+    calldata.append_serde(minimum_token_threshold_percentage);
 
     let contract_class = declare("VotingMechanism").unwrap().contract_class();
     let (_contract_address, _) = contract_class.deploy(@calldata).unwrap();
@@ -161,7 +163,7 @@ fn setup_governance_environment() -> (
     );
 
     let voting_mechanism = deploy_voting_mechanism(
-        proposal_system.contract_address, DEFAULT_VOTING_PERIOD,
+        proposal_system.contract_address, DEFAULT_VOTING_PERIOD, MIN_TOKEN_THRESHOLD_PERCENTAGE
     );
 
     // Set voting contract in proposal system
@@ -978,7 +980,7 @@ fn test_voting_mechanism_initialization() {
     );
 
     let voting_mechanism = deploy_voting_mechanism(
-        proposal_system.contract_address, DEFAULT_VOTING_PERIOD,
+        proposal_system.contract_address, DEFAULT_VOTING_PERIOD, MIN_TOKEN_THRESHOLD_PERCENTAGE,
     );
 
     // Test initial voting state for non-existent proposal
@@ -1354,7 +1356,7 @@ fn test_proposal_finalization_with_updated_threshold() {
 
     // Update threshold to a lower value to allow for finalization
     cheat_caller_address(voting_mechanism.contract_address, shareholder, CheatSpan::TargetCalls(1));
-    voting_mechanism.set_proposal_token_threshold(proposal_id, 25_u256);
+    voting_mechanism.set_proposal_token_threshold(proposal_id, 25_u8);
 
     // Vote with insufficient tokens to meet default threshold
     cheat_caller_address(voting_mechanism.contract_address, shareholder, CheatSpan::TargetCalls(1));
