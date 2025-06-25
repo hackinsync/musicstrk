@@ -71,15 +71,23 @@ pub mod GovernanceToken {
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
+        GovernanceTokenTransfer: GovernanceTokenTransfer,
         MintEvent: MintEvent,
         BurnEvent: BurnEvent,
-        GovernanceTokenTransfer: GovernanceTokenTransfer,
         #[flat]
         ERC20Event: ERC20Component::Event,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
         UpgradeableEvent: UpgradeableComponent::Event,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct GovernanceTokenTransfer {
+        pub from: ContractAddress,
+        pub to: ContractAddress,
+        pub amount: u256,
+        pub active_proposals_affected: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -92,14 +100,6 @@ pub mod GovernanceToken {
     pub struct BurnEvent {
         pub from: ContractAddress,
         pub amount: u256,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct GovernanceTokenTransfer {
-        pub from: ContractAddress,
-        pub to: ContractAddress,
-        pub amount: u256,
-        pub active_proposals_affected: u64,
     }
 
     #[constructor]
@@ -116,6 +116,8 @@ pub mod GovernanceToken {
         let caller = get_caller_address();
         assert(!caller.is_zero(), errors::CALLER_ZERO_ADDRESS);
         assert(!owner.is_zero(), errors::OWNER_ZERO_ADDRESS);
+        assert(!proposal_system.is_zero(), errors::PROPOSAL_SYSTEM_ZERO_ADDRESS);
+        assert(!voting_mechanism.is_zero(), errors::VOTING_MECHANISM_ZERO_ADDRESS);
 
         // Initialize ERC20 storage
         self.erc20.initializer(name, symbol);
@@ -127,7 +129,8 @@ pub mod GovernanceToken {
         self.decimals.write(decimals);
 
         // Set governance contracts
-        self.set_governance_contracts(proposal_system, voting_mechanism);
+        self.proposal_system.write(proposal_system);
+        self.voting_mechanism.write(voting_mechanism);
     }
 
     #[abi(embed_v0)]
@@ -137,12 +140,9 @@ pub mod GovernanceToken {
             proposal_system: ContractAddress,
             voting_mechanism: ContractAddress,
         ) {
-            // Ensure caller is owner or contract itself
+            // Ensure caller is contract owner
             let caller = get_caller_address();
-            assert(
-                caller == self.ownable.owner() || caller == get_contract_address(),
-                errors::CALLER_NOT_OWNER,
-            );
+            assert(caller == self.ownable.owner(), errors::CALLER_NOT_OWNER);
 
             self.proposal_system.write(proposal_system);
             self.voting_mechanism.write(voting_mechanism);
@@ -158,15 +158,18 @@ pub mod GovernanceToken {
         fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
             self.ownable.assert_only_owner();
             assert(!recipient.is_zero(), errors::RECIPIENT_ZERO_ADDRESS);
-            
+
             self.erc20.mint(recipient, amount);
             self.emit(MintEvent { to: recipient, amount });
         }
 
         fn burn(ref self: ContractState, amount: u256) {
+            self.ownable.assert_only_owner();
+            assert(amount > 0, errors::INSUFFICIENT_BALANCE);
+
             let burner = get_caller_address();
             self.erc20.burn(burner, amount);
-            
+
             self.emit(BurnEvent { from: burner, amount });
         }
 
