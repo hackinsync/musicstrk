@@ -27,8 +27,11 @@ pub trait IProposalSystem<TContractState> {
         limit: u64,
     ) -> Array<Proposal>;
     fn get_proposal_metrics(self: @TContractState, proposal_id: u64) -> ProposalMetrics;
-    fn get_proposals_by_status(self: @TContractState, status: u8) -> Array<Proposal>;
     fn get_proposals_by_proposer(
+        self: @TContractState, proposer: ContractAddress,
+    ) -> Array<Proposal>;
+    fn get_proposals_by_status(self: @TContractState, status: u8) -> Array<Proposal>;
+    fn get_proposals_by_token(
         self: @TContractState, token_contract: ContractAddress,
     ) -> Array<Proposal>;
     fn get_active_proposals(self: @TContractState, token_contract: ContractAddress) -> Array<u64>;
@@ -287,6 +290,24 @@ pub mod ProposalSystem {
             self.proposal_metrics.read(proposal_id)
         }
 
+        fn get_proposals_by_proposer(
+            self: @ContractState, proposer: ContractAddress,
+        ) -> Array<Proposal> {
+            let mut proposals = ArrayTrait::new();
+            let mut current_id = 1_u64;
+            let max_id = self.next_proposal_id.read();
+
+            while current_id < max_id {
+                let proposal = self.proposals.read(current_id);
+                if proposal.proposer == proposer {
+                    proposals.append(proposal);
+                }
+                current_id += 1;
+            };
+
+            proposals
+        }
+
         fn get_proposals_by_status(self: @ContractState, status: u8) -> Array<Proposal> {
             let mut proposals = ArrayTrait::new();
             let mut current_id = 1_u64;
@@ -303,7 +324,7 @@ pub mod ProposalSystem {
             proposals
         }
 
-        fn get_proposals_by_proposer(
+        fn get_proposals_by_token(
             self: @ContractState, token_contract: ContractAddress,
         ) -> Array<Proposal> {
             let mut proposals = ArrayTrait::new();
@@ -440,11 +461,10 @@ pub mod ProposalSystem {
 
         fn set_voting_contract(ref self: ContractState, voting_contract: ContractAddress) {
             // Verify caller is token factory owner
+            let caller = get_caller_address();
             let factory_dispatcher = IMusicShareTokenFactoryDispatcher {
                 contract_address: self.factory_contract.read(),
             };
-            let caller = get_caller_address();
-
             assert(caller == factory_dispatcher.get_owner(), 'Caller not factory deployer');
 
             // Set voting contract address
