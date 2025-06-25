@@ -30,9 +30,7 @@ pub trait IVotingMechanism<TContractState> {
         to: ContractAddress,
         amount: u256,
     );
-    fn set_proposal_token_threshold(
-        ref self: TContractState, proposal_id: u64, new_threshold: u8,
-    );
+    fn set_proposal_token_threshold(ref self: TContractState, proposal_id: u64, new_threshold: u8);
     fn get_proposal_threshold_status(
         self: @TContractState, proposal_id: u64, token_contract: ContractAddress,
     ) -> (bool, u256, u256);
@@ -162,7 +160,10 @@ pub mod VotingMechanism {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, proposal_system: ContractAddress, default_voting_period: u64, minimum_token_threshold_percentage: u8,
+        ref self: ContractState,
+        proposal_system: ContractAddress,
+        default_voting_period: u64,
+        minimum_token_threshold_percentage: u8,
     ) {
         self.proposal_system.write(proposal_system);
         self.default_voting_period.write(default_voting_period);

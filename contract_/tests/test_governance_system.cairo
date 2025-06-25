@@ -94,7 +94,9 @@ fn deploy_proposal_system(
 
 /// Helper function to deploy the VotingMechanism contract
 fn deploy_voting_mechanism(
-    proposal_system: ContractAddress, default_voting_period: u64, minimum_token_threshold_percentage: u8,
+    proposal_system: ContractAddress,
+    default_voting_period: u64,
+    minimum_token_threshold_percentage: u8,
 ) -> IVotingMechanismDispatcher {
     let mut calldata = array![];
     calldata.append_serde(proposal_system);
@@ -163,7 +165,7 @@ fn setup_governance_environment() -> (
     );
 
     let voting_mechanism = deploy_voting_mechanism(
-        proposal_system.contract_address, DEFAULT_VOTING_PERIOD, MIN_TOKEN_THRESHOLD_PERCENTAGE
+        proposal_system.contract_address, DEFAULT_VOTING_PERIOD, MIN_TOKEN_THRESHOLD_PERCENTAGE,
     );
 
     // Set voting contract in proposal system
