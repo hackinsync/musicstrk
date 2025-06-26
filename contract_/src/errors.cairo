@@ -22,4 +22,7 @@ pub mod errors {
     // Validation errors (5000-5999)
     pub const INDEX_OUT_OF_BOUNDS: felt252 = 'Index out of bounds;';
     pub const INVALID_CLASS_HASH: felt252 = 'Class hash cannot be zero';
+
+    // Voting errors (6000-6999)
+    pub const DUPLICATE_VOTE: felt252 = 'Vote already exists';
 }
