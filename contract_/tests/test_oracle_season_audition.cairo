@@ -536,7 +536,7 @@ mod tests {
 
     #[test]
     #[available_gas(2000000)]
-    fn test_comprehensive_season_audition_workflow() {
+    fn test_comprehensive_oracle_workflow() {
         let contract = deploy_contract();
         let oracle = ORACLE1();
 
