@@ -1,450 +1,529 @@
 use starknet::ContractAddress;
-
-#[derive(Drop, Serde, Default, starknet::Store)]
-pub struct Season {
-    pub season_id: felt252,
-    pub genre: felt252,
-    pub name: felt252,
-    pub start_timestamp: felt252,
-    pub end_timestamp: felt252,
-    pub paused: bool,
-}
-
-#[derive(Drop, Serde, Default, starknet::Store)]
-pub struct Audition {
-    pub audition_id: felt252,
-    pub season_id: felt252,
-    pub genre: felt252,
-    pub name: felt252,
-    pub start_timestamp: felt252,
-    pub end_timestamp: felt252,
-    pub paused: bool,
-}
-
-#[derive(Drop, Serde, Default, starknet::Store)]
-pub struct Vote {
-    pub audition_id: felt252,
-    pub performer: felt252,
-    pub voter: felt252,
-    pub weight: felt252,
-}
-
-// Define the contract interface
-#[starknet::interface]
-pub trait ISeasonAndAudition<TContractState> {
-    fn create_season(
-        ref self: TContractState,
-        season_id: felt252,
-        genre: felt252,
-        name: felt252,
-        start_timestamp: felt252,
-        end_timestamp: felt252,
-        paused: bool,
-    );
-    fn read_season(self: @TContractState, season_id: felt252) -> Season;
-    fn update_season(ref self: TContractState, season_id: felt252, season: Season);
-    fn delete_season(ref self: TContractState, season_id: felt252);
-    fn create_audition(
-        ref self: TContractState,
-        audition_id: felt252,
-        season_id: felt252,
-        genre: felt252,
-        name: felt252,
-        start_timestamp: felt252,
-        end_timestamp: felt252,
-        paused: bool,
-    );
-    fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
-    fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
-    fn delete_audition(ref self: TContractState, audition_id: felt252);
-    fn submit_results(
-        ref self: TContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
-    );
-    fn only_oracle(ref self: TContractState);
-    fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
-    fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
-
-    // Vote recording functionality
-    fn record_vote(
-        ref self: TContractState,
-        audition_id: felt252,
-        performer: felt252,
-        voter: felt252,
-        weight: felt252,
-    );
-    fn get_vote(
-        self: @TContractState, audition_id: felt252, performer: felt252, voter: felt252,
-    ) -> Vote;
-
-    // Pause/Resume functionality
-    fn pause_all(ref self: TContractState);
-    fn resume_all(ref self: TContractState);
-    fn is_paused(self: @TContractState) -> bool;
-    fn pause_audition(ref self: TContractState, audition_id: felt252) -> bool;
-    fn resume_audition(ref self: TContractState, audition_id: felt252) -> bool;
-    fn end_audition(ref self: TContractState, audition_id: felt252) -> bool;
-    fn is_audition_paused(self: @TContractState, audition_id: felt252) -> bool;
-    fn is_audition_ended(self: @TContractState, audition_id: felt252) -> bool;
-    fn audition_exists(self: @TContractState, audition_id: felt252) -> bool;
-}
+use openzeppelin::access::ownable::OwnableComponent;
+use starknet::{get_caller_address, get_block_timestamp};
+use starknet::storage::{
+    Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+    StoragePointerWriteAccess,
+};
+use super::lib::{
+    Season, Audition, Vote, PerformanceEvaluation, SessionStatusUpdate, CredentialVerification,
+    ISeasonAndAudition, OracleMetadata, DataSubmissionMetrics,
+};
 
 #[starknet::contract]
-pub mod SeasonAndAudition {
-    use OwnableComponent::InternalTrait;
-    use contract_::errors::errors;
-    use openzeppelin::access::ownable::OwnableComponent;
-    use super::{Audition, ISeasonAndAudition, Season, Vote};
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
-    use starknet::storage::{
-        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
-        StoragePointerReadAccess, StoragePointerWriteAccess,
+mod SeasonAndAudition {
+    use super::{
+        ContractAddress, OwnableComponent, get_caller_address, get_block_timestamp, Map, Season,
+        Audition, Vote, PerformanceEvaluation, SessionStatusUpdate, CredentialVerification,
+        ISeasonAndAudition, OracleMetadata, DataSubmissionMetrics, StorageMapReadAccess,
+        StorageMapWriteAccess, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use crate::errors::errors;
 
-    // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
-    impl OwnableTwoStepImpl = OwnableComponent::OwnableTwoStepImpl<ContractState>;
-    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
-        whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
-        votes: Map<(felt252, felt252, felt252), Vote>,
-        global_paused: bool,
+        votes: Map<(felt252, felt252), Vote>,
+        authorized_oracles: Map<ContractAddress, bool>,
+        oracle_metadata: Map<ContractAddress, OracleMetadata>,
+        oracle_count: u64,
+        performance_evaluations: Map<(felt252, felt252), PerformanceEvaluation>,
+        session_status_updates: Map<felt252, SessionStatusUpdate>,
+        credential_verifications: Map<(ContractAddress, felt252), CredentialVerification>,
+        total_submissions: u64,
+        consensus_threshold: u32,
+        data_lifetime_hours: u64,
+        consensus_success_count: u64,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
     }
 
     #[event]
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub enum Event {
         SeasonCreated: SeasonCreated,
         AuditionCreated: AuditionCreated,
-        AuditionPaused: AuditionPaused,
-        AuditionResumed: AuditionResumed,
-        AuditionEnded: AuditionEnded,
-        ResultsSubmitted: ResultsSubmitted,
-        OracleAdded: OracleAdded,
-        OracleRemoved: OracleRemoved,
-        VoteRecorded: VoteRecorded,
-        PausedAll: PausedAll,
-        ResumedAll: ResumedAll,
+        VoteSubmitted: VoteSubmitted,
+        OracleAuthorized: OracleAuthorized,
+        OracleDeauthorized: OracleDeauthorized,
+        PerformanceEvaluationSubmitted: PerformanceEvaluationSubmitted,
+        SessionStatusUpdated: SessionStatusUpdated,
+        CredentialVerified: CredentialVerified,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
     }
 
-    #[derive(Drop, starknet::Event)]
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
     pub struct SeasonCreated {
+        #[key]
         pub season_id: felt252,
-        pub genre: felt252,
         pub name: felt252,
     }
 
-    #[derive(Drop, starknet::Event)]
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
     pub struct AuditionCreated {
+        #[key]
         pub audition_id: felt252,
         pub season_id: felt252,
-        pub genre: felt252,
-        pub name: felt252,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionPaused {
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+    pub struct VoteSubmitted {
+        #[key]
         pub audition_id: felt252,
+        #[key]
+        pub performer_id: felt252,
+        pub voter: ContractAddress,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionResumed {
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+    pub struct OracleAuthorized {
+        #[key]
+        pub oracle: ContractAddress,
+    }
+
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+    pub struct OracleDeauthorized {
+        #[key]
+        pub oracle: ContractAddress,
+    }
+
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+    pub struct PerformanceEvaluationSubmitted {
+        #[key]
         pub audition_id: felt252,
+        #[key]
+        pub performer_id: felt252,
+        pub oracle: ContractAddress,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionEnded {
-        pub audition_id: felt252,
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+    pub struct SessionStatusUpdated {
+        #[key]
+        pub session_id: felt252,
+        pub oracle: ContractAddress,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct ResultsSubmitted {
-        pub audition_id: felt252,
-        pub top_performers: felt252,
-        pub shares: felt252,
+    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CredentialVerified {
+        #[key]
+        pub user: ContractAddress,
+        pub oracle: ContractAddress,
     }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct OracleAdded {
-        pub oracle_address: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct OracleRemoved {
-        pub oracle_address: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct VoteRecorded {
-        pub audition_id: felt252,
-        pub performer: felt252,
-        pub voter: felt252,
-        pub weight: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct PausedAll {}
-
-    #[derive(Drop, starknet::Event)]
-    pub struct ResumedAll {}
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
         self.ownable.initializer(owner);
-        self.global_paused.write(false);
+        self.consensus_threshold.write(3);
+        self.oracle_count.write(0);
+        self.total_submissions.write(0);
+        self.data_lifetime_hours.write(168);
+        self.consensus_success_count.write(0);
     }
 
     #[abi(embed_v0)]
-    impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
+    impl SeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
         fn create_season(
             ref self: ContractState,
             season_id: felt252,
-            genre: felt252,
             name: felt252,
-            start_timestamp: felt252,
-            end_timestamp: felt252,
-            paused: bool,
+            start_timestamp: u64,
+            end_timestamp: u64,
         ) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            self
-                .seasons
-                .entry(season_id)
-                .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
-
-            self.emit(SeasonCreated { season_id, genre, name });
-        }
-
-        fn read_season(self: @ContractState, season_id: felt252) -> Season {
-            self.seasons.entry(season_id).read()
-        }
-
-        fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            self.seasons.entry(season_id).write(season);
-        }
-
-        fn delete_season(ref self: ContractState, season_id: felt252) {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            let default_season: Season = Default::default();
-
-            self.seasons.entry(season_id).write(default_season);
+            let season = Season { name, start_timestamp, end_timestamp, paused: false };
+            self.seasons.write(season_id, season);
+            self.emit(Event::SeasonCreated(SeasonCreated { season_id, name }));
         }
 
         fn create_audition(
             ref self: ContractState,
             audition_id: felt252,
             season_id: felt252,
-            genre: felt252,
             name: felt252,
-            start_timestamp: felt252,
-            end_timestamp: felt252,
-            paused: bool,
+            genre: felt252,
+            start_timestamp: u64,
+            end_timestamp: u64,
         ) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            self
-                .auditions
-                .entry(audition_id)
-                .write(
-                    Audition {
-                        audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused,
-                    },
-                );
-
-            self.emit(AuditionCreated { audition_id, season_id, genre, name });
+            let audition = Audition {
+                season_id, genre, name, start_timestamp, end_timestamp, paused: false,
+            };
+            self.auditions.write(audition_id, audition);
+            self.emit(Event::AuditionCreated(AuditionCreated { audition_id, season_id }));
         }
 
-        fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
-            self.auditions.entry(audition_id).read()
-        }
-
-        fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-            assert(!self.is_audition_paused(audition_id), 'Cannot update paused audition');
-            assert(!self.is_audition_ended(audition_id), 'Cannot update ended audition');
-            self.auditions.entry(audition_id).write(audition);
-        }
-
-        fn delete_audition(ref self: ContractState, audition_id: felt252) {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-            assert(!self.is_audition_paused(audition_id), 'Cannot delete paused audition');
-            assert(!self.is_audition_ended(audition_id), 'Cannot delete ended audition');
-
-            let default_audition: Audition = Default::default();
-
-            self.auditions.entry(audition_id).write(default_audition);
-        }
-
-        fn submit_results(
-            ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
+        fn submit_vote(
+            ref self: ContractState, audition_id: felt252, performer_id: felt252, score: u32,
         ) {
-            self.only_oracle();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
+            let caller = get_caller_address();
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            assert(score <= 100, errors::INVALID_SCORE);
+            let vote = Vote {
+                audition_id,
+                performer_id,
+                voter_id: caller,
+                score,
+                timestamp: get_block_timestamp(),
+            };
+            self.votes.write((audition_id, performer_id), vote);
             self
                 .emit(
-                    Event::ResultsSubmitted(
-                        ResultsSubmitted { audition_id, top_performers, shares },
+                    Event::VoteSubmitted(
+                        VoteSubmitted { audition_id, performer_id, voter: caller },
                     ),
                 );
         }
 
-        fn only_oracle(ref self: ContractState) {
+        fn authorize_oracle(ref self: ContractState, oracle: ContractAddress) {
+            self.ownable.assert_only_owner();
+            assert(!self.authorized_oracles.read(oracle), errors::ORACLE_ALREADY_AUTHORIZED);
+            self.authorized_oracles.write(oracle, true);
+            let count = self.oracle_count.read();
+            self.oracle_count.write(count + 1);
+            let metadata = OracleMetadata {
+                oracle_address: oracle,
+                reputation_score: 100,
+                total_submissions: 0,
+                accurate_submissions: 0,
+                last_active: get_block_timestamp(),
+                stake_amount: 0,
+                is_active: true,
+                specialization: 'general',
+                registration_timestamp: get_block_timestamp(),
+                slashing_count: 0,
+                weighted_accuracy: 100,
+            };
+            self.oracle_metadata.write(oracle, metadata);
+            self.emit(Event::OracleAuthorized(OracleAuthorized { oracle }));
+        }
+
+        fn deauthorize_oracle(ref self: ContractState, oracle: ContractAddress) {
+            self.ownable.assert_only_owner();
+            assert(self.authorized_oracles.read(oracle), errors::ORACLE_NOT_AUTHORIZED);
+            self.authorized_oracles.write(oracle, false);
+            let count = self.oracle_count.read();
+            if count > 0 {
+                self.oracle_count.write(count - 1);
+            }
+            self.emit(Event::OracleDeauthorized(OracleDeauthorized { oracle }));
+        }
+
+        fn update_oracle_reputation(
+            ref self: ContractState, oracle: ContractAddress, new_reputation: u64,
+        ) {
+            self.ownable.assert_only_owner();
+            let mut metadata = self.oracle_metadata.read(oracle);
+            metadata.reputation_score = new_reputation.try_into().unwrap_or(100);
+            self.oracle_metadata.write(oracle, metadata);
+        }
+
+        fn slash_oracle(ref self: ContractState, oracle: ContractAddress, reason: felt252) {
+            self.ownable.assert_only_owner();
+            let mut metadata = self.oracle_metadata.read(oracle);
+            metadata.slashing_count += 1;
+            if metadata.reputation_score > 10 {
+                metadata.reputation_score -= 10;
+            } else {
+                metadata.reputation_score = 0;
+            }
+            self.oracle_metadata.write(oracle, metadata);
+        }
+
+        fn stake_oracle(ref self: ContractState, amount: u256) {
             let caller = get_caller_address();
-            let is_whitelisted = self.whitelisted_oracles.read(caller);
-            assert(is_whitelisted, 'Not Authorized');
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            let mut metadata = self.oracle_metadata.read(caller);
+            metadata.stake_amount += amount;
+            self.oracle_metadata.write(caller, metadata);
         }
 
-        fn add_oracle(ref self: ContractState, oracle_address: ContractAddress) {
-            self.ownable.assert_only_owner();
-            self.whitelisted_oracles.write(oracle_address, true);
-            self.emit(Event::OracleAdded(OracleAdded { oracle_address }));
+        fn unstake_oracle(ref self: ContractState) {
+            let caller = get_caller_address();
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            let mut metadata = self.oracle_metadata.read(caller);
+            metadata.stake_amount = 0;
+            self.oracle_metadata.write(caller, metadata);
         }
 
-        fn remove_oracle(ref self: ContractState, oracle_address: ContractAddress) {
-            self.ownable.assert_only_owner();
-            self.whitelisted_oracles.write(oracle_address, false);
-            self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
-        }
-
-        fn record_vote(
+        fn submit_performance_evaluation(
             ref self: ContractState,
             audition_id: felt252,
-            performer: felt252,
-            voter: felt252,
-            weight: felt252,
+            performer_id: felt252,
+            score: u32,
+            comments: felt252,
+            criteria_breakdown: felt252,
+            confidence_level: u8,
         ) {
-            self.only_oracle();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            // Check if vote already exists (duplicate vote prevention)
-            let vote_key = (audition_id, performer, voter);
-            let existing_vote = self.votes.entry(vote_key).read();
-
-            // If the vote has a non-zero audition_id, it means a vote already exists
-            assert(existing_vote.audition_id == 0, errors::DUPLICATE_VOTE);
-
-            self.votes.entry(vote_key).write(Vote { audition_id, performer, voter, weight });
-
-            self.emit(Event::VoteRecorded(VoteRecorded { audition_id, performer, voter, weight }));
+            let caller = get_caller_address();
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            assert(score <= 100, errors::INVALID_SCORE);
+            assert(confidence_level <= 100, errors::INVALID_CONFIDENCE);
+            let evaluation = PerformanceEvaluation {
+                oracle: caller,
+                score,
+                comments,
+                timestamp: get_block_timestamp(),
+                submission_hash: 0,
+                criteria_breakdown,
+                confidence_level,
+                technical_score: score,
+                artistic_score: score,
+                stage_presence: score,
+                originality: score,
+                overall_impression: score,
+            };
+            self.performance_evaluations.write((audition_id, performer_id), evaluation);
+            let total = self.total_submissions.read();
+            self.total_submissions.write(total + 1);
+            self
+                .emit(
+                    Event::PerformanceEvaluationSubmitted(
+                        PerformanceEvaluationSubmitted {
+                            audition_id, performer_id, oracle: caller,
+                        },
+                    ),
+                );
         }
 
-        fn get_vote(
-            self: @ContractState, audition_id: felt252, performer: felt252, voter: felt252,
-        ) -> Vote {
+        fn submit_session_status_update(
+            ref self: ContractState,
+            session_id: felt252,
+            status: felt252,
+            metadata: felt252,
+            venue_info: felt252,
+            participant_count: u32,
+        ) {
+            let caller = get_caller_address();
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            let status_update = SessionStatusUpdate {
+                oracle: caller,
+                status,
+                timestamp: get_block_timestamp(),
+                metadata,
+                venue_info,
+                participant_count,
+                location_coordinates: (0, 0),
+                venue_capacity: 1000,
+                session_type: 'audition',
+                environmental_conditions: 'normal',
+            };
+            self.session_status_updates.write(session_id, status_update);
+            self
+                .emit(
+                    Event::SessionStatusUpdated(
+                        SessionStatusUpdated { session_id, oracle: caller },
+                    ),
+                );
+        }
+
+        fn submit_credential_verification(
+            ref self: ContractState,
+            user: ContractAddress,
+            provider: felt252,
+            verified: bool,
+            verification_level: u8,
+            credential_hash: felt252,
+            expiry_timestamp: u64,
+        ) {
+            let caller = get_caller_address();
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            assert(verification_level <= 5, errors::INVALID_VERIFICATION_LEVEL);
+            let verification = CredentialVerification {
+                oracle: caller,
+                provider,
+                verified,
+                timestamp: get_block_timestamp(),
+                verification_level,
+                credential_hash,
+                expiry_timestamp,
+                credential_type: 'identity',
+                issuer_signature: 0,
+                verification_method: 'digital',
+            };
+            self.credential_verifications.write((user, provider), verification);
+            self.emit(Event::CredentialVerified(CredentialVerified { user, oracle: caller }));
+        }
+
+        fn batch_submit_performance_evaluations(
+            ref self: ContractState,
+            audition_ids: Array<felt252>,
+            performer_ids: Array<felt252>,
+            scores: Array<u32>,
+            comments: Array<felt252>,
+            criteria_breakdowns: Array<felt252>,
+            confidence_levels: Array<u8>,
+        ) {
+            let caller = get_caller_address();
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            assert(audition_ids.len() == performer_ids.len(), errors::ARRAYS_LENGTH_MISMATCH);
+            let mut i = 0;
+            loop {
+                if i >= audition_ids.len() {
+                    break;
+                }
+                let evaluation = PerformanceEvaluation {
+                    oracle: caller,
+                    score: *scores.at(i),
+                    comments: *comments.at(i),
+                    timestamp: get_block_timestamp(),
+                    submission_hash: 0,
+                    criteria_breakdown: *criteria_breakdowns.at(i),
+                    confidence_level: *confidence_levels.at(i),
+                    technical_score: *scores.at(i),
+                    artistic_score: *scores.at(i),
+                    stage_presence: *scores.at(i),
+                    originality: *scores.at(i),
+                    overall_impression: *scores.at(i),
+                };
+                self
+                    .performance_evaluations
+                    .write((*audition_ids.at(i), *performer_ids.at(i)), evaluation);
+                i += 1;
+            };
+        }
+
+        fn batch_submit_session_updates(
+            ref self: ContractState,
+            session_ids: Array<felt252>,
+            statuses: Array<felt252>,
+            metadata: Array<felt252>,
+            participant_counts: Array<u32>,
+        ) {
+            let caller = get_caller_address();
+            assert(self.authorized_oracles.read(caller), errors::ORACLE_NOT_AUTHORIZED);
+            assert(session_ids.len() == statuses.len(), errors::ARRAYS_LENGTH_MISMATCH);
+            let mut i = 0;
+            loop {
+                if i >= session_ids.len() {
+                    break;
+                }
+                let status_update = SessionStatusUpdate {
+                    oracle: caller,
+                    status: *statuses.at(i),
+                    timestamp: get_block_timestamp(),
+                    metadata: *metadata.at(i),
+                    venue_info: 0,
+                    participant_count: *participant_counts.at(i),
+                    location_coordinates: (0, 0),
+                    venue_capacity: 1000,
+                    session_type: 'audition',
+                    environmental_conditions: 'normal',
+                };
+                self.session_status_updates.write(*session_ids.at(i), status_update);
+                i += 1;
+            };
+        }
+
+        fn get_performance_evaluation(
+            self: @ContractState, audition_id: felt252, performer_id: felt252,
+        ) -> PerformanceEvaluation {
+            self.performance_evaluations.read((audition_id, performer_id))
+        }
+
+        fn get_session_status_update(
+            self: @ContractState, session_id: felt252,
+        ) -> SessionStatusUpdate {
+            self.session_status_updates.read(session_id)
+        }
+
+        fn get_credential_verification(
+            self: @ContractState, user: ContractAddress, provider: felt252,
+        ) -> CredentialVerification {
+            self.credential_verifications.read((user, provider))
+        }
+
+        fn get_consensus_evaluation(
+            self: @ContractState, audition_id: felt252, performer_id: felt252,
+        ) -> PerformanceEvaluation {
+            self.performance_evaluations.read((audition_id, performer_id))
+        }
+
+        fn resolve_data_conflict(
+            ref self: ContractState,
+            data_type: felt252,
+            identifier: felt252,
+            resolution_method: felt252,
+        ) {
             self.ownable.assert_only_owner();
-
-            self.votes.entry((audition_id, performer, voter)).read()
+            let success = self.consensus_success_count.read();
+            self.consensus_success_count.write(success + 1);
         }
 
-        fn pause_all(ref self: ContractState) {
-            self.ownable.assert_only_owner();
-            self.global_paused.write(true);
-            self.emit(Event::PausedAll(PausedAll {}));
+        fn is_oracle_authorized(self: @ContractState, oracle: ContractAddress) -> bool {
+            self.authorized_oracles.read(oracle)
         }
 
-        fn resume_all(ref self: ContractState) {
-            self.ownable.assert_only_owner();
-            self.global_paused.write(false);
-            self.emit(Event::ResumedAll(ResumedAll {}));
+        fn get_oracle_reputation(self: @ContractState, oracle: ContractAddress) -> u64 {
+            let metadata = self.oracle_metadata.read(oracle);
+            metadata.reputation_score.into()
         }
 
-        fn is_paused(self: @ContractState) -> bool {
-            self.global_paused.read()
+        fn get_oracle_count(self: @ContractState) -> u64 {
+            self.oracle_count.read()
         }
 
-        fn pause_audition(ref self: ContractState, audition_id: felt252) -> bool {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
-            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
-            assert(!self.is_audition_paused(audition_id), 'Audition is already paused');
-
-            let mut audition = self.auditions.entry(audition_id).read();
-            audition.paused = true;
-            self.auditions.entry(audition_id).write(audition);
-
-            self.emit(Event::AuditionPaused(AuditionPaused { audition_id }));
-            true
+        fn get_total_submissions(self: @ContractState) -> u64 {
+            self.total_submissions.read()
         }
 
-        fn resume_audition(ref self: ContractState, audition_id: felt252) -> bool {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
-            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
-            assert(self.is_audition_paused(audition_id), 'Audition is not paused');
-
-            let mut audition = self.auditions.entry(audition_id).read();
-            audition.paused = false;
-            self.auditions.entry(audition_id).write(audition);
-
-            self.emit(Event::AuditionResumed(AuditionResumed { audition_id }));
-            true
+        fn get_consensus_success_rate(self: @ContractState) -> (u64, u64) {
+            let total = self.total_submissions.read();
+            let success = self.consensus_success_count.read();
+            (success, total)
         }
 
-        fn end_audition(ref self: ContractState, audition_id: felt252) -> bool {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
-            assert(!self.is_audition_ended(audition_id), 'Audition already ended');
-
-            let mut audition = self.auditions.entry(audition_id).read();
-            let current_time = get_block_timestamp();
-
-            // Set end_timestamp to current time to end audition immediately
-            audition.end_timestamp = current_time.into();
-            self.auditions.entry(audition_id).write(audition);
-
-            self.emit(Event::AuditionEnded(AuditionEnded { audition_id }));
-            true
-        }
-
-
-        fn is_audition_paused(self: @ContractState, audition_id: felt252) -> bool {
-            let audition = self.auditions.entry(audition_id).read();
-            audition.paused
-        }
-
-        fn is_audition_ended(self: @ContractState, audition_id: felt252) -> bool {
-            let audition = self.auditions.entry(audition_id).read();
-            let current_time = get_block_timestamp();
-
-            if audition.end_timestamp != 0 {
-                let end_time_u64: u64 = audition.end_timestamp.try_into().unwrap();
-                let current_time_u64: u64 = current_time;
-
-                current_time_u64 >= end_time_u64
-            } else {
-                false
+        fn get_data_metrics(self: @ContractState) -> DataSubmissionMetrics {
+            DataSubmissionMetrics {
+                total_submissions: self.total_submissions.read(),
+                consensus_reached: self.consensus_success_count.read(),
+                conflicts_resolved: 0,
+                data_expired: 0,
+                average_consensus_time: 0,
+                successful_validations: self.consensus_success_count.read(),
+                failed_validations: 0,
+                total_gas_used: 0,
+                average_submission_size: 0,
             }
         }
 
-        fn audition_exists(self: @ContractState, audition_id: felt252) -> bool {
-            let audition = self.auditions.entry(audition_id).read();
-            audition.audition_id != 0
+        fn update_consensus_threshold(ref self: ContractState, new_threshold: u32) {
+            self.ownable.assert_only_owner();
+            self.consensus_threshold.write(new_threshold);
+        }
+
+        fn update_data_lifetime(ref self: ContractState, new_lifetime_hours: u64) {
+            self.ownable.assert_only_owner();
+            self.data_lifetime_hours.write(new_lifetime_hours);
+        }
+
+        fn cleanup_expired_data(ref self: ContractState, data_type: felt252) {
+            self.ownable.assert_only_owner();
+        }
+
+        fn extend_data_expiry(
+            ref self: ContractState, data_type: felt252, identifier: felt252, extension_hours: u64,
+        ) {
+            self.ownable.assert_only_owner();
+        }
+
+        fn get_season(self: @ContractState, season_id: felt252) -> Season {
+            self.seasons.read(season_id)
+        }
+
+        fn get_audition(self: @ContractState, audition_id: felt252) -> Audition {
+            self.auditions.read(audition_id)
+        }
+
+        fn get_vote(self: @ContractState, audition_id: felt252, performer_id: felt252) -> Vote {
+            self.votes.read((audition_id, performer_id))
         }
     }
 }
