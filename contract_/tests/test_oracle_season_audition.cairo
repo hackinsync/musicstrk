@@ -469,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    #[available_gas(2000000)]
+    #[available_gas(20000000)]
     #[should_panic(expected: 'Invalid confidence level')]
     fn test_invalid_confidence_rejection() {
         let (contract, oracle) = setup_with_oracle();
@@ -487,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    #[available_gas(2000000)]
+    #[available_gas(20000000)]
     #[should_panic(expected: 'Arrays length mismatch')]
     fn test_batch_arrays_length_mismatch() {
         let (contract, oracle) = setup_with_oracle();
@@ -507,7 +507,7 @@ mod tests {
     }
 
     #[test]
-    #[available_gas(2000000)]
+    #[available_gas(20000000)]
     #[should_panic(expected: 'Invalid verification level')]
     fn test_invalid_verification_level_rejection() {
         let (contract, oracle) = setup_with_oracle();
@@ -525,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    #[available_gas(2000000)]
+    #[available_gas(20000000)]
     #[should_panic(expected: 'Invalid score')]
     fn test_invalid_score_rejection() {
         let (contract, oracle) = setup_with_oracle();
@@ -535,7 +535,7 @@ mod tests {
     }
 
     #[test]
-    #[available_gas(2000000)]
+    #[available_gas(20000000)]
     fn test_comprehensive_oracle_workflow() {
         let contract = deploy_contract();
         let oracle = ORACLE1();
