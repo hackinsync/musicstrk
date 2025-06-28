@@ -7,9 +7,7 @@ mod tests {
         stop_cheat_caller_address,
     };
 
-    use contract_::audition::lib::{
-        ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
-    };
+    use contract_::audition::lib::{ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait};
 
     // Test constants
     fn OWNER() -> ContractAddress {
@@ -69,7 +67,7 @@ mod tests {
 
         // Initially oracle should not be authorized
         assert!(
-            !contract.is_oracle_authorized(oracle), "Oracle should not be initially authorized"
+            !contract.is_oracle_authorized(oracle), "Oracle should not be initially authorized",
         );
 
         // Authorize oracle as owner
@@ -106,14 +104,15 @@ mod tests {
 
         // Try to submit performance evaluation without authorization
         start_cheat_caller_address(contract.contract_address, unauthorized_oracle);
-        contract.submit_performance_evaluation(
-            1, // audition_id
-            1, // performer_id
-            85, // score
-            'Great performance', // comments
-            'criteria_breakdown', // criteria_breakdown
-            90, // confidence_level
-        );
+        contract
+            .submit_performance_evaluation(
+                1, // audition_id
+                1, // performer_id
+                85, // score
+                'Great performance', // comments
+                'criteria_breakdown', // criteria_breakdown
+                90 // confidence_level
+            );
     }
 
     #[test]
@@ -152,7 +151,8 @@ mod tests {
 
         // Create audition as owner
         start_cheat_caller_address(contract.contract_address, OWNER());
-        contract.create_audition(audition_id, season_id, audition_name, genre, start_time, end_time);
+        contract
+            .create_audition(audition_id, season_id, audition_name, genre, start_time, end_time);
 
         // Verify audition was created
         let audition = contract.get_audition(audition_id);
@@ -201,9 +201,10 @@ mod tests {
 
         // Submit performance evaluation as authorized oracle
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.submit_performance_evaluation(
-            audition_id, performer_id, score, comments, criteria, confidence,
-        );
+        contract
+            .submit_performance_evaluation(
+                audition_id, performer_id, score, comments, criteria, confidence,
+            );
 
         // Verify evaluation was stored
         let evaluation = contract.get_performance_evaluation(audition_id, performer_id);
@@ -227,9 +228,10 @@ mod tests {
 
         // Submit session status update as authorized oracle
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.submit_session_status_update(
-            session_id, status, metadata, venue_info, participant_count,
-        );
+        contract
+            .submit_session_status_update(
+                session_id, status, metadata, venue_info, participant_count,
+            );
 
         // Verify session update was stored
         let session_update = contract.get_session_status_update(session_id);
@@ -237,7 +239,7 @@ mod tests {
         assert!(session_update.status == status, "Status should match");
         assert!(session_update.metadata == metadata, "Metadata should match");
         assert!(
-            session_update.participant_count == participant_count, "Participant count should match"
+            session_update.participant_count == participant_count, "Participant count should match",
         );
 
         stop_cheat_caller_address(contract.contract_address);
@@ -256,9 +258,10 @@ mod tests {
 
         // Submit credential verification as authorized oracle
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.submit_credential_verification(
-            user, provider, verified, verification_level, credential_hash, expiry_timestamp,
-        );
+        contract
+            .submit_credential_verification(
+                user, provider, verified, verification_level, credential_hash, expiry_timestamp,
+            );
 
         // Verify credential verification was stored
         let verification = contract.get_credential_verification(user, provider);
@@ -267,7 +270,7 @@ mod tests {
         assert!(verification.verified == verified, "Verified status should match");
         assert!(
             verification.verification_level == verification_level,
-            "Verification level should match"
+            "Verification level should match",
         );
 
         stop_cheat_caller_address(contract.contract_address);
@@ -286,14 +289,15 @@ mod tests {
 
         // Submit batch performance evaluations as authorized oracle
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.batch_submit_performance_evaluations(
-            audition_ids,
-            performer_ids,
-            scores,
-            comments,
-            criteria_breakdowns,
-            confidence_levels,
-        );
+        contract
+            .batch_submit_performance_evaluations(
+                audition_ids,
+                performer_ids,
+                scores,
+                comments,
+                criteria_breakdowns,
+                confidence_levels,
+            );
 
         // Verify first evaluation was stored
         let evaluation = contract.get_performance_evaluation(1, 1);
@@ -410,15 +414,18 @@ mod tests {
 
         // Submit evaluations from different oracles
         start_cheat_caller_address(contract.contract_address, oracle1);
-        contract.submit_performance_evaluation(audition_id, performer_id, 85, 'good', 'criteria1', 90);
+        contract
+            .submit_performance_evaluation(audition_id, performer_id, 85, 'good', 'criteria1', 90);
         stop_cheat_caller_address(contract.contract_address);
 
         start_cheat_caller_address(contract.contract_address, oracle2);
-        contract.submit_performance_evaluation(audition_id, performer_id, 87, 'good', 'criteria2', 85);
+        contract
+            .submit_performance_evaluation(audition_id, performer_id, 87, 'good', 'criteria2', 85);
         stop_cheat_caller_address(contract.contract_address);
 
         start_cheat_caller_address(contract.contract_address, oracle3);
-        contract.submit_performance_evaluation(audition_id, performer_id, 86, 'good', 'criteria3', 88);
+        contract
+            .submit_performance_evaluation(audition_id, performer_id, 86, 'good', 'criteria3', 88);
         stop_cheat_caller_address(contract.contract_address);
 
         // Get consensus evaluation (last submission overwrites)
@@ -462,70 +469,73 @@ mod tests {
     }
 
     #[test]
+    #[available_gas(2000000)]
     #[should_panic(expected: 'Invalid confidence level')]
     fn test_invalid_confidence_rejection() {
         let (contract, oracle) = setup_with_oracle();
-        
+
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.submit_performance_evaluation(
-            1,
-            1,
-            85,
-            'Great performance',
-            'criteria_breakdown',
-            101  // Invalid confidence level > 100
-        );
+        contract
+            .submit_performance_evaluation(
+                1,
+                1,
+                85,
+                'Great performance',
+                'criteria_breakdown',
+                101 // Invalid confidence level > 100
+            );
     }
 
     #[test]
+    #[available_gas(2000000)]
     #[should_panic(expected: 'Arrays length mismatch')]
     fn test_batch_arrays_length_mismatch() {
         let (contract, oracle) = setup_with_oracle();
-        
+
         let audition_ids = array![1, 2];
-        let performer_ids = array![1];  // Mismatched length
+        let performer_ids = array![1]; // Mismatched length
         let scores = array![85];
         let comments = array!['good'];
         let criteria = array!['criteria'];
         let confidence = array![90];
-        
+
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.batch_submit_performance_evaluations(
-            audition_ids,
-            performer_ids,
-            scores,
-            comments,
-            criteria,
-            confidence
-        );
+        contract
+            .batch_submit_performance_evaluations(
+                audition_ids, performer_ids, scores, comments, criteria, confidence,
+            );
     }
 
     #[test]
+    #[available_gas(2000000)]
     #[should_panic(expected: 'Invalid verification level')]
     fn test_invalid_verification_level_rejection() {
         let (contract, oracle) = setup_with_oracle();
-        
+
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.submit_credential_verification(
-            USER(),
-            'PROVIDER',
-            true,
-            6,  // Invalid verification level (assuming valid range is 1-5)
-            'hash',
-            1700000000
-        );
+        contract
+            .submit_credential_verification(
+                USER(),
+                'PROVIDER',
+                true,
+                6, // Invalid verification level (assuming valid range is 1-5)
+                'hash',
+                1700000000,
+            );
     }
 
     #[test]
+    #[available_gas(2000000)]
     #[should_panic(expected: 'Invalid score')]
     fn test_invalid_score_rejection() {
         let (contract, oracle) = setup_with_oracle();
-        
+
         start_cheat_caller_address(contract.contract_address, oracle);
-        contract.submit_vote(1, 1, 255);  // Invalid score > 100 but within u32 range
+        contract.submit_vote(1, 1, 255); // Invalid score > 100 but within u32 range
     }
 
     #[test]
+    #[available_gas(2000000)]
     fn test_comprehensive_season_audition_workflow() {
         let contract = deploy_contract();
         let oracle = ORACLE1();
@@ -539,19 +549,26 @@ mod tests {
 
         // Step 2: Oracle submits comprehensive data
         start_cheat_caller_address(contract.contract_address, oracle);
-        
+
         // Submit vote
         contract.submit_vote(1, 1, 88);
-        
+
         // Submit performance evaluation
-        contract.submit_performance_evaluation(1, 1, 88, 'excellent_vocals', 'strong_performance', 95);
-        
+        contract
+            .submit_performance_evaluation(1, 1, 88, 'excellent_vocals', 'strong_performance', 95);
+
         // Submit session status
-        contract.submit_session_status_update(1, 'ACTIVE', 'session_running_smoothly', 'main_venue', 45);
-        
+        contract
+            .submit_session_status_update(
+                1, 'ACTIVE', 'session_running_smoothly', 'main_venue', 45,
+            );
+
         // Submit credential verification
-        contract.submit_credential_verification(USER(), 'ID_VERIFY', true, 3, 'verified_hash', 1700000000);
-        
+        contract
+            .submit_credential_verification(
+                USER(), 'ID_VERIFY', true, 3, 'verified_hash', 1700000000,
+            );
+
         stop_cheat_caller_address(contract.contract_address);
 
         // Step 3: Verify all data was recorded correctly
@@ -577,4 +594,4 @@ mod tests {
         assert!(contract.get_oracle_count() == 1, "Should have 1 oracle");
         assert!(contract.get_total_submissions() > 0, "Should have submissions");
     }
-} 
+}
