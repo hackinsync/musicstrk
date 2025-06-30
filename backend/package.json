@@ -5,9 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon --ext ts --exec tsx src/index.ts",
+    "dev": "node api.js && nodemon --ext ts --exec tsx src/index.ts",
     "prod": "tsc && node dist/index.js",
-    "build": "tsc",
+    "build": "node api.js && tsc",
     "type-check": "tsc --noEmit",
     "test": "jest"
   },

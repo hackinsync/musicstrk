@@ -5,6 +5,7 @@ pub mod errors;
 pub mod token_factory;
 pub mod audition {
     pub mod season_and_audition;
+    pub mod AccessControl;
 }
 pub mod governance {
     pub mod ProposalSystem;
