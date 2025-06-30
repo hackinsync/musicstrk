@@ -5,6 +5,7 @@ pub mod errors {
     pub const CALLER_UNAUTHORIZED: felt252 = 'Caller is not authorized';
     pub const CALLER_ZERO_ADDRESS: felt252 = 'Caller is address zero';
     pub const OWNER_ZERO_ADDRESS: felt252 = 'Owner cannot be address zero';
+    pub const ACCOUNT_NOT_AUTHORIZED: felt252 = 'Account is not authorized';
 
     // Address validation errors (2000-2999)
     pub const INVALID_SENDER: felt252 = 'Invalid spender';
@@ -25,4 +26,6 @@ pub mod errors {
 
     // Voting errors (6000-6999)
     pub const DUPLICATE_VOTE: felt252 = 'Vote already exists';
+
+    pub const ARRAY_LENGTH_MISMATCH: felt252 = 'Array length mismatch';
 }
