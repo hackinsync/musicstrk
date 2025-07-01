@@ -72,6 +72,12 @@ pub trait ISeasonAndAudition<TContractState> {
         amount: u256,
     );
 
+    fn distribute_prize(
+        ref self: TContractState,
+        audition_id: felt252,
+        winners: [ContractAddress; 3],
+        shares: [u256; 3],
+    );
 
     // Vote recording functionality
     fn record_vote(
@@ -99,6 +105,7 @@ pub trait ISeasonAndAudition<TContractState> {
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
+    use core::num::traits::Zero;
     use starknet::get_contract_address;
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
@@ -360,6 +367,9 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
 
+            // assert amount is valid
+            assert(amount > 0, 'Amount must be more than zero');
+
             // Process the payment
             self._process_payment(amount, token_address);
 
@@ -367,6 +377,43 @@ pub mod SeasonAndAudition {
             self.audition_prices.write(audition_id, (token_address, amount));
 
             self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
+        }
+
+
+        fn distribute_prize(
+            ref self: ContractState,
+            audition_id: felt252,
+            winners: [ContractAddress; 3],
+            shares: [u256; 3],
+        ) {
+            self.assert_distribue(audition_id, winners, shares);
+
+            let (token_contract_address, price_pool): (ContractAddress, u256) = self
+                .audition_prices
+                .read(audition_id);
+
+            let winners_span = winners.span();
+            let shares_span = shares.span();
+
+            let mut distributed_amounts = ArrayTrait::new();
+
+            let mut i = 0;
+            for share in shares_span {
+                let amount = price_pool * *share / 100;
+                distributed_amounts.append(amount);
+                i += 1;
+            };
+
+            let mut count = 0;
+            for elements in winners_span {
+                let winner_contract_address = *elements;
+                let amount = *distributed_amounts.at(count);
+
+                // perform the transfer
+                self._send_tokens(winner_contract_address, amount, token_contract_address);
+
+                count += 1;
+            }
         }
 
 
@@ -540,6 +587,69 @@ pub mod SeasonAndAudition {
             let token = IERC20Dispatcher { contract_address: token_address };
             let balance = token.balance_of(caller);
             assert(balance >= amount, errors::INSUFFICIENT_BALANCE);
+        }
+
+        fn _send_tokens(
+            ref self: ContractState,
+            recepient: ContractAddress,
+            amount: u256,
+            token_address: ContractAddress,
+        ) {
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let contract = get_contract_address();
+            self._check_token_balance(contract, amount, token_address);
+            token.transfer(recepient, amount);
+        }
+
+        /// @notice Asserts the validity of prize distribution for a given audition.
+        /// @dev This function checks multiple conditions before allowing prize distribution:
+        ///      - Only the contract owner can call this function.
+        ///      - The contract must not be globally paused.
+        ///      - The specified audition must exist and must have ended.
+        ///      - The audition must have a valid prize pool (non-zero token contract address).
+        ///      - The `winners` array must not contain any zero addresses (null contract address).
+        ///      - The sum of all `shares` must equal 100.
+        /// @param self The contract state reference.
+        /// @param audition_id The unique identifier of the audition to distribute prizes for.
+        /// @param winners An array of 3 contract addresses representing the winners.
+        /// @param shares An array of 3 u256 values representing the share percentages for each
+        /// winner.
+        /// @custom:reverts If called by anyone other than the owner.
+        /// @custom:reverts If the contract is paused.
+        /// @custom:reverts If the audition does not exist or has not ended.
+        /// @custom:reverts If there is no prize for the audition.
+        /// @custom:reverts If any winner address is zero.
+        /// @custom:reverts If the total shares do not add up to 100.
+        fn assert_distribue(
+            ref self: ContractState,
+            audition_id: felt252,
+            winners: [ContractAddress; 3],
+            shares: [u256; 3],
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.is_audition_ended(audition_id), 'Audition must end first');
+            let (token_contract_address, _): (ContractAddress, u256) = self
+                .audition_prices
+                .read(audition_id);
+
+            assert(!token_contract_address.is_zero(), 'No prize for this audition');
+
+            let winners_span = winners.span();
+            let shares_span = shares.span();
+
+            let mut total: u256 = 0;
+
+            for shares in shares_span {
+                total = total + *shares;
+            };
+
+            for winners in winners_span {
+                assert(winners.is_zero(), 'null contract address');
+            };
+
+            assert(total == 100, 'total does not add up');
         }
     }
 }
