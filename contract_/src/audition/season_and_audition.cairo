@@ -79,6 +79,8 @@ pub trait ISeasonAndAudition<TContractState> {
         shares: [u256; 3],
     );
 
+    fn get_audition_prices(self: @TContractState, audition_id: felt252) -> (ContractAddress, u256);
+
     // Vote recording functionality
     fn record_vote(
         ref self: TContractState,
@@ -158,7 +160,7 @@ pub mod SeasonAndAudition {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         PriceDeposited: PriceDeposited,
-        PriceDistributed: PriceDistributed
+        PriceDistributed: PriceDistributed,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -371,8 +373,10 @@ pub mod SeasonAndAudition {
         /// @notice Deposits the prize for a specific audition.
         /// @dev Only the contract owner can call this function. The contract must not be paused,
         ///      the audition must exist and not be ended, and the amount must be greater than zero.
-        ///      The function processes the payment, records the prize, and emits a `PriceDeposited` event.
-        /// @param audition_id The unique identifier of the audition for which the prize is being deposited.
+        ///      The function processes the payment, records the prize, and emits a `PriceDeposited`
+        ///      event.
+        /// @param audition_id The unique identifier of the audition for which the prize is being
+        /// deposited.
         /// @param token_address The address of the token to be used as the prize.
         /// @param amount The amount of tokens to be deposited as the prize.
         fn deposit_prize(
@@ -386,20 +390,43 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
             assert(amount > 0, 'Amount must be more than zero');
+            let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
+            assert(
+                existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
+            );
             self._process_payment(amount, token_address);
             self.audition_prices.write(audition_id, (token_address, amount));
             self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
         }
 
+        /// @notice Retrieves the prize information for a specific audition.
+        /// @dev Returns the token contract address and the amount of tokens deposited as the prize
+        /// for the given audition.
+        /// @param self The contract state reference.
+        /// @param audition_id The unique identifier of the audition whose prize information is
+        /// being queried.
+        /// @return token_address The address of the token used as the prize.
+        /// @return amount The amount of tokens deposited as the prize.
+        fn get_audition_prices(
+            self: @ContractState, audition_id: felt252,
+        ) -> (ContractAddress, u256) {
+            self.audition_prices.read(audition_id)
+        }
 
-        /// @notice Distributes the prize pool among the specified winners based on their respective shares.
-        /// @dev This function reads the prize pool for the given audition, calculates each winner's share,
+
+        /// @notice Distributes the prize pool among the specified winners based on their respective
+        /// shares.
+        /// @dev This function reads the prize pool for the given audition, calculates each winner's
+        /// share,
         ///      and sends the corresponding token amount to each winner.
         /// @param self The contract state reference.
-        /// @param audition_id The unique identifier of the audition whose prize is to be distributed.
+        /// @param audition_id The unique identifier of the audition whose prize is to be
+        /// distributed.
         /// @param winners An array of 3 contract addresses representing the winners.
-        /// @param shares An array of 3 u256 values representing the percentage shares (out of 100) for each winner.
-        /// @custom:reverts If the distribution conditions are not met, as checked by `assert_distribue`.
+        /// @param shares An array of 3 u256 values representing the percentage shares (out of 100)
+        /// for each winner.
+        /// @custom:reverts If the distribution conditions are not met, as checked by
+        /// `assert_distribue`.
         fn distribute_prize(
             ref self: ContractState,
             audition_id: felt252,
@@ -425,14 +452,19 @@ pub mod SeasonAndAudition {
                 let amount = *distributed_amounts.at(count);
                 self._send_tokens(winner_contract_address, amount, token_contract_address);
                 count += 1;
-            }
-            self.emit(Event::PriceDistributed(PriceDistributed {
-                audition_id,
-                winners,
-                shares,
-                token_address: token_contract_address,
-                amounts: distributed_amounts.span(),
-            }));
+            };
+            self
+                .emit(
+                    Event::PriceDistributed(
+                        PriceDistributed {
+                            audition_id,
+                            winners,
+                            shares,
+                            token_address: token_contract_address,
+                            amounts: distributed_amounts.span(),
+                        },
+                    ),
+                );
         }
 
 

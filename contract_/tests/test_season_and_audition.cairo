@@ -4,6 +4,7 @@ use contract_::audition::season_and_audition::{
     SeasonAndAudition,
 };
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
+use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use starknet::{ContractAddress, get_block_timestamp};
 
 use snforge_std::{
@@ -11,6 +12,7 @@ use snforge_std::{
     start_cheat_caller_address, stop_cheat_caller_address, spy_events, start_cheat_block_timestamp,
     stop_cheat_block_timestamp,
 };
+
 
 // Test account -> Owner
 fn OWNER() -> ContractAddress {
@@ -62,6 +64,14 @@ fn create_default_season(season_id: felt252) -> Season {
         end_timestamp: 1675123200,
         paused: false,
     }
+}
+
+fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
+    let erc20_class = declare("mock_erc20").unwrap().contract_class();
+    let mut calldata = array![OWNER().into(), OWNER().into(), 6];
+    let (erc20_address, _) = erc20_class.deploy(@calldata).unwrap();
+
+    IERC20Dispatcher { contract_address: erc20_address }
 }
 
 // Helper function to create a default Audition struct
@@ -287,6 +297,94 @@ fn test_create_audition() {
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
 }
+
+
+#[test]
+fn test_audition_deposit_price() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::PriceDeposited(
+                        SeasonAndAudition::PriceDeposited {
+                            audition_id: audition_id,
+                            token_address: mock_token_dispatcher.contract_address,
+                            amount: 10,
+                        },
+                    ),
+                ),
+            ],
+        );
+
+    let (token, price): (ContractAddress, u256) = contract.get_audition_prices(audition_id);
+    assert(token == mock_token_dispatcher.contract_address, 'Token address mismatch');
+    assert(price == 10, 'Prize amount mismatch');
+}
+
+
+#[test]
+fn test_audition_deposit_price_should_panic_if_called_by_non_owner() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+}
+
 
 #[test]
 fn test_update_audition() {
