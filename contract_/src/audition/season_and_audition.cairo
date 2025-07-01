@@ -356,6 +356,13 @@ pub mod SeasonAndAudition {
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
         }
 
+        /// @notice Deposits the prize for a specific audition.
+        /// @dev Only the contract owner can call this function. The contract must not be paused,
+        ///      the audition must exist and not be ended, and the amount must be greater than zero.
+        ///      The function processes the payment, records the prize, and emits a `PriceDeposited` event.
+        /// @param audition_id The unique identifier of the audition for which the prize is being deposited.
+        /// @param token_address The address of the token to be used as the prize.
+        /// @param amount The amount of tokens to be deposited as the prize.
         fn deposit_prize(
             ref self: ContractState,
             audition_id: felt252,
@@ -366,20 +373,21 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
-
-            // assert amount is valid
             assert(amount > 0, 'Amount must be more than zero');
-
-            // Process the payment
             self._process_payment(amount, token_address);
-
-            // Store the audition price
             self.audition_prices.write(audition_id, (token_address, amount));
-
             self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
         }
 
 
+        /// @notice Distributes the prize pool among the specified winners based on their respective shares.
+        /// @dev This function reads the prize pool for the given audition, calculates each winner's share,
+        ///      and sends the corresponding token amount to each winner.
+        /// @param self The contract state reference.
+        /// @param audition_id The unique identifier of the audition whose prize is to be distributed.
+        /// @param winners An array of 3 contract addresses representing the winners.
+        /// @param shares An array of 3 u256 values representing the percentage shares (out of 100) for each winner.
+        /// @custom:reverts If the distribution conditions are not met, as checked by `assert_distribue`.
         fn distribute_prize(
             ref self: ContractState,
             audition_id: felt252,
@@ -387,31 +395,23 @@ pub mod SeasonAndAudition {
             shares: [u256; 3],
         ) {
             self.assert_distribue(audition_id, winners, shares);
-
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
-
             let winners_span = winners.span();
             let shares_span = shares.span();
-
             let mut distributed_amounts = ArrayTrait::new();
-
             let mut i = 0;
             for share in shares_span {
                 let amount = price_pool * *share / 100;
                 distributed_amounts.append(amount);
                 i += 1;
             };
-
             let mut count = 0;
             for elements in winners_span {
                 let winner_contract_address = *elements;
                 let amount = *distributed_amounts.at(count);
-
-                // perform the transfer
                 self._send_tokens(winner_contract_address, amount, token_contract_address);
-
                 count += 1;
             }
         }
