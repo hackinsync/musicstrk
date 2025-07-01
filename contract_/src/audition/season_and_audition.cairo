@@ -64,6 +64,15 @@ pub trait ISeasonAndAudition<TContractState> {
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
 
+    // price deposit and distribute functionalities
+    fn deposit_prize(
+        ref self: TContractState,
+        audition_id: felt252,
+        token_address: ContractAddress,
+        amount: u256,
+    );
+
+
     // Vote recording functionality
     fn record_vote(
         ref self: TContractState,
@@ -90,9 +99,11 @@ pub trait ISeasonAndAudition<TContractState> {
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
+    use starknet::get_contract_address;
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use super::{Audition, ISeasonAndAudition, Season, Vote};
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use starknet::storage::{
@@ -117,6 +128,10 @@ pub mod SeasonAndAudition {
         global_paused: bool,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
+        // @notice this storage is a mapping of the audition rpices deposited by the audition
+        // owners, Map<audition_id, (token contract address  , amount of the token set as the
+        // price)>
+        audition_prices: Map<felt252, (ContractAddress, u256)>,
     }
 
     #[event]
@@ -135,6 +150,7 @@ pub mod SeasonAndAudition {
         ResumedAll: ResumedAll,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        PriceDeposited: PriceDeposited,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -190,6 +206,13 @@ pub mod SeasonAndAudition {
         pub performer: felt252,
         pub voter: felt252,
         pub weight: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct PriceDeposited {
+        pub audition_id: felt252,
+        pub token_address: ContractAddress,
+        pub amount: u256,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -326,6 +349,27 @@ pub mod SeasonAndAudition {
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
         }
 
+        fn deposit_prize(
+            ref self: ContractState,
+            audition_id: felt252,
+            token_address: ContractAddress,
+            amount: u256,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
+
+            // Process the payment
+            self._process_payment(amount, token_address);
+
+            // Store the audition price
+            self.audition_prices.write(audition_id, (token_address, amount));
+
+            self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
+        }
+
+
         fn record_vote(
             ref self: ContractState,
             audition_id: felt252,
@@ -445,6 +489,57 @@ pub mod SeasonAndAudition {
         fn audition_exists(self: @ContractState, audition_id: felt252) -> bool {
             let audition = self.auditions.entry(audition_id).read();
             audition.audition_id != 0
+        }
+    }
+
+    #[generate_trait]
+    impl internal of InternalTraits {
+        /// @notice Processes a payment of the audition prices
+        /// @dev Checks the token allowance and balance before transferring tokens.
+        /// @param self The contract state reference.
+        /// @param amount The amount of tokens to transfer.
+        /// @require The caller must have sufficient token allowance and balance.
+        fn _process_payment(ref self: ContractState, amount: u256, token_address: ContractAddress) {
+            let payment_token = IERC20Dispatcher { contract_address: token_address };
+            let caller = get_caller_address();
+            let contract_address = get_contract_address();
+            self._check_token_allowance(caller, amount, token_address);
+            self._check_token_balance(caller, amount, token_address);
+            payment_token.transfer_from(caller, contract_address, amount);
+        }
+
+        /// @notice Checks if the caller has sufficient token allowance.
+        /// @dev Asserts that the caller has enough allowance to transfer the specified amount.
+        /// @param self The contract state reference.
+        /// @param spender The address of the spender (usually the contract itself).
+        /// @param amount The amount of tokens to check allowance for.
+        /// @require The caller must have sufficient token allowance.
+        fn _check_token_allowance(
+            ref self: ContractState,
+            spender: ContractAddress,
+            amount: u256,
+            token_address: ContractAddress,
+        ) {
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let allowance = token.allowance(spender, starknet::get_contract_address());
+            assert(allowance >= amount, errors::INSUFFICIENT_ALLOWANCE);
+        }
+
+        /// @notice Checks if the caller has sufficient token balance.
+        /// @dev Asserts that the caller has enough balance to transfer the specified amount.
+        /// @param self The contract state reference.
+        /// @param caller The address of the caller (usually the user).
+        /// @param amount The amount of tokens to check balance for.
+        /// @require The caller must have sufficient token balance.
+        fn _check_token_balance(
+            ref self: ContractState,
+            caller: ContractAddress,
+            amount: u256,
+            token_address: ContractAddress,
+        ) {
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let balance = token.balance_of(caller);
+            assert(balance >= amount, errors::INSUFFICIENT_BALANCE);
         }
     }
 }
