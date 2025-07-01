@@ -158,6 +158,7 @@ pub mod SeasonAndAudition {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         PriceDeposited: PriceDeposited,
+        PriceDistributed: PriceDistributed
     }
 
     #[derive(Drop, starknet::Event)]
@@ -221,6 +222,17 @@ pub mod SeasonAndAudition {
         pub token_address: ContractAddress,
         pub amount: u256,
     }
+
+
+    #[derive(Drop, starknet::Event)]
+    pub struct PriceDistributed {
+        pub audition_id: felt252,
+        pub winners: [ContractAddress; 3],
+        pub shares: [u256; 3],
+        pub token_address: ContractAddress,
+        pub amounts: Span<u256>,
+    }
+
 
     #[derive(Drop, starknet::Event)]
     pub struct PausedAll {}
@@ -414,6 +426,13 @@ pub mod SeasonAndAudition {
                 self._send_tokens(winner_contract_address, amount, token_contract_address);
                 count += 1;
             }
+            self.emit(Event::PriceDistributed(PriceDistributed {
+                audition_id,
+                winners,
+                shares,
+                token_address: token_contract_address,
+                amounts: distributed_amounts.span(),
+            }));
         }
 
 
