@@ -390,6 +390,7 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
             assert(amount > 0, 'Amount must be more than zero');
+            assert(!token_address.is_zero(), 'Token address cannot be zero');
             let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
             assert(
                 existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
