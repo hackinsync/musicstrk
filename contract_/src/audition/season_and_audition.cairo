@@ -81,6 +81,25 @@ pub trait ISeasonAndAudition<TContractState> {
 
     fn get_audition_prices(self: @TContractState, audition_id: felt252) -> (ContractAddress, u256);
 
+    /// @notice Returns the winner addresses for a given audition.
+    /// @param audition_id The unique identifier of the audition.
+    /// @return (ContractAddress, ContractAddress, ContractAddress) Tuple of winner addresses.
+    fn get_audition_winner_addresses(
+        self: @TContractState, audition_id: felt252,
+    ) -> (ContractAddress, ContractAddress, ContractAddress);
+
+    /// @notice Returns the winner prize amounts for a given audition.
+    /// @param audition_id The unique identifier of the audition.
+    /// @return (u256, u256, u256) Tuple of winner prize amounts.
+    fn get_audition_winner_amounts(
+        self: @TContractState, audition_id: felt252,
+    ) -> (u256, u256, u256);
+
+    /// @notice Returns whether the prize has been distributed for a given audition.
+    /// @param audition_id The unique identifier of the audition.
+    /// @return bool True if distributed, false otherwise.
+    fn is_prize_distributed(self: @TContractState, audition_id: felt252) -> bool;
+
     // Vote recording functionality
     fn record_vote(
         ref self: TContractState,
@@ -141,6 +160,22 @@ pub mod SeasonAndAudition {
         // owners, Map<audition_id, (token contract address  , amount of the token set as the
         // price)>
         audition_prices: Map<felt252, (ContractAddress, u256)>,
+        /// @notice Maps each audition ID to the winner addresses for that audition.
+        /// @dev The value is a tuple containing the addresses of the first, second, and third place
+        /// winners.
+        /// @param audition_winner_addresses Mapping from audition ID (felt252) to a tuple of winner
+        /// addresses (ContractAddress, ContractAddress, ContractAddress).
+        audition_winner_addresses: Map<
+            felt252, (ContractAddress, ContractAddress, ContractAddress),
+        >,
+        /// @notice Maps each audition ID to the prize amounts for the winners.
+        /// @dev The value is a tuple containing the prize amounts for the first, second, and third
+        /// place winners, respectively.
+        /// @param audition_winner_amounts Mapping from audition ID (felt252) to a tuple of prize
+        /// amounts (u256, u256, u256).
+        audition_winner_amounts: Map<felt252, (u256, u256, u256)>,
+        /// price distributed status
+        price_distributed: Map<felt252, bool>,
     }
 
     #[event]
@@ -455,6 +490,22 @@ pub mod SeasonAndAudition {
                 count += 1;
             };
             self
+                .audition_winner_addresses
+                .write(
+                    audition_id, (*winners_span.at(0), *winners_span.at(1), *winners_span.at(2)),
+                );
+            self
+                .audition_winner_amounts
+                .write(
+                    audition_id,
+                    (
+                        *distributed_amounts.at(0),
+                        *distributed_amounts.at(1),
+                        *distributed_amounts.at(2),
+                    ),
+                );
+            self.price_distributed.write(audition_id, true);
+            self
                 .emit(
                     Event::PriceDistributed(
                         PriceDistributed {
@@ -466,6 +517,22 @@ pub mod SeasonAndAudition {
                         },
                     ),
                 );
+        }
+
+        fn get_audition_winner_addresses(
+            self: @ContractState, audition_id: felt252,
+        ) -> (ContractAddress, ContractAddress, ContractAddress) {
+            self.audition_winner_addresses.read(audition_id)
+        }
+
+        fn get_audition_winner_amounts(
+            self: @ContractState, audition_id: felt252,
+        ) -> (u256, u256, u256) {
+            self.audition_winner_amounts.read(audition_id)
+        }
+
+        fn is_prize_distributed(self: @ContractState, audition_id: felt252) -> bool {
+            self.price_distributed.read(audition_id)
         }
 
 
@@ -687,6 +754,7 @@ pub mod SeasonAndAudition {
                 .read(audition_id);
 
             assert(!token_contract_address.is_zero(), 'No prize for this audition');
+            assert(!self.is_prize_distributed(audition_id), 'Prize already distributed');
 
             let winners_span = winners.span();
             let shares_span = shares.span();
@@ -698,7 +766,7 @@ pub mod SeasonAndAudition {
             };
 
             for winners in winners_span {
-                assert(winners.is_zero(), 'null contract address');
+                assert(!winners.is_zero(), 'null contract address');
             };
 
             assert(total == 100, 'total does not add up');

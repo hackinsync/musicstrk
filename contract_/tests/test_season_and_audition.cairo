@@ -572,6 +572,8 @@ fn test_audition_deposit_price_should_panic_if_audition_ended_already() {
     };
     contract.update_audition(audition_id, updated_audition);
 
+    contract.end_audition(audition_id);
+
     start_cheat_caller_address(contract.contract_address, OWNER());
     // deposit the price into a price pool of an audition
     contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
@@ -667,6 +669,149 @@ fn test_audition_deposit_price_should_panic_if_contract_is_paused() {
     contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
     stop_cheat_caller_address(contract.contract_address);
 }
+
+#[test]
+fn test_audition_distribute_prize_successful() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Check contract balance before deposit
+    let contract_balance_before = mock_token_dispatcher.balance_of(contract.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Check contract balance after deposit
+    let contract_balance_after = mock_token_dispatcher.balance_of(contract.contract_address);
+    assert!(
+        contract_balance_after == contract_balance_before + 10,
+        "Contract balance did not increase after deposit",
+    );
+
+    // Assert winner addresses and amounts are zero before distribution
+    let (w_addr1_before, w_addr2_before, w_addr3_before) = contract
+        .get_audition_winner_addresses(audition_id);
+    let (w_amt1_before, w_amt2_before, w_amt3_before) = contract
+        .get_audition_winner_amounts(audition_id);
+    let is_distributed_before = contract.is_prize_distributed(audition_id);
+
+    assert!(
+        w_addr1_before == contract_address_const::<0>(),
+        "Winner 1 address should be zero before distribution",
+    );
+    assert!(
+        w_addr2_before == contract_address_const::<0>(),
+        "Winner 2 address should be zero before distribution",
+    );
+    assert!(
+        w_addr3_before == contract_address_const::<0>(),
+        "Winner 3 address should be zero before distribution",
+    );
+    assert!(w_amt1_before == 0, "Winner 1 amount should be zero before distribution");
+    assert!(w_amt2_before == 0, "Winner 2 amount should be zero before distribution");
+    assert!(w_amt3_before == 0, "Winner 3 amount should be zero before distribution");
+    assert!(!is_distributed_before, "Prize should not be distributed before distribution");
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600, // Future time (24 hours later)
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // Check winners' balances before distribution
+    let winner1_balance_before = mock_token_dispatcher.balance_of(winner1);
+    let winner2_balance_before = mock_token_dispatcher.balance_of(winner2);
+    let winner3_balance_before = mock_token_dispatcher.balance_of(winner3);
+
+    // Distribute the prize
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    // Check contract balance after distribution
+    let contract_balance_final = mock_token_dispatcher.balance_of(contract.contract_address);
+    assert!(
+        contract_balance_final == contract_balance_after - 10,
+        "Contract balance did not decrease after distribution",
+    );
+
+    // Check winners' balances after distribution
+    let winner1_balance_after = mock_token_dispatcher.balance_of(winner1);
+    let winner2_balance_after = mock_token_dispatcher.balance_of(winner2);
+    let winner3_balance_after = mock_token_dispatcher.balance_of(winner3);
+
+    assert!(
+        winner1_balance_after == winner1_balance_before + 5,
+        "Winner 1 did not receive correct amount",
+    );
+    assert!(
+        winner2_balance_after == winner2_balance_before + 3,
+        "Winner 2 did not receive correct amount",
+    );
+    assert!(
+        winner3_balance_after == winner3_balance_before + 2,
+        "Winner 3 did not receive correct amount",
+    );
+
+    // Assert winner addresses and amounts after distribution
+    let (w_addr1_after, w_addr2_after, w_addr3_after) = contract
+        .get_audition_winner_addresses(audition_id);
+    let (w_amt1_after, w_amt2_after, w_amt3_after) = contract
+        .get_audition_winner_amounts(audition_id);
+    let is_distributed_after = contract.is_prize_distributed(audition_id);
+
+    assert!(w_addr1_after == winner1, "Winner 1 address mismatch after distribution");
+    assert!(w_addr2_after == winner2, "Winner 2 address mismatch after distribution");
+    assert!(w_addr3_after == winner3, "Winner 3 address mismatch after distribution");
+    assert!(w_amt1_after == 5, "Winner 1 amount mismatch after distribution");
+    assert!(w_amt2_after == 3, "Winner 2 amount mismatch after distribution");
+    assert!(w_amt3_after == 2, "Winner 3 amount mismatch after distribution");
+    assert!(is_distributed_after, "Prize should be marked as distributed after distribution");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
 
 #[test]
 fn test_update_audition() {
