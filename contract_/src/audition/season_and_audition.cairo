@@ -27,6 +27,7 @@ pub struct Registration {
     pub token_address: ContractAddress,
     pub fee_amount: u256,
     pub refunded: bool,
+}
 
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {
@@ -151,8 +152,8 @@ pub mod SeasonAndAudition {
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use super::{Audition, ISeasonAndAudition, Season, Vote};
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
+    use super::{Audition, Registration, ISeasonAndAudition, Season, Vote};
+    use starknet::{ContractAddress, get_caller_address, get_block_timestamp, contract_address_const};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -276,7 +277,6 @@ pub mod SeasonAndAudition {
     }
 
     #[derive(Drop, starknet::Event)]
-
     pub struct RegisteredPerformer {
         pub audition_id: felt252,
         pub performer: ContractAddress,
@@ -285,6 +285,8 @@ pub mod SeasonAndAudition {
     }
 
 
+    
+    #[derive(Drop, starknet::Event)]
     pub struct VoteRecorded {
         pub audition_id: felt252,
         pub performer: felt252,
@@ -484,6 +486,7 @@ pub mod SeasonAndAudition {
 
             // Emit registration event
             self.emit(RegisteredPerformer { audition_id, performer, token_address, fee_amount });
+        }
 
         /// @notice Deposits the prize for a specific audition.
         /// @dev Only the contract owner can call this function. The contract must not be paused,
