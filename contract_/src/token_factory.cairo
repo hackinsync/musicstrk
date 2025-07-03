@@ -2,8 +2,8 @@
 
 use core::array::{Array, ArrayTrait};
 use core::byte_array::ByteArray;
-use starknet::{ContractAddress, ClassHash};
 use starknet::syscalls::deploy_syscall;
+use starknet::{ClassHash, ContractAddress};
 
 #[starknet::interface]
 pub trait IMusicShareTokenFactory<ContractState> {
@@ -41,20 +41,18 @@ pub mod MusicShareTokenFactory {
     use core::clone::Clone;
     use core::num::traits::Zero;
     use core::traits::Into;
-    use openzeppelin::access::ownable::{
-        interface::{IOwnableDispatcher, IOwnableDispatcherTrait}, OwnableComponent,
-    };
-    use openzeppelin::upgrades::{interface::IUpgradeable, UpgradeableComponent};
-    use starknet::{
-        get_caller_address,
-        storage::{
-            Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
-            StoragePointerWriteAccess,
-        },
+    use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
+    use openzeppelin::upgrades::UpgradeableComponent;
+    use openzeppelin::upgrades::interface::IUpgradeable;
+    use starknet::get_caller_address;
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
     };
     use super::{
-        Array, ArrayTrait, ByteArray, ClassHash, ContractAddress, deploy_syscall,
-        IMusicShareTokenFactory,
+        Array, ArrayTrait, ByteArray, ClassHash, ContractAddress, IMusicShareTokenFactory,
+        deploy_syscall,
     };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
