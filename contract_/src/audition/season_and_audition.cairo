@@ -64,6 +64,42 @@ pub trait ISeasonAndAudition<TContractState> {
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
 
+    // price deposit and distribute functionalities
+    fn deposit_prize(
+        ref self: TContractState,
+        audition_id: felt252,
+        token_address: ContractAddress,
+        amount: u256,
+    );
+
+    fn distribute_prize(
+        ref self: TContractState,
+        audition_id: felt252,
+        winners: [ContractAddress; 3],
+        shares: [u256; 3],
+    );
+
+    fn get_audition_prices(self: @TContractState, audition_id: felt252) -> (ContractAddress, u256);
+
+    /// @notice Returns the winner addresses for a given audition.
+    /// @param audition_id The unique identifier of the audition.
+    /// @return (ContractAddress, ContractAddress, ContractAddress) Tuple of winner addresses.
+    fn get_audition_winner_addresses(
+        self: @TContractState, audition_id: felt252,
+    ) -> (ContractAddress, ContractAddress, ContractAddress);
+
+    /// @notice Returns the winner prize amounts for a given audition.
+    /// @param audition_id The unique identifier of the audition.
+    /// @return (u256, u256, u256) Tuple of winner prize amounts.
+    fn get_audition_winner_amounts(
+        self: @TContractState, audition_id: felt252,
+    ) -> (u256, u256, u256);
+
+    /// @notice Returns whether the prize has been distributed for a given audition.
+    /// @param audition_id The unique identifier of the audition.
+    /// @return bool True if distributed, false otherwise.
+    fn is_prize_distributed(self: @TContractState, audition_id: felt252) -> bool;
+
     // Vote recording functionality
     fn record_vote(
         ref self: TContractState,
@@ -90,9 +126,12 @@ pub trait ISeasonAndAudition<TContractState> {
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
+    use core::num::traits::Zero;
+    use starknet::get_contract_address;
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use super::{Audition, ISeasonAndAudition, Season, Vote};
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use starknet::storage::{
@@ -117,6 +156,26 @@ pub mod SeasonAndAudition {
         global_paused: bool,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
+        // @notice this storage is a mapping of the audition rpices deposited by the audition
+        // owners, Map<audition_id, (token contract address  , amount of the token set as the
+        // price)>
+        audition_prices: Map<felt252, (ContractAddress, u256)>,
+        /// @notice Maps each audition ID to the winner addresses for that audition.
+        /// @dev The value is a tuple containing the addresses of the first, second, and third place
+        /// winners.
+        /// @param audition_winner_addresses Mapping from audition ID (felt252) to a tuple of winner
+        /// addresses (ContractAddress, ContractAddress, ContractAddress).
+        audition_winner_addresses: Map<
+            felt252, (ContractAddress, ContractAddress, ContractAddress),
+        >,
+        /// @notice Maps each audition ID to the prize amounts for the winners.
+        /// @dev The value is a tuple containing the prize amounts for the first, second, and third
+        /// place winners, respectively.
+        /// @param audition_winner_amounts Mapping from audition ID (felt252) to a tuple of prize
+        /// amounts (u256, u256, u256).
+        audition_winner_amounts: Map<felt252, (u256, u256, u256)>,
+        /// price distributed status
+        price_distributed: Map<felt252, bool>,
     }
 
     #[event]
@@ -135,6 +194,8 @@ pub mod SeasonAndAudition {
         ResumedAll: ResumedAll,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        PriceDeposited: PriceDeposited,
+        PriceDistributed: PriceDistributed,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -191,6 +252,24 @@ pub mod SeasonAndAudition {
         pub voter: felt252,
         pub weight: felt252,
     }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct PriceDeposited {
+        pub audition_id: felt252,
+        pub token_address: ContractAddress,
+        pub amount: u256,
+    }
+
+
+    #[derive(Drop, starknet::Event)]
+    pub struct PriceDistributed {
+        pub audition_id: felt252,
+        pub winners: [ContractAddress; 3],
+        pub shares: [u256; 3],
+        pub token_address: ContractAddress,
+        pub amounts: Span<u256>,
+    }
+
 
     #[derive(Drop, starknet::Event)]
     pub struct PausedAll {}
@@ -326,6 +405,137 @@ pub mod SeasonAndAudition {
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
         }
 
+        /// @notice Deposits the prize for a specific audition.
+        /// @dev Only the contract owner can call this function. The contract must not be paused,
+        ///      the audition must exist and not be ended, and the amount must be greater than zero.
+        ///      The function processes the payment, records the prize, and emits a `PriceDeposited`
+        ///      event.
+        /// @param audition_id The unique identifier of the audition for which the prize is being
+        /// deposited.
+        /// @param token_address The address of the token to be used as the prize.
+        /// @param amount The amount of tokens to be deposited as the prize.
+        fn deposit_prize(
+            ref self: ContractState,
+            audition_id: felt252,
+            token_address: ContractAddress,
+            amount: u256,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
+            assert(amount > 0, 'Amount must be more than zero');
+            assert(!token_address.is_zero(), 'Token address cannot be zero');
+            let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
+            assert(
+                existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
+            );
+            self._process_payment(amount, token_address);
+            self.audition_prices.write(audition_id, (token_address, amount));
+            self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
+        }
+
+        /// @notice Retrieves the prize information for a specific audition.
+        /// @dev Returns the token contract address and the amount of tokens deposited as the prize
+        /// for the given audition.
+        /// @param self The contract state reference.
+        /// @param audition_id The unique identifier of the audition whose prize information is
+        /// being queried.
+        /// @return token_address The address of the token used as the prize.
+        /// @return amount The amount of tokens deposited as the prize.
+        fn get_audition_prices(
+            self: @ContractState, audition_id: felt252,
+        ) -> (ContractAddress, u256) {
+            self.audition_prices.read(audition_id)
+        }
+
+
+        /// @notice Distributes the prize pool among the specified winners based on their respective
+        /// shares.
+        /// @dev This function reads the prize pool for the given audition, calculates each winner's
+        /// share,
+        ///      and sends the corresponding token amount to each winner.
+        /// @param self The contract state reference.
+        /// @param audition_id The unique identifier of the audition whose prize is to be
+        /// distributed.
+        /// @param winners An array of 3 contract addresses representing the winners.
+        /// @param shares An array of 3 u256 values representing the percentage shares (out of 100)
+        /// for each winner.
+        /// @custom:reverts If the distribution conditions are not met, as checked by
+        /// `assert_distribue`.
+        fn distribute_prize(
+            ref self: ContractState,
+            audition_id: felt252,
+            winners: [ContractAddress; 3],
+            shares: [u256; 3],
+        ) {
+            self.assert_distribue(audition_id, winners, shares);
+            let (token_contract_address, price_pool): (ContractAddress, u256) = self
+                .audition_prices
+                .read(audition_id);
+            let winners_span = winners.span();
+            let shares_span = shares.span();
+            let mut distributed_amounts = ArrayTrait::new();
+            let mut i = 0;
+            for share in shares_span {
+                let amount = price_pool * *share / 100;
+                distributed_amounts.append(amount);
+                i += 1;
+            };
+            let mut count = 0;
+            for elements in winners_span {
+                let winner_contract_address = *elements;
+                let amount = *distributed_amounts.at(count);
+                self._send_tokens(winner_contract_address, amount, token_contract_address);
+                count += 1;
+            };
+            self
+                .audition_winner_addresses
+                .write(
+                    audition_id, (*winners_span.at(0), *winners_span.at(1), *winners_span.at(2)),
+                );
+            self
+                .audition_winner_amounts
+                .write(
+                    audition_id,
+                    (
+                        *distributed_amounts.at(0),
+                        *distributed_amounts.at(1),
+                        *distributed_amounts.at(2),
+                    ),
+                );
+            self.price_distributed.write(audition_id, true);
+            self
+                .emit(
+                    Event::PriceDistributed(
+                        PriceDistributed {
+                            audition_id,
+                            winners,
+                            shares,
+                            token_address: token_contract_address,
+                            amounts: distributed_amounts.span(),
+                        },
+                    ),
+                );
+        }
+
+        fn get_audition_winner_addresses(
+            self: @ContractState, audition_id: felt252,
+        ) -> (ContractAddress, ContractAddress, ContractAddress) {
+            self.audition_winner_addresses.read(audition_id)
+        }
+
+        fn get_audition_winner_amounts(
+            self: @ContractState, audition_id: felt252,
+        ) -> (u256, u256, u256) {
+            self.audition_winner_amounts.read(audition_id)
+        }
+
+        fn is_prize_distributed(self: @ContractState, audition_id: felt252) -> bool {
+            self.price_distributed.read(audition_id)
+        }
+
+
         fn record_vote(
             ref self: ContractState,
             audition_id: felt252,
@@ -445,6 +655,121 @@ pub mod SeasonAndAudition {
         fn audition_exists(self: @ContractState, audition_id: felt252) -> bool {
             let audition = self.auditions.entry(audition_id).read();
             audition.audition_id != 0
+        }
+    }
+
+    #[generate_trait]
+    impl internal of InternalTraits {
+        /// @notice Processes a payment of the audition prices
+        /// @dev Checks the token allowance and balance before transferring tokens.
+        /// @param self The contract state reference.
+        /// @param amount The amount of tokens to transfer.
+        /// @require The caller must have sufficient token allowance and balance.
+        fn _process_payment(ref self: ContractState, amount: u256, token_address: ContractAddress) {
+            let payment_token = IERC20Dispatcher { contract_address: token_address };
+            let caller = get_caller_address();
+            let contract_address = get_contract_address();
+            self._check_token_allowance(caller, amount, token_address);
+            self._check_token_balance(caller, amount, token_address);
+            payment_token.transfer_from(caller, contract_address, amount);
+        }
+
+        /// @notice Checks if the caller has sufficient token allowance.
+        /// @dev Asserts that the caller has enough allowance to transfer the specified amount.
+        /// @param self The contract state reference.
+        /// @param spender The address of the spender (usually the contract itself).
+        /// @param amount The amount of tokens to check allowance for.
+        /// @require The caller must have sufficient token allowance.
+        fn _check_token_allowance(
+            ref self: ContractState,
+            spender: ContractAddress,
+            amount: u256,
+            token_address: ContractAddress,
+        ) {
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let allowance = token.allowance(spender, starknet::get_contract_address());
+            assert(allowance >= amount, errors::INSUFFICIENT_ALLOWANCE);
+        }
+
+        /// @notice Checks if the caller has sufficient token balance.
+        /// @dev Asserts that the caller has enough balance to transfer the specified amount.
+        /// @param self The contract state reference.
+        /// @param caller The address of the caller (usually the user).
+        /// @param amount The amount of tokens to check balance for.
+        /// @require The caller must have sufficient token balance.
+        fn _check_token_balance(
+            ref self: ContractState,
+            caller: ContractAddress,
+            amount: u256,
+            token_address: ContractAddress,
+        ) {
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let balance = token.balance_of(caller);
+            assert(balance >= amount, errors::INSUFFICIENT_BALANCE);
+        }
+
+        fn _send_tokens(
+            ref self: ContractState,
+            recepient: ContractAddress,
+            amount: u256,
+            token_address: ContractAddress,
+        ) {
+            let token = IERC20Dispatcher { contract_address: token_address };
+            let contract = get_contract_address();
+            self._check_token_balance(contract, amount, token_address);
+            token.transfer(recepient, amount);
+        }
+
+        /// @notice Asserts the validity of prize distribution for a given audition.
+        /// @dev This function checks multiple conditions before allowing prize distribution:
+        ///      - Only the contract owner can call this function.
+        ///      - The contract must not be globally paused.
+        ///      - The specified audition must exist and must have ended.
+        ///      - The audition must have a valid prize pool (non-zero token contract address).
+        ///      - The `winners` array must not contain any zero addresses (null contract address).
+        ///      - The sum of all `shares` must equal 100.
+        /// @param self The contract state reference.
+        /// @param audition_id The unique identifier of the audition to distribute prizes for.
+        /// @param winners An array of 3 contract addresses representing the winners.
+        /// @param shares An array of 3 u256 values representing the share percentages for each
+        /// winner.
+        /// @custom:reverts If called by anyone other than the owner.
+        /// @custom:reverts If the contract is paused.
+        /// @custom:reverts If the audition does not exist or has not ended.
+        /// @custom:reverts If there is no prize for the audition.
+        /// @custom:reverts If any winner address is zero.
+        /// @custom:reverts If the total shares do not add up to 100.
+        fn assert_distribue(
+            ref self: ContractState,
+            audition_id: felt252,
+            winners: [ContractAddress; 3],
+            shares: [u256; 3],
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.is_audition_ended(audition_id), 'Audition must end first');
+            let (token_contract_address, _): (ContractAddress, u256) = self
+                .audition_prices
+                .read(audition_id);
+
+            assert(!token_contract_address.is_zero(), 'No prize for this audition');
+            assert(!self.is_prize_distributed(audition_id), 'Prize already distributed');
+
+            let winners_span = winners.span();
+            let shares_span = shares.span();
+
+            let mut total: u256 = 0;
+
+            for shares in shares_span {
+                total = total + *shares;
+            };
+
+            for winners in winners_span {
+                assert(!winners.is_zero(), 'null contract address');
+            };
+
+            assert(total == 100, 'total does not add up');
         }
     }
 }
