@@ -90,10 +90,14 @@ pub trait ISeasonAndAudition<TContractState> {
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
+    // use errors::super::super::events::EventAggregator::InternalTrait;
+    use OwnableComponent::HasComponent;
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use super::{Audition, ISeasonAndAudition, Season, Vote};
+    use crate::events::{EventAggregator, IEventAggregator};
+    use crate::events::EventAggregator::{InternalImpl, EventAggregatorImpl};
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
@@ -102,6 +106,9 @@ pub mod SeasonAndAudition {
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+
+    // Integrate the event aggregator component
+    component!(path: EventAggregator, storage: event_aggregator, event: EventAggregatorEvent);
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
@@ -117,6 +124,8 @@ pub mod SeasonAndAudition {
         global_paused: bool,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        event_aggregator: EventAggregator::Storage,
     }
 
     #[event]
@@ -135,6 +144,8 @@ pub mod SeasonAndAudition {
         ResumedAll: ResumedAll,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        EventAggregatorEvent: EventAggregator::Event,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -199,9 +210,10 @@ pub mod SeasonAndAudition {
     pub struct ResumedAll {}
 
     #[constructor]
-    fn constructor(ref self: ContractState, owner: ContractAddress) {
+    fn constructor(ref self: ContractState, owner: ContractAddress, aggregation_threshold: u128) {
         self.ownable.initializer(owner);
         self.global_paused.write(false);
+        self.event_aggregator._initialize(aggregation_threshold)
     }
 
     #[abi(embed_v0)]
@@ -224,6 +236,11 @@ pub mod SeasonAndAudition {
                 .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
 
             self.emit(SeasonCreated { season_id, genre, name });
+            self.event_aggregator.record_event(selector!("SEASONEVENTS"));
+            let should_aggregate = self.event_aggregator.should_aggregate(selector!("SEASONEVENTS"));
+            if should_aggregate {
+                self.event_aggregator.aggregate_events();
+            }
         }
 
         fn read_season(self: @ContractState, season_id: felt252) -> Season {
@@ -269,6 +286,11 @@ pub mod SeasonAndAudition {
                 );
 
             self.emit(AuditionCreated { audition_id, season_id, genre, name });
+            self.event_aggregator.record_event(selector!("AUDITIONEVENTS"));
+            let should_aggregate = self.event_aggregator.should_aggregate(selector!("AUDITIONEVENTS"));
+            if should_aggregate {
+                self.event_aggregator.aggregate_events();
+            }
         }
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {

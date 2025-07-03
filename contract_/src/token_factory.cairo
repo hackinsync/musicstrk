@@ -191,6 +191,7 @@ pub mod MusicShareTokenFactory {
             self.ownable.assert_only_owner();
             assert(!artist.is_zero(), errors::ZERO_ADDRESS_DETECTED);
             self.artist_role.write(artist, true);
+            // emit event
         }
 
         fn revoke_artist_role(ref self: ContractState, artist: ContractAddress) {
