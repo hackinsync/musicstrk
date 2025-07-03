@@ -1575,7 +1575,16 @@ fn register_performer() {
 
     // CREATE Audition
 
-    contract.create_audition(audition_id, season_id, default_audition.genre, default_audition.name, default_audition.start_timestamp, default_audition.end_timestamp, default_audition.paused);
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
 
     // Register Performer
     contract.register_performer(audition_id, USER(), '0x0', 100);
@@ -1583,11 +1592,19 @@ fn register_performer() {
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
 
-    spy.assert_emitted(
-        @array![
-            (contract.contract_address, SeasonAndAudition::Event::RegisteredPerformer(SeasonAndAudition::RegisteredPerformer { audition_id, performer, token_address, fee_amount })),
-        ],
-    );
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::RegisteredPerformer(
+                        SeasonAndAudition::RegisteredPerformer {
+                            audition_id, performer, token_address, fee_amount,
+                        },
+                    ),
+                ),
+            ],
+        );
 
     // READ Registration
     let registration = contract.read_registration(audition_id, USER());
@@ -1596,6 +1613,7 @@ fn register_performer() {
     assert!(registration.token_address == '0x0', "Failed to read registration token address");
     assert!(registration.fee_amount == 100, "Failed to read registration fee amount");
     assert!(!registration.refunded, "Failed to read registration refunded");
+}
 
 
 #[test]
@@ -1997,7 +2015,6 @@ fn test_attempt_resume_audition_as_non_owner() {
 
     stop_cheat_caller_address(contract.contract_address);
 }
-
 
 
 #[test]

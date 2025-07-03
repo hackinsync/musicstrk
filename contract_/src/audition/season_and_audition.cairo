@@ -35,7 +35,6 @@ pub struct Vote {
     pub performer: felt252,
     pub voter: felt252,
     pub weight: felt252,
-
 }
 
 // Define the contract interface
@@ -81,7 +80,7 @@ pub trait ISeasonAndAudition<TContractState> {
         fee_amount: u256,
     );
 
- 
+
     // price deposit and distribute functionalities
     fn deposit_prize(
         ref self: TContractState,
@@ -140,12 +139,10 @@ pub trait ISeasonAndAudition<TContractState> {
     fn is_audition_paused(self: @TContractState, audition_id: felt252) -> bool;
     fn is_audition_ended(self: @TContractState, audition_id: felt252) -> bool;
     fn audition_exists(self: @TContractState, audition_id: felt252) -> bool;
-
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
-
     use core::num::traits::Zero;
     use starknet::get_contract_address;
     use OwnableComponent::InternalTrait;
@@ -153,7 +150,9 @@ pub mod SeasonAndAudition {
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use super::{Audition, Registration, ISeasonAndAudition, Season, Vote};
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp, contract_address_const};
+    use starknet::{
+        ContractAddress, get_caller_address, get_block_timestamp, contract_address_const,
+    };
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -172,14 +171,10 @@ pub mod SeasonAndAudition {
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
-
         registrations: Map<(felt252, ContractAddress), Registration>,
         collected_fees: Map<ContractAddress, u256>,
-
         votes: Map<(felt252, felt252, felt252), Vote>,
-
         global_paused: bool,
-
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
         // @notice this storage is a mapping of the audition rpices deposited by the audition
@@ -215,14 +210,10 @@ pub mod SeasonAndAudition {
         ResultsSubmitted: ResultsSubmitted,
         OracleAdded: OracleAdded,
         OracleRemoved: OracleRemoved,
-
         RegisteredPerformer: RegisteredPerformer,
-
         VoteRecorded: VoteRecorded,
-
         PausedAll: PausedAll,
         ResumedAll: ResumedAll,
-
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         PriceDeposited: PriceDeposited,
@@ -285,7 +276,6 @@ pub mod SeasonAndAudition {
     }
 
 
-    
     #[derive(Drop, starknet::Event)]
     pub struct VoteRecorded {
         pub audition_id: felt252,
@@ -313,7 +303,6 @@ pub mod SeasonAndAudition {
 
 
     #[derive(Drop, starknet::Event)]
-
     pub struct PausedAll {}
 
     #[derive(Drop, starknet::Event)]
@@ -469,9 +458,20 @@ pub mod SeasonAndAudition {
 
             // Handle payment if fee is required
             if fee_amount > 0 {
-                let token = IERC20Dispatcher { contract_address: token_address.try_into().expect('Invalid token address') };
-                assert(token.allowance(performer, get_contract_address()) >= fee_amount.try_into().unwrap(), 'Insufficient allowance');
-                token.transfer_from(performer, get_contract_address(), fee_amount.try_into().unwrap());
+                let token = IERC20Dispatcher {
+                    contract_address: token_address.try_into().expect('Invalid token address'),
+                };
+                assert(
+                    token
+                        .allowance(performer, get_contract_address()) >= fee_amount
+                        .try_into()
+                        .unwrap(),
+                    'Insufficient allowance',
+                );
+                token
+                    .transfer_from(
+                        performer, get_contract_address(), fee_amount.try_into().unwrap(),
+                    );
             }
 
             // Update collected fees
@@ -663,7 +663,6 @@ pub mod SeasonAndAudition {
 
         fn is_paused(self: @ContractState) -> bool {
             self.global_paused.read()
-
         }
 
         fn pause_audition(ref self: ContractState, audition_id: felt252) -> bool {
