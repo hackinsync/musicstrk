@@ -1559,64 +1559,6 @@ fn test_safe_painc_only_owner_can_call_functions() {
 
 
 #[test]
-fn register_performer() {
-    let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
-
-    // Define audition ID and season ID
-    let audition_id: felt252 = 1;
-    let season_id: felt252 = 1;
-
-    // Create default audition
-    let default_audition = create_default_audition(audition_id, season_id);
-
-    // Start prank to simulate the owner calling the contract
-    start_cheat_caller_address(contract.contract_address, OWNER());
-
-    // CREATE Audition
-
-    contract
-        .create_audition(
-            audition_id,
-            season_id,
-            default_audition.genre,
-            default_audition.name,
-            default_audition.start_timestamp,
-            default_audition.end_timestamp,
-            default_audition.paused,
-        );
-
-    // Register Performer
-    contract.register_performer(audition_id, USER(), '0x0', 100);
-
-    // Stop prank
-    stop_cheat_caller_address(contract.contract_address);
-
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    contract.contract_address,
-                    SeasonAndAudition::Event::RegisteredPerformer(
-                        SeasonAndAudition::RegisteredPerformer {
-                            audition_id, performer, token_address, fee_amount,
-                        },
-                    ),
-                ),
-            ],
-        );
-
-    // READ Registration
-    let registration = contract.read_registration(audition_id, USER());
-
-    assert!(registration.performer == USER(), "Failed to read registration");
-    assert!(registration.token_address == '0x0', "Failed to read registration token address");
-    assert!(registration.fee_amount == 100, "Failed to read registration fee amount");
-    assert!(!registration.refunded, "Failed to read registration refunded");
-}
-
-
-#[test]
 fn test_pause_audition() {
     let (contract, _, _) = deploy_contract();
 
@@ -2016,10 +1958,23 @@ fn test_attempt_resume_audition_as_non_owner() {
     stop_cheat_caller_address(contract.contract_address);
 }
 
-
 #[test]
 fn test_emission_of_event_for_resume_audition() {
     let (contract, _, _) = deploy_contract();
+
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
     contract
         .create_audition(
             audition_id,
@@ -2330,5 +2285,536 @@ fn test_end_audition_functionality() {
     println!("All tests passed!");
 
     stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_register_performer_free_registration() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Register performer with zero fee (free registration)
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, contract_address_const::<0>(), 0);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Verify registration
+    let registration = contract.read_registration(audition_id, USER());
+    assert!(registration.performer == USER(), "Failed to read registration");
+    assert!(
+        registration.token_address == contract_address_const::<0>(),
+        "Failed to read registration token address",
+    );
+    assert!(registration.fee_amount == 0, "Failed to read registration fee amount");
+    assert!(!registration.refunded, "Failed to read registration refunded");
+
+    // Verify event emission
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::PerformerRegistered(
+                        SeasonAndAudition::PerformerRegistered {
+                            audition_id: audition_id,
+                            performer: USER(),
+                            token_address: contract_address_const::<0>(),
+                            fee_amount: 0,
+                        },
+                    ),
+                ),
+            ],
+        );
+}
+
+#[test]
+fn test_register_performer_erc20_success() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Deploy mock ERC20 token
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    // Transfer tokens from OWNER to USER
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.transfer(USER(), 1000);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Approve tokens for the contract
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, USER());
+    mock_token_dispatcher.approve(contract.contract_address, 100);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Register performer with ERC20 fee
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, mock_token_dispatcher.contract_address, 50);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Verify registration
+    let registration = contract.read_registration(audition_id, USER());
+    assert!(registration.performer == USER(), "Failed to read registration");
+    assert!(
+        registration.token_address == mock_token_dispatcher.contract_address,
+        "Failed to read registration token address",
+    );
+    assert!(registration.fee_amount == 50, "Failed to read registration fee amount");
+    assert!(!registration.refunded, "Failed to read registration refunded");
+
+    // Verify event emission
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::PerformerRegistered(
+                        SeasonAndAudition::PerformerRegistered {
+                            audition_id: audition_id,
+                            performer: USER(),
+                            token_address: mock_token_dispatcher.contract_address,
+                            fee_amount: 50,
+                        },
+                    ),
+                ),
+            ],
+        );
+}
+
+#[test]
+#[should_panic(expect: 'Audition does not exist')]
+fn test_register_performer_nonexistent_audition() {
+    let (contract, _, _) = deploy_contract();
+
+    // Try to register for non-existent audition
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(999, contract_address_const::<0>(), 0);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'Audition is paused')]
+fn test_register_performer_paused_audition() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // Pause the audition
+    contract.pause_audition(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Try to register for paused audition
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, contract_address_const::<0>(), 0);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'Already registered')]
+fn test_register_performer_duplicate_registration() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Register performer first time
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, contract_address_const::<0>(), 0);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Try to register again (should panic)
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, contract_address_const::<0>(), 0);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'Insufficient allowance')]
+fn test_register_performer_insufficient_allowance() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Deploy mock ERC20 token
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    // Approve insufficient tokens for the contract
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, USER());
+    mock_token_dispatcher.approve(contract.contract_address, 10); // Only approve 10
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Try to register with higher fee (should panic)
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract
+        .register_performer(
+            audition_id, mock_token_dispatcher.contract_address, 50,
+        ); // Try to pay 50
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_refund_registration_success() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Deploy mock ERC20 token
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    // Transfer tokens from OWNER to USER
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.transfer(USER(), 1000);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Approve tokens for the contract
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, USER());
+    mock_token_dispatcher.approve(contract.contract_address, 100);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Register performer with ERC20 fee
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, mock_token_dispatcher.contract_address, 50);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Check user balance before refund
+    let user_balance_before = mock_token_dispatcher.balance_of(USER());
+
+    // Refund the registration (as owner)
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.refund_registration(audition_id, USER());
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Check user balance after refund
+    let user_balance_after = mock_token_dispatcher.balance_of(USER());
+    assert!(user_balance_after == user_balance_before + 50, "User did not receive refund");
+
+    // Verify registration is marked as refunded
+    let registration = contract.read_registration(audition_id, USER());
+    assert!(registration.refunded, "Registration should be marked as refunded");
+
+    // Verify event emission
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::RegistrationRefunded(
+                        SeasonAndAudition::RegistrationRefunded {
+                            audition_id: audition_id,
+                            performer: USER(),
+                            token_address: mock_token_dispatcher.contract_address,
+                            fee_amount: 50,
+                        },
+                    ),
+                ),
+            ],
+        );
+}
+
+#[test]
+#[should_panic(expect: 'Registration already refunded')]
+fn test_refund_registration_already_refunded() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Deploy mock ERC20 token
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    // Approve tokens for the contract
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, USER());
+    mock_token_dispatcher.approve(contract.contract_address, 100);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Register performer with ERC20 fee
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, mock_token_dispatcher.contract_address, 50);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Refund the registration first time
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.refund_registration(audition_id, USER());
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Try to refund again (should panic)
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.refund_registration(audition_id, USER());
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'No fee to refund')]
+fn test_refund_free_registration() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Register performer with zero fee (free registration)
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, contract_address_const::<0>(), 0);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Try to refund free registration (should panic)
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.refund_registration(audition_id, USER());
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'Registration does not exist')]
+fn test_refund_nonexistent_registration() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Try to refund non-existent registration (should panic)
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.refund_registration(audition_id, USER());
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'Caller is not the owner')]
+fn test_refund_registration_non_owner() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Deploy mock ERC20 token
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    // Approve tokens for the contract
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, USER());
+    mock_token_dispatcher.approve(contract.contract_address, 100);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Register performer with ERC20 fee
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.register_performer(audition_id, mock_token_dispatcher.contract_address, 50);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Try to refund as non-owner (should panic)
+    start_cheat_caller_address(contract.contract_address, NON_OWNER());
+    contract.refund_registration(audition_id, USER());
     stop_cheat_caller_address(contract.contract_address);
 }
