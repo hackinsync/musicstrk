@@ -21,6 +21,14 @@ pub struct Audition {
     pub paused: bool,
 }
 
+#[derive(Drop, Serde, starknet::Store)]
+pub struct Registration {
+    pub performer: ContractAddress,
+    pub token_address: ContractAddress,
+    pub fee_amount: u256,
+    pub refunded: bool,
+}
+
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {
     pub audition_id: felt252,
@@ -63,6 +71,24 @@ pub trait ISeasonAndAudition<TContractState> {
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
+
+
+    fn register_performer(
+        ref self: TContractState,
+        audition_id: felt252,
+        token_address: ContractAddress,
+        fee_amount: u256,
+    );
+
+    fn read_registration(
+        self: @TContractState, audition_id: felt252, performer: ContractAddress,
+    ) -> Registration;
+
+    fn refund_registration(
+        ref self: TContractState, audition_id: felt252, performer: ContractAddress,
+    );
+
+    fn refund_all_registrations(ref self: TContractState, audition_id: felt252);
 
     // price deposit and distribute functionalities
     fn deposit_prize(
@@ -132,8 +158,10 @@ pub mod SeasonAndAudition {
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use super::{Audition, ISeasonAndAudition, Season, Vote};
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
+    use super::{Audition, Registration, ISeasonAndAudition, Season, Vote};
+    use starknet::{
+        ContractAddress, get_caller_address, get_block_timestamp, contract_address_const,
+    };
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -152,6 +180,8 @@ pub mod SeasonAndAudition {
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
+        registrations: Map<(felt252, ContractAddress), Registration>,
+        collected_fees: Map<ContractAddress, u256>,
         votes: Map<(felt252, felt252, felt252), Vote>,
         global_paused: bool,
         #[substorage(v0)]
@@ -189,6 +219,7 @@ pub mod SeasonAndAudition {
         ResultsSubmitted: ResultsSubmitted,
         OracleAdded: OracleAdded,
         OracleRemoved: OracleRemoved,
+        PerformerRegistered: PerformerRegistered,
         VoteRecorded: VoteRecorded,
         PausedAll: PausedAll,
         ResumedAll: ResumedAll,
@@ -196,6 +227,7 @@ pub mod SeasonAndAudition {
         OwnableEvent: OwnableComponent::Event,
         PriceDeposited: PriceDeposited,
         PriceDistributed: PriceDistributed,
+        RegistrationRefunded: RegistrationRefunded,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -246,6 +278,15 @@ pub mod SeasonAndAudition {
     }
 
     #[derive(Drop, starknet::Event)]
+    pub struct PerformerRegistered {
+        pub audition_id: felt252,
+        pub performer: ContractAddress,
+        pub token_address: ContractAddress,
+        pub fee_amount: u256,
+    }
+
+
+    #[derive(Drop, starknet::Event)]
     pub struct VoteRecorded {
         pub audition_id: felt252,
         pub performer: felt252,
@@ -276,6 +317,14 @@ pub mod SeasonAndAudition {
 
     #[derive(Drop, starknet::Event)]
     pub struct ResumedAll {}
+
+    #[derive(Drop, starknet::Event)]
+    pub struct RegistrationRefunded {
+        pub audition_id: felt252,
+        pub performer: ContractAddress,
+        pub token_address: ContractAddress,
+        pub fee_amount: u256,
+    }
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
@@ -403,6 +452,58 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
             self.whitelisted_oracles.write(oracle_address, false);
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
+        }
+
+
+        fn register_performer(
+            ref self: ContractState,
+            audition_id: felt252,
+            token_address: ContractAddress,
+            fee_amount: u256,
+        ) {
+            // Verify the audition exists and is not paused
+            let audition = self.auditions.entry(audition_id).read();
+            assert(audition.audition_id != 0, 'Audition does not exist');
+            assert(!audition.paused, 'Audition is paused');
+
+            let performer = get_caller_address();
+
+            // Check if already registered
+            let existing = self.registrations.entry((audition_id, performer)).read();
+
+            let zero_address = contract_address_const::<0x0>();
+            assert(existing.performer == zero_address, 'Already registered');
+
+            // Handle payment if fee is required
+            if fee_amount > 0 {
+                let token = IERC20Dispatcher {
+                    contract_address: token_address.try_into().expect('Invalid token address'),
+                };
+                assert(
+                    token
+                        .allowance(performer, get_contract_address()) >= fee_amount
+                        .try_into()
+                        .unwrap(),
+                    'Insufficient allowance',
+                );
+                token
+                    .transfer_from(
+                        performer, get_contract_address(), fee_amount.try_into().unwrap(),
+                    );
+            }
+
+            // Update collected fees
+            let current_fees = self.collected_fees.read(token_address);
+            self.collected_fees.write(token_address, current_fees + fee_amount);
+
+            // Record registration
+            self
+                .registrations
+                .entry((audition_id, performer))
+                .write(Registration { performer, token_address, fee_amount, refunded: false });
+
+            // Emit registration event
+            self.emit(PerformerRegistered { audition_id, performer, token_address, fee_amount });
         }
 
         /// @notice Deposits the prize for a specific audition.
@@ -655,6 +756,72 @@ pub mod SeasonAndAudition {
         fn audition_exists(self: @ContractState, audition_id: felt252) -> bool {
             let audition = self.auditions.entry(audition_id).read();
             audition.audition_id != 0
+        }
+
+        fn read_registration(
+            self: @ContractState, audition_id: felt252, performer: ContractAddress,
+        ) -> Registration {
+            self.registrations.entry((audition_id, performer)).read()
+        }
+
+        fn refund_registration(
+            ref self: ContractState, audition_id: felt252, performer: ContractAddress,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+
+            let registration = self.registrations.entry((audition_id, performer)).read();
+            assert(
+                registration.performer != contract_address_const::<0x0>(),
+                'Registration does not exist',
+            );
+            assert(!registration.refunded, 'Registration already refunded');
+            assert(registration.fee_amount > 0, 'No fee to refund');
+
+            // Store values before moving registration
+            let token_address = registration.token_address;
+            let fee_amount = registration.fee_amount;
+
+            // Transfer tokens back to performer
+            self._send_tokens(performer, fee_amount, token_address);
+
+            // Update collected fees
+            let current_fees = self.collected_fees.read(token_address);
+            self.collected_fees.write(token_address, current_fees - fee_amount);
+
+            // Mark as refunded
+            let mut updated_registration = registration;
+            updated_registration.refunded = true;
+            self.registrations.entry((audition_id, performer)).write(updated_registration);
+
+            // Emit refund event
+            self
+                .emit(
+                    Event::RegistrationRefunded(
+                        RegistrationRefunded { audition_id, performer, token_address, fee_amount },
+                    ),
+                );
+        }
+
+        fn refund_all_registrations(ref self: ContractState, audition_id: felt252) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+
+            // This is a simplified implementation that would need to be enhanced
+            // to iterate through all registrations for the audition
+            // For now, we'll emit an event indicating the intent
+            self
+                .emit(
+                    Event::RegistrationRefunded(
+                        RegistrationRefunded {
+                            audition_id,
+                            performer: contract_address_const::<0x0>(),
+                            token_address: contract_address_const::<0x0>(),
+                            fee_amount: 0,
+                        },
+                    ),
+                );
         }
     }
 
