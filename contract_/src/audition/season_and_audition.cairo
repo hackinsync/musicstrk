@@ -81,21 +81,14 @@ pub trait ISeasonAndAudition<TContractState> {
     );
 
     fn read_registration(
-        self: @TContractState,
-        audition_id: felt252,
-        performer: ContractAddress,
+        self: @TContractState, audition_id: felt252, performer: ContractAddress,
     ) -> Registration;
 
     fn refund_registration(
-        ref self: TContractState,
-        audition_id: felt252,
-        performer: ContractAddress,
+        ref self: TContractState, audition_id: felt252, performer: ContractAddress,
     );
 
-    fn refund_all_registrations(
-        ref self: TContractState,
-        audition_id: felt252,
-    );
+    fn refund_all_registrations(ref self: TContractState, audition_id: felt252);
 
     // price deposit and distribute functionalities
     fn deposit_prize(
@@ -766,23 +759,22 @@ pub mod SeasonAndAudition {
         }
 
         fn read_registration(
-            self: @ContractState,
-            audition_id: felt252,
-            performer: ContractAddress,
+            self: @ContractState, audition_id: felt252, performer: ContractAddress,
         ) -> Registration {
             self.registrations.entry((audition_id, performer)).read()
         }
 
         fn refund_registration(
-            ref self: ContractState,
-            audition_id: felt252,
-            performer: ContractAddress,
+            ref self: ContractState, audition_id: felt252, performer: ContractAddress,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
             let registration = self.registrations.entry((audition_id, performer)).read();
-            assert(registration.performer != contract_address_const::<0x0>(), 'Registration does not exist');
+            assert(
+                registration.performer != contract_address_const::<0x0>(),
+                'Registration does not exist',
+            );
             assert(!registration.refunded, 'Registration already refunded');
             assert(registration.fee_amount > 0, 'No fee to refund');
 
@@ -803,18 +795,15 @@ pub mod SeasonAndAudition {
             self.registrations.entry((audition_id, performer)).write(updated_registration);
 
             // Emit refund event
-            self.emit(Event::RegistrationRefunded(RegistrationRefunded {
-                audition_id,
-                performer,
-                token_address,
-                fee_amount,
-            }));
+            self
+                .emit(
+                    Event::RegistrationRefunded(
+                        RegistrationRefunded { audition_id, performer, token_address, fee_amount },
+                    ),
+                );
         }
 
-        fn refund_all_registrations(
-            ref self: ContractState,
-            audition_id: felt252,
-        ) {
+        fn refund_all_registrations(ref self: ContractState, audition_id: felt252) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
@@ -822,12 +811,17 @@ pub mod SeasonAndAudition {
             // This is a simplified implementation that would need to be enhanced
             // to iterate through all registrations for the audition
             // For now, we'll emit an event indicating the intent
-            self.emit(Event::RegistrationRefunded(RegistrationRefunded {
-                audition_id,
-                performer: contract_address_const::<0x0>(),
-                token_address: contract_address_const::<0x0>(),
-                fee_amount: 0,
-            }));
+            self
+                .emit(
+                    Event::RegistrationRefunded(
+                        RegistrationRefunded {
+                            audition_id,
+                            performer: contract_address_const::<0x0>(),
+                            token_address: contract_address_const::<0x0>(),
+                            fee_amount: 0,
+                        },
+                    ),
+                );
         }
     }
 
