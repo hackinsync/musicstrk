@@ -37,10 +37,10 @@ pub struct ProposalMetrics {
 #[derive(Copy, Drop, Serde, starknet::Store, PartialEq)]
 pub enum VoteType {
     #[default]
-    None: (),
-    For: (),
-    Against: (),
-    Abstain: (),
+    None,
+    For,
+    Against,
+    Abstain,
 }
 
 #[derive(Copy, Drop, Serde, starknet::Store)]
@@ -64,22 +64,4 @@ pub struct VoteBreakdown {
     pub votes_against: u256,
     pub votes_abstain: u256,
     pub total_voters: u64,
-}
-
-// Integration types for factory and revenue distribution
-#[derive(Drop, Serde)]
-pub struct TokenInfo {
-    pub token_address: ContractAddress,
-    pub artist_address: ContractAddress,
-    pub total_supply: u256,
-    pub name: felt252,
-    pub symbol: felt252,
-}
-
-#[derive(Drop, Serde)]
-pub struct GovernanceIntegration {
-    pub factory_contract: ContractAddress,
-    pub revenue_contract: ContractAddress,
-    pub proposal_system: ContractAddress,
-    pub voting_mechanism: ContractAddress,
 }
