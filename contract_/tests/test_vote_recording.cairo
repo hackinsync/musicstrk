@@ -2,6 +2,7 @@ use contract_::audition::season_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher, SeasonAndAudition,
 };
+use contract_::events::VoteRecorded;
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
@@ -114,7 +115,7 @@ fn test_record_vote_success() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::VoteRecorded(
-                        SeasonAndAudition::VoteRecorded { audition_id, performer, voter, weight },
+                        VoteRecorded { audition_id, performer, voter, weight },
                     ),
                 ),
             ],

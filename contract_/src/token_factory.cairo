@@ -38,6 +38,7 @@ pub trait IMusicShareTokenFactory<ContractState> {
 pub mod MusicShareTokenFactory {
     use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
     use contract_::errors::errors;
+    use contract_::events::{RoleGranted, RoleRevoked, TokenDeployedEvent};
     use core::clone::Clone;
     use core::num::traits::Zero;
     use core::traits::Into;
@@ -45,7 +46,7 @@ pub mod MusicShareTokenFactory {
     use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
     use openzeppelin::upgrades::UpgradeableComponent;
     use openzeppelin::upgrades::interface::IUpgradeable;
-    use starknet::get_caller_address;
+    use starknet::{get_caller_address, get_block_timestamp};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
@@ -89,16 +90,18 @@ pub mod MusicShareTokenFactory {
         OwnableEvent: OwnableComponent::Event,
         #[flat]
         UpgradeableEvent: UpgradeableComponent::Event,
+        RoleGranted: RoleGranted,
+        RoleRevoked: RoleRevoked,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct TokenDeployedEvent {
-        pub deployer: ContractAddress,
-        pub token_address: ContractAddress,
-        pub name: ByteArray,
-        pub symbol: ByteArray,
-        pub metadata_uri: ByteArray,
-    }
+    // #[derive(Drop, starknet::Event)]
+    // pub struct TokenDeployedEvent {
+    //     pub deployer: ContractAddress,
+    //     pub token_address: ContractAddress,
+    //     pub name: ByteArray,
+    //     pub symbol: ByteArray,
+    //     pub metadata_uri: ByteArray,
+    // }
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress, token_class_hash: ClassHash) {
@@ -179,6 +182,7 @@ pub mod MusicShareTokenFactory {
                         name: name.clone(),
                         symbol: symbol.clone(),
                         metadata_uri: metadata_uri.clone(),
+                        timestamp: get_block_timestamp(),
                     },
                 );
 
@@ -191,13 +195,14 @@ pub mod MusicShareTokenFactory {
             self.ownable.assert_only_owner();
             assert(!artist.is_zero(), errors::ZERO_ADDRESS_DETECTED);
             self.artist_role.write(artist, true);
-            // emit event
+            self.emit( RoleGranted { artist, timestamp: get_block_timestamp()} );
         }
 
         fn revoke_artist_role(ref self: ContractState, artist: ContractAddress) {
             // Only owner can revoke artist role
             self.ownable.assert_only_owner();
             self.artist_role.write(artist, false);
+            self.emit( RoleRevoked { artist, timestamp: get_block_timestamp() } );
         }
 
         fn has_artist_role(self: @ContractState, artist: ContractAddress) -> bool {

@@ -91,13 +91,16 @@ pub trait ISeasonAndAudition<TContractState> {
 #[starknet::contract]
 pub mod SeasonAndAudition {
     // use errors::super::super::events::EventAggregator::InternalTrait;
-    use OwnableComponent::HasComponent;
+    use starknet::event::EventEmitter;
+    // use OwnableComponent::HasComponent;
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use super::{Audition, ISeasonAndAudition, Season, Vote};
-    use crate::events::{EventAggregator, IEventAggregator};
-    use crate::events::EventAggregator::{InternalImpl, EventAggregatorImpl};
+    use crate::events::{SeasonCreated, SeasonUpdated, SeasonDeleted, AuditionCreated, AuditionUpdated, 
+        AuditionDeleted, ResultsSubmitted, OracleAdded, OracleRemoved, AuditionPaused, AuditionResumed, AuditionEnded,
+        VoteRecorded, PausedAll, ResumedAll
+    };
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
@@ -106,9 +109,6 @@ pub mod SeasonAndAudition {
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
-
-    // Integrate the event aggregator component
-    component!(path: EventAggregator, storage: event_aggregator, event: EventAggregatorEvent);
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
@@ -124,15 +124,17 @@ pub mod SeasonAndAudition {
         global_paused: bool,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
-        #[substorage(v0)]
-        event_aggregator: EventAggregator::Storage,
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         SeasonCreated: SeasonCreated,
+        SeasonUpdated: SeasonUpdated,
+        SeasonDeleted: SeasonDeleted,
         AuditionCreated: AuditionCreated,
+        AuditionUpdated: AuditionUpdated,
+        AuditionDeleted: AuditionDeleted,
         AuditionPaused: AuditionPaused,
         AuditionResumed: AuditionResumed,
         AuditionEnded: AuditionEnded,
@@ -144,76 +146,12 @@ pub mod SeasonAndAudition {
         ResumedAll: ResumedAll,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
-        #[flat]
-        EventAggregatorEvent: EventAggregator::Event,
     }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct SeasonCreated {
-        pub season_id: felt252,
-        pub genre: felt252,
-        pub name: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionCreated {
-        pub audition_id: felt252,
-        pub season_id: felt252,
-        pub genre: felt252,
-        pub name: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionPaused {
-        pub audition_id: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionResumed {
-        pub audition_id: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionEnded {
-        pub audition_id: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct ResultsSubmitted {
-        pub audition_id: felt252,
-        pub top_performers: felt252,
-        pub shares: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct OracleAdded {
-        pub oracle_address: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct OracleRemoved {
-        pub oracle_address: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct VoteRecorded {
-        pub audition_id: felt252,
-        pub performer: felt252,
-        pub voter: felt252,
-        pub weight: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct PausedAll {}
-
-    #[derive(Drop, starknet::Event)]
-    pub struct ResumedAll {}
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress, aggregation_threshold: u128) {
         self.ownable.initializer(owner);
         self.global_paused.write(false);
-        self.event_aggregator._initialize(aggregation_threshold)
     }
 
     #[abi(embed_v0)]
@@ -235,12 +173,7 @@ pub mod SeasonAndAudition {
                 .entry(season_id)
                 .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
 
-            self.emit(SeasonCreated { season_id, genre, name });
-            self.event_aggregator.record_event(selector!("SEASONEVENTS"));
-            let should_aggregate = self.event_aggregator.should_aggregate(selector!("SEASONEVENTS"));
-            if should_aggregate {
-                self.event_aggregator.aggregate_events();
-            }
+            self.emit(Event::SeasonCreated( SeasonCreated { season_id, genre, name, timestamp: get_block_timestamp() }));
         }
 
         fn read_season(self: @ContractState, season_id: felt252) -> Season {
@@ -252,6 +185,7 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
 
             self.seasons.entry(season_id).write(season);
+            self.emit(Event::SeasonUpdated (SeasonUpdated { season_id, timestamp: get_block_timestamp() }) );
         }
 
         fn delete_season(ref self: ContractState, season_id: felt252) {
@@ -261,6 +195,7 @@ pub mod SeasonAndAudition {
             let default_season: Season = Default::default();
 
             self.seasons.entry(season_id).write(default_season);
+            self.emit(Event::SeasonDeleted (SeasonDeleted { season_id, timestamp: get_block_timestamp() }) );
         }
 
         fn create_audition(
@@ -285,12 +220,7 @@ pub mod SeasonAndAudition {
                     },
                 );
 
-            self.emit(AuditionCreated { audition_id, season_id, genre, name });
-            self.event_aggregator.record_event(selector!("AUDITIONEVENTS"));
-            let should_aggregate = self.event_aggregator.should_aggregate(selector!("AUDITIONEVENTS"));
-            if should_aggregate {
-                self.event_aggregator.aggregate_events();
-            }
+            self.emit(Event::AuditionCreated(AuditionCreated { audition_id, season_id, genre, name, timestamp: get_block_timestamp() }));
         }
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
@@ -303,6 +233,7 @@ pub mod SeasonAndAudition {
             assert(!self.is_audition_paused(audition_id), 'Cannot update paused audition');
             assert(!self.is_audition_ended(audition_id), 'Cannot update ended audition');
             self.auditions.entry(audition_id).write(audition);
+            self.emit(Event::AuditionUpdated (AuditionUpdated { audition_id, timestamp: get_block_timestamp() }) );
         }
 
         fn delete_audition(ref self: ContractState, audition_id: felt252) {
@@ -314,6 +245,7 @@ pub mod SeasonAndAudition {
             let default_audition: Audition = Default::default();
 
             self.auditions.entry(audition_id).write(default_audition);
+            self.emit(Event::AuditionDeleted (AuditionDeleted { audition_id, timestamp: get_block_timestamp() }) );
         }
 
         fn submit_results(
@@ -325,7 +257,7 @@ pub mod SeasonAndAudition {
             self
                 .emit(
                     Event::ResultsSubmitted(
-                        ResultsSubmitted { audition_id, top_performers, shares },
+                        ResultsSubmitted { audition_id, top_performers, shares, timestamp: get_block_timestamp() },
                     ),
                 );
         }
@@ -381,13 +313,13 @@ pub mod SeasonAndAudition {
         fn pause_all(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.global_paused.write(true);
-            self.emit(Event::PausedAll(PausedAll {}));
+            self.emit(Event::PausedAll(PausedAll { timestamp: get_block_timestamp() }));
         }
 
         fn resume_all(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.global_paused.write(false);
-            self.emit(Event::ResumedAll(ResumedAll {}));
+            self.emit(Event::ResumedAll(ResumedAll { timestamp: get_block_timestamp() }));
         }
 
         fn is_paused(self: @ContractState) -> bool {
@@ -406,7 +338,7 @@ pub mod SeasonAndAudition {
             audition.paused = true;
             self.auditions.entry(audition_id).write(audition);
 
-            self.emit(Event::AuditionPaused(AuditionPaused { audition_id }));
+            self.emit(Event::AuditionPaused(AuditionPaused { audition_id, timestamp: get_block_timestamp() }));
             true
         }
 
@@ -422,7 +354,7 @@ pub mod SeasonAndAudition {
             audition.paused = false;
             self.auditions.entry(audition_id).write(audition);
 
-            self.emit(Event::AuditionResumed(AuditionResumed { audition_id }));
+            self.emit(Event::AuditionResumed(AuditionResumed { audition_id, timestamp: get_block_timestamp() }));
             true
         }
 
@@ -440,7 +372,7 @@ pub mod SeasonAndAudition {
             audition.end_timestamp = current_time.into();
             self.auditions.entry(audition_id).write(audition);
 
-            self.emit(Event::AuditionEnded(AuditionEnded { audition_id }));
+            self.emit(Event::AuditionEnded(AuditionEnded { audition_id, timestamp: get_block_timestamp() }));
             true
         }
 

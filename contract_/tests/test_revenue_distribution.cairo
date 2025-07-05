@@ -2,10 +2,12 @@ use contract_::IRevenueDistribution::{
     Category, IRevenueDistributionDispatcher, IRevenueDistributionDispatcherTrait,
 };
 use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
+use contract_::RevenueDistribution::RevenueDistribution;
+use contract_::events::{RevenueAddedEvent, RevenueDistributedEvent, TokenShareTransferred};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
-use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
-use starknet::ContractAddress;
+use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events, EventSpyAssertionsTrait};
+use starknet::{ContractAddress, get_block_timestamp};
 
 
 fn owner() -> ContractAddress {
@@ -51,6 +53,7 @@ fn deploy_revenue_contract(
 #[test]
 fn test_revenue_distribution() {
     let contract_address = deploy_music_share_token();
+    let mut spy = spy_events();
     // Deploy the RevenueDistribution contract
     let revenue_address = deploy_revenue_contract(owner(), contract_address);
 
@@ -70,6 +73,21 @@ fn test_revenue_distribution() {
     revenue_distribution.transfer_token_share(kim(), 30_u256);
     revenue_distribution.transfer_token_share(lee(), 70_u256);
 
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    revenue_address,
+                    RevenueDistribution::Event::TokenShareTransferred(
+                        TokenShareTransferred {
+                            new_holder: kim(),
+                            amount: 30,
+                        },
+                    ),
+                ),
+            ],
+        );
+
     // Add revenue
     revenue_distribution.add_revenue(Category::TICKET, 1000);
 
@@ -81,6 +99,21 @@ fn test_revenue_distribution() {
     let kim_revenue = revenue_distribution.get_holder_revenue(kim());
     let lee_revenue = revenue_distribution.get_holder_revenue(lee());
 
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract_address,
+                    RevenueDistribution::Event::RevenueDistributedEvent(
+                        RevenueDistributedEvent {
+                            total_distributed: 1000,
+                            time: get_block_timestamp(),
+                        },
+                    ),
+                ),
+            ],
+        );
+
     assert_eq!(kim_revenue, 300, "Kim's revenue incorrect");
     assert_eq!(lee_revenue, 700, "Lee's revenue incorrect");
 }
@@ -88,13 +121,28 @@ fn test_revenue_distribution() {
 #[test]
 fn test_add_revenue() {
     let contract_address = deploy_music_share_token();
+    let mut spy = spy_events();
     // Deploy the RevenueDistribution contract
     let revenue_address = deploy_revenue_contract(owner(), contract_address);
     let revenue_distribution = IRevenueDistributionDispatcher { contract_address: revenue_address };
 
     // Add revenue to a category
     revenue_distribution.add_revenue(Category::STREAMING, 1000);
-
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract_address,
+                    RevenueDistribution::Event::RevenueAddedEvent(
+                        RevenueAddedEvent {
+                            category: Category::STREAMING,
+                            amount: 1000,
+                            time: get_block_timestamp()
+                        },
+                    ),
+                ),
+            ],
+        );
     // Check the revenue by category
     let (revenue, cat) = revenue_distribution.get_revenue_by_category(Category::STREAMING);
     assert_eq!(revenue, 1000);

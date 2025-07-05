@@ -30,6 +30,7 @@ pub mod VotingMechanism {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerWriteAccess,
     };
     use super::IVotingMechanism;
+    use contract_::events::{VoteCast, VoteDelegated};
 
     #[storage]
     struct Storage {
@@ -59,23 +60,23 @@ pub mod VotingMechanism {
         VoteDelegated: VoteDelegated,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct VoteCast {
-        #[key]
-        pub proposal_id: u64,
-        #[key]
-        pub voter: ContractAddress,
-        pub vote_type: VoteType,
-        pub weight: u256,
-    }
+    // #[derive(Drop, starknet::Event)]
+    // pub struct VoteCast {
+    //     #[key]
+    //     pub proposal_id: u64,
+    //     #[key]
+    //     pub voter: ContractAddress,
+    //     pub vote_type: VoteType,
+    //     pub weight: u256,
+    // }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct VoteDelegated {
-        #[key]
-        pub delegator: ContractAddress,
-        #[key]
-        pub delegate: ContractAddress,
-    }
+    // #[derive(Drop, starknet::Event)]
+    // pub struct VoteDelegated {
+    //     #[key]
+    //     pub delegator: ContractAddress,
+    //     #[key]
+    //     pub delegate: ContractAddress,
+    // }
 
     #[constructor]
     fn constructor(

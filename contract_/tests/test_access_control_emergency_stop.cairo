@@ -3,7 +3,8 @@ use contract_::audition::season_and_audition::{
     Audition, Season, SeasonAndAudition, ISeasonAndAuditionDispatcher,
     ISeasonAndAuditionDispatcherTrait,
 };
-use starknet::ContractAddress;
+use contract_::events::{ResumedAll, PausedAll};
+use starknet::{ContractAddress, get_block_timestamp};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare,
     start_cheat_caller_address, stop_cheat_caller_address, spy_events,
@@ -228,7 +229,7 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::PausedAll(SeasonAndAudition::PausedAll {}),
+                    SeasonAndAudition::Event::PausedAll(PausedAll { timestamp: get_block_timestamp() }),
                 ),
             ],
         );
@@ -245,7 +246,7 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::ResumedAll(SeasonAndAudition::ResumedAll {}),
+                    SeasonAndAudition::Event::ResumedAll(ResumedAll { timestamp: get_block_timestamp() }),
                 ),
             ],
         );

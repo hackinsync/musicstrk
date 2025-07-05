@@ -1,11 +1,12 @@
 use contract_::token_factory::{
-    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
+    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait, MusicShareTokenFactory
 };
 use contract_::governance::{
     ProposalSystem::{IProposalSystemDispatcher, IProposalSystemDispatcherTrait, ProposalSystem},
     VotingMechanism::{IVotingMechanismDispatcher, IVotingMechanismDispatcherTrait, VotingMechanism},
     types::VoteType,
 };
+use contract_::events::{ProposalCreated, VoteDelegated, VoteCast, ProposalStatusChanged, CommentAdded, ArtistRegistered, RoleGranted};
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
 use core::traits::Into;
@@ -426,7 +427,7 @@ fn test_proposal_events() {
                 (
                     proposal_system.contract_address,
                     ProposalSystem::Event::ProposalCreated(
-                        ProposalSystem::ProposalCreated {
+                        ProposalCreated {
                             proposal_id,
                             token_contract: token_address,
                             proposer: shareholder,
@@ -449,7 +450,7 @@ fn test_proposal_events() {
                 (
                     proposal_system.contract_address,
                     ProposalSystem::Event::ProposalStatusChanged(
-                        ProposalSystem::ProposalStatusChanged {
+                        ProposalStatusChanged {
                             proposal_id, old_status: 0, new_status: 1, responder: artist,
                         },
                     ),
@@ -488,7 +489,7 @@ fn test_voting_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VoteCast(
-                        VotingMechanism::VoteCast {
+                        VoteCast {
                             proposal_id,
                             voter: shareholder1,
                             vote_type: VoteType::For,
@@ -511,7 +512,7 @@ fn test_voting_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VoteDelegated(
-                        VotingMechanism::VoteDelegated {
+                        VoteDelegated {
                             delegator: shareholder2, delegate: shareholder1,
                         },
                     ),
@@ -546,7 +547,7 @@ fn test_comment_events() {
                 (
                     proposal_system.contract_address,
                     ProposalSystem::Event::CommentAdded(
-                        ProposalSystem::CommentAdded {
+                        CommentAdded {
                             proposal_id, comment_id: 0, commenter: shareholder,
                         },
                     ),
@@ -920,11 +921,27 @@ fn test_artist_management() {
     let proposal_system = deploy_proposal_system(
         factory.contract_address, MIN_THRESHOLD_PERCENTAGE,
     );
+    let mut spy = spy_events();
 
     // Create two tokens
     cheat_caller_address(factory.contract_address, owner, CheatSpan::TargetCalls(2));
     factory.grant_artist_role(artist1);
     factory.grant_artist_role(artist2);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    factory.contract_address,
+                    MusicShareTokenFactory::Event::RoleGranted(
+                        RoleGranted {
+                            artist: artist1,
+                            timestamp: get_block_timestamp()
+                        },
+                    ),
+                ),
+            ],
+        );
 
     cheat_caller_address(factory.contract_address, artist1, CheatSpan::TargetCalls(1));
     let token1 = factory.deploy_music_token("Album 1", "A1", 6, "ipfs://1");
@@ -935,6 +952,21 @@ fn test_artist_management() {
     // Register artists
     proposal_system.register_artist(token1, artist1);
     proposal_system.register_artist(token2, artist2);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    factory.contract_address, 
+                    ProposalSystem::Event::ArtistRegistered(
+                        ArtistRegistered {
+                            artist: artist1,
+                            token: token1
+                        }
+                    ),
+                ),
+            ]
+        );
 
     // Test artist retrieval
     assert(proposal_system.get_artist_for_token(token1) == artist1, 'Artist 1 mismatch');
@@ -1077,6 +1109,7 @@ fn test_empty_content_edge_cases() {
     let (token_address, artist, proposal_system, _voting_mechanism, token) =
         setup_governance_environment();
     let shareholder = SHAREHOLDER_1();
+    let mut spy = spy_events();
 
     // Setup shareholder
     cheat_caller_address(token_address, artist, CheatSpan::TargetCalls(1));
@@ -1103,6 +1136,22 @@ fn test_empty_content_edge_cases() {
     proposal_system.respond_to_proposal(proposal_id, 1, "");
 
     let updated_proposal = proposal_system.get_proposal(proposal_id);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    proposal_system.contract_address,
+                    ProposalSystem::Event::ProposalStatusChanged(
+                        ProposalStatusChanged {
+                            proposal_id,
+                            old_status: 0,
+                            new_status: 1,
+                            responder: artist
+                        },
+                    ),
+                ),
+            ],
+        );
     assert(updated_proposal.artist_response == "", 'Empty response should work');
 }
 

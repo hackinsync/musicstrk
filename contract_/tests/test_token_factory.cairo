@@ -3,6 +3,7 @@ use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
     MusicShareTokenFactory,
 };
+use contract_::events::{TokenDeployedEvent};
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
 use core::traits::Into;
@@ -12,7 +13,7 @@ use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
     cheat_caller_address, declare, spy_events,
 };
-use starknet::ContractAddress;
+use starknet::{ContractAddress, get_block_timestamp};
 use starknet::class_hash::ClassHash;
 
 
@@ -163,12 +164,13 @@ fn test_deploy_music_share_token_event() {
                 (
                     factory_address,
                     MusicShareTokenFactory::Event::TokenDeployedEvent(
-                        MusicShareTokenFactory::TokenDeployedEvent {
+                        TokenDeployedEvent {
                             deployer: artist_1,
                             token_address,
                             name: name.into(),
                             symbol: symbol.into(),
                             metadata_uri: metadata_uri.into(),
+                            timestamp: get_block_timestamp()
                         },
                     ),
                 ),
