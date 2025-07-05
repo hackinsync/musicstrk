@@ -1,7 +1,7 @@
 use contract_::audition::season_and_audition::{
-    SeasonAndAudition, Season, Audition, ISeasonAndAuditionDispatcher,
-    ISeasonAndAuditionDispatcherTrait, ISeasonAndAuditionSafeDispatcher,
-    ISeasonAndAuditionSafeDispatcherTrait,
+    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+    ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait, Season,
+    SeasonAndAudition,
 };
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use starknet::ContractAddress;
@@ -11,6 +11,7 @@ use snforge_std::{
     start_cheat_caller_address, stop_cheat_caller_address, spy_events, start_cheat_block_timestamp,
     stop_cheat_block_timestamp,
 };
+
 
 // Test account -> Owner
 fn OWNER() -> ContractAddress {
@@ -62,6 +63,14 @@ fn create_default_season(season_id: felt252) -> Season {
         end_timestamp: 1675123200,
         paused: false,
     }
+}
+
+fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
+    let erc20_class = declare("mock_erc20").unwrap().contract_class();
+    let mut calldata = array![OWNER().into(), OWNER().into(), 6];
+    let (erc20_address, _) = erc20_class.deploy(@calldata).unwrap();
+
+    IERC20Dispatcher { contract_address: erc20_address }
 }
 
 // Helper function to create a default Audition struct
@@ -285,6 +294,1060 @@ fn test_create_audition() {
         );
 
     // Stop prank
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+fn test_audition_deposit_price_successful() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::PriceDeposited(
+                        SeasonAndAudition::PriceDeposited {
+                            audition_id: audition_id,
+                            token_address: mock_token_dispatcher.contract_address,
+                            amount: 10,
+                        },
+                    ),
+                ),
+            ],
+        );
+
+    let (token, price): (ContractAddress, u256) = contract.get_audition_prices(audition_id);
+    assert(token == mock_token_dispatcher.contract_address, 'Token address mismatch');
+    assert(price == 10, 'Prize amount mismatch');
+}
+
+
+#[test]
+#[should_panic(expect: 'Amount must be greater than zero')]
+fn test_audition_deposit_price_should_panic_if_amount_is_zero() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 0);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expect: 'Token address cannot be zero')]
+fn test_audition_deposit_price_should_panic_if_token_is_zero_address() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    let zero_address = contract_address_const::<0>();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, zero_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expect: 'Prize already deposited')]
+fn test_audition_deposit_price_should_panic_if_already_deposited() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expect: 'Insufficient allowance')]
+fn test_audition_deposit_price_should_panic_if_insufficient_allowance() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 1);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expect: 'Insufficient balance')]
+fn test_audition_deposit_price_should_panic_if_insufficient_balance() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    let recipient = contract_address_const::<1234>();
+    let owner_balance = mock_token_dispatcher.balance_of(OWNER().into());
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.transfer(recipient, owner_balance);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expect: 'Audition has already ended')]
+fn test_audition_deposit_price_should_panic_if_audition_ended_already() {
+    let (contract, _, _) = deploy_contract();
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    //  Add timestamp cheat
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // UPDATE Audition with future end time
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600, // Future time (24 hours later)
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+
+    contract.end_audition(audition_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expect: 'Audition does not exist')]
+fn test_audition_deposit_price_should_panic_if_invalid_audition_id() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expect: 'Caller is not the owner')]
+fn test_audition_deposit_price_should_panic_if_called_by_non_owner() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+}
+
+
+#[test]
+#[should_panic(expect: 'Contract is paused')]
+fn test_audition_deposit_price_should_panic_if_contract_is_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+    // deposit the price into a price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    // Pause the contract
+    contract.pause_all();
+    // deposit the price into a price pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_audition_distribute_prize_successful() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Check contract balance before deposit
+    let contract_balance_before = mock_token_dispatcher.balance_of(contract.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Check contract balance after deposit
+    let contract_balance_after = mock_token_dispatcher.balance_of(contract.contract_address);
+    assert!(
+        contract_balance_after == contract_balance_before + 10,
+        "Contract balance did not increase after deposit",
+    );
+
+    // Assert winner addresses and amounts are zero before distribution
+    let (w_addr1_before, w_addr2_before, w_addr3_before) = contract
+        .get_audition_winner_addresses(audition_id);
+    let (w_amt1_before, w_amt2_before, w_amt3_before) = contract
+        .get_audition_winner_amounts(audition_id);
+    let is_distributed_before = contract.is_prize_distributed(audition_id);
+
+    assert!(
+        w_addr1_before == contract_address_const::<0>(),
+        "Winner 1 address should be zero before distribution",
+    );
+    assert!(
+        w_addr2_before == contract_address_const::<0>(),
+        "Winner 2 address should be zero before distribution",
+    );
+    assert!(
+        w_addr3_before == contract_address_const::<0>(),
+        "Winner 3 address should be zero before distribution",
+    );
+    assert!(w_amt1_before == 0, "Winner 1 amount should be zero before distribution");
+    assert!(w_amt2_before == 0, "Winner 2 amount should be zero before distribution");
+    assert!(w_amt3_before == 0, "Winner 3 amount should be zero before distribution");
+    assert!(!is_distributed_before, "Prize should not be distributed before distribution");
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600, // Future time (24 hours later)
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // Check winners' balances before distribution
+    let winner1_balance_before = mock_token_dispatcher.balance_of(winner1);
+    let winner2_balance_before = mock_token_dispatcher.balance_of(winner2);
+    let winner3_balance_before = mock_token_dispatcher.balance_of(winner3);
+
+    // Distribute the prize
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    // Check contract balance after distribution
+    let contract_balance_final = mock_token_dispatcher.balance_of(contract.contract_address);
+    assert!(
+        contract_balance_final == contract_balance_after - 10,
+        "Contract balance did not decrease after distribution",
+    );
+
+    // Check winners' balances after distribution
+    let winner1_balance_after = mock_token_dispatcher.balance_of(winner1);
+    let winner2_balance_after = mock_token_dispatcher.balance_of(winner2);
+    let winner3_balance_after = mock_token_dispatcher.balance_of(winner3);
+
+    assert!(
+        winner1_balance_after == winner1_balance_before + 5,
+        "Winner 1 did not receive correct amount",
+    );
+    assert!(
+        winner2_balance_after == winner2_balance_before + 3,
+        "Winner 2 did not receive correct amount",
+    );
+    assert!(
+        winner3_balance_after == winner3_balance_before + 2,
+        "Winner 3 did not receive correct amount",
+    );
+
+    // Assert winner addresses and amounts after distribution
+    let (w_addr1_after, w_addr2_after, w_addr3_after) = contract
+        .get_audition_winner_addresses(audition_id);
+    let (w_amt1_after, w_amt2_after, w_amt3_after) = contract
+        .get_audition_winner_amounts(audition_id);
+    let is_distributed_after = contract.is_prize_distributed(audition_id);
+
+    assert!(w_addr1_after == winner1, "Winner 1 address mismatch after distribution");
+    assert!(w_addr2_after == winner2, "Winner 2 address mismatch after distribution");
+    assert!(w_addr3_after == winner3, "Winner 3 address mismatch after distribution");
+    assert!(w_amt1_after == 5, "Winner 1 amount mismatch after distribution");
+    assert!(w_amt2_after == 3, "Winner 2 amount mismatch after distribution");
+    assert!(w_amt3_after == 2, "Winner 3 amount mismatch after distribution");
+    assert!(is_distributed_after, "Prize should be marked as distributed after distribution");
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::PriceDistributed(
+                        SeasonAndAudition::PriceDistributed {
+                            audition_id: audition_id,
+                            winners: [winner1, winner2, winner3],
+                            shares: [50, 30, 20],
+                            token_address: mock_token_dispatcher.contract_address,
+                            amounts: [5, 3, 2].span(),
+                        },
+                    ),
+                ),
+            ],
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: "Caller is not the owner")]
+fn test_audition_distribute_prize_should_panic_if_not_owner() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // Not owner
+    start_cheat_caller_address(contract.contract_address, NON_OWNER());
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+}
+
+#[test]
+#[should_panic(expect: "Contract is paused")]
+fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600, // Future time (24 hours later)
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    // Pause the contract before distribution
+    contract.pause_all();
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // This should panic because the contract is paused
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: "Audition does not exist")]
+fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let invalid_audition_id: felt252 = 999;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    // Create a valid audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Deposit the prize into the price pool of the valid audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Prepare for distribution on a non-existent audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // This should panic because the audition ID does not exist
+    contract.distribute_prize(invalid_audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: "Audition has not ended")]
+fn test_distribute_prize_should_panic_if_audition_not_ended() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Prepare for distribution without ending the audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // This should panic because the audition has not ended yet
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: "No prize deposited for this audition")]
+fn test_distribute_prize_should_panic_if_no_prize_deposited() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Create audition as owner
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // End audition
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600,
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    // Try to distribute prize without depositing any prize
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: "Prize already distributed")]
+fn test_distribute_prize_should_panic_if_already_distributed() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600, // Future time (24 hours later)
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // First distribution (should succeed)
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    // Second distribution (should panic)
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'null contract address')]
+fn test_distribute_prize_should_panic_if_winner_is_zero_address() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time and end it
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600,
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    let winner1 = contract_address_const::<0>(); // Null address
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // This should panic because winner1 is a zero address
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: 'total does not add up')]
+fn test_distribute_prize_should_panic_if_total_shares_not_100() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time and end it
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600,
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // This should panic because shares do not add up to 100 (e.g., 40 + 30 + 20 = 90)
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [40, 30, 20]);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expect: "Insufficient balance for prize distribution")]
+fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Set up contract and audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Deposit the prize into the price pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Cheat: transfer all tokens from contract to a random address, draining contract balance
+    let random_address = contract_address_const::<9999>();
+    let contract_balance = mock_token_dispatcher.balance_of(contract.contract_address);
+    if contract_balance > 0 {
+        start_cheat_caller_address(
+            mock_token_dispatcher.contract_address, contract.contract_address,
+        );
+        mock_token_dispatcher.transfer(random_address, contract_balance);
+        stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+    }
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time and end it
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600,
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    // This should panic because contract has no balance to distribute
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
 }
 

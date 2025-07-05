@@ -2,7 +2,7 @@
 
 use core::array::{Array, ArrayTrait};
 use core::byte_array::ByteArray;
-use starknet::{ContractAddress, ClassHash, syscalls::deploy_syscall};
+use starknet::{ClassHash, ContractAddress, syscalls::deploy_syscall};
 
 #[starknet::interface]
 pub trait IMusicShareTokenFactory<ContractState> {
