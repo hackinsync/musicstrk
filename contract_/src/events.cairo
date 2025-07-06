@@ -101,6 +101,22 @@ pub struct VoteRecorded {
 }
 
 #[derive(Drop, starknet::Event)]
+pub struct PriceDistributed {
+    pub audition_id: felt252,
+    pub winners: [ContractAddress; 3],
+    pub shares: [u256; 3],
+    pub token_address: ContractAddress,
+    pub amounts: Span<u256>,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PriceDeposited { 
+    pub audition_id: felt252, 
+    pub token_address: ContractAddress, 
+    pub amount: u256 
+}
+
+#[derive(Drop, starknet::Event)]
 pub struct PausedAll {
     pub timestamp: u64
 }

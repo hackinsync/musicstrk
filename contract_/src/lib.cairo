@@ -12,3 +12,6 @@ pub mod governance {
     pub mod VotingMechanism;
     pub mod types;
 }
+pub mod presets {
+    pub mod mock_erc20;
+}

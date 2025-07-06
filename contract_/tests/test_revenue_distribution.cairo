@@ -80,8 +80,8 @@ fn test_revenue_distribution() {
                     revenue_address,
                     RevenueDistribution::Event::TokenShareTransferred(
                         TokenShareTransferred {
-                            new_holder: kim(),
-                            amount: 30,
+                            new_holder: lee(),
+                            amount: 70,
                         },
                     ),
                 ),
@@ -103,7 +103,7 @@ fn test_revenue_distribution() {
         .assert_emitted(
             @array![
                 (
-                    contract_address,
+                    revenue_address,
                     RevenueDistribution::Event::RevenueDistributedEvent(
                         RevenueDistributedEvent {
                             total_distributed: 1000,
@@ -132,7 +132,7 @@ fn test_add_revenue() {
         .assert_emitted(
             @array![
                 (
-                    contract_address,
+                    revenue_address,
                     RevenueDistribution::Event::RevenueAddedEvent(
                         RevenueAddedEvent {
                             category: Category::STREAMING,

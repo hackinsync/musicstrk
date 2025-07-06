@@ -123,7 +123,7 @@ fn test_record_vote_success() {
 }
 
 #[test]
-#[should_panic(expected: ('Vote already exists',))]
+#[should_panic(expect: ('Vote already exists',))]
 fn test_record_vote_duplicate_should_fail() {
     let contract = setup_contract_with_oracle();
 
@@ -145,7 +145,7 @@ fn test_record_vote_duplicate_should_fail() {
 }
 
 #[test]
-#[should_panic(expected: ('Not Authorized',))]
+#[should_panic(expect: ('Not Authorized',))]
 fn test_record_vote_unauthorized_should_fail() {
     let contract = setup_contract_with_oracle();
 

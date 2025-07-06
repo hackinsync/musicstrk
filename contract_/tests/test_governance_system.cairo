@@ -348,7 +348,7 @@ fn test_proposal_filtering() {
 }
 
 #[test]
-#[should_panic(expected: ('Insufficient token balance',))]
+#[should_panic(expect: ('Insufficient token balance',))]
 fn test_insufficient_threshold_proposal_fails() {
     let (token_address, artist, proposal_system, _voting_mechanism, token) =
         setup_governance_environment();
@@ -926,6 +926,20 @@ fn test_artist_management() {
     // Create two tokens
     cheat_caller_address(factory.contract_address, owner, CheatSpan::TargetCalls(2));
     factory.grant_artist_role(artist1);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    factory.contract_address,
+                    MusicShareTokenFactory::Event::RoleGranted(
+                        RoleGranted {
+                            artist: artist1,
+                            timestamp: get_block_timestamp()
+                        },
+                    ),
+                ),
+            ],
+        );
     factory.grant_artist_role(artist2);
 
     spy
@@ -935,7 +949,7 @@ fn test_artist_management() {
                     factory.contract_address,
                     MusicShareTokenFactory::Event::RoleGranted(
                         RoleGranted {
-                            artist: artist1,
+                            artist: artist2,
                             timestamp: get_block_timestamp()
                         },
                     ),
@@ -957,11 +971,11 @@ fn test_artist_management() {
         .assert_emitted(
             @array![
                 (
-                    factory.contract_address, 
+                    proposal_system.contract_address, 
                     ProposalSystem::Event::ArtistRegistered(
                         ArtistRegistered {
-                            artist: artist1,
-                            token: token1
+                            artist: artist2,
+                            token: token2
                         }
                     ),
                 ),
@@ -994,7 +1008,7 @@ fn test_artist_management() {
 // Edge case tests
 
 #[test]
-#[should_panic(expected: ('Already voted',))]
+#[should_panic(expect: ('Already voted',))]
 fn test_double_voting_fails() {
     let (token_address, artist, proposal_system, voting_mechanism, token) =
         setup_governance_environment();
@@ -1016,7 +1030,7 @@ fn test_double_voting_fails() {
 }
 
 #[test]
-#[should_panic(expected: ('No voting power',))]
+#[should_panic(expect: ('No voting power',))]
 fn test_zero_balance_voting_fails() {
     let (token_address, _artist, proposal_system, voting_mechanism, _token) =
         setup_governance_environment();
@@ -1039,7 +1053,7 @@ fn test_zero_balance_voting_fails() {
 }
 
 #[test]
-#[should_panic(expected: ('Cannot delegate to self',))]
+#[should_panic(expect: ('Cannot delegate to self',))]
 fn test_self_delegation_fails() {
     let (_token_address, _artist, _proposal_system, voting_mechanism, _token) =
         setup_governance_environment();
@@ -1050,7 +1064,7 @@ fn test_self_delegation_fails() {
 }
 
 #[test]
-#[should_panic(expected: ('Not a token holder',))]
+#[should_panic(expect: ('Not a token holder',))]
 fn test_non_holder_comment_fails() {
     let (token_address, artist, proposal_system, _voting_mechanism, token) =
         setup_governance_environment();
@@ -1071,7 +1085,7 @@ fn test_non_holder_comment_fails() {
 }
 
 #[test]
-#[should_panic(expected: ('Only artist can respond',))]
+#[should_panic(expect: ('Only artist can respond',))]
 fn test_non_artist_response_fails() {
     let (token_address, artist, proposal_system, _voting_mechanism, token) =
         setup_governance_environment();
@@ -1092,7 +1106,7 @@ fn test_non_artist_response_fails() {
 }
 
 #[test]
-#[should_panic(expected: ('Threshold must be <= 100',))]
+#[should_panic(expect: ('Threshold must be <= 100',))]
 fn test_invalid_threshold_update_fails() {
     let owner = OWNER();
     let factory = deploy_token_factory(owner);
