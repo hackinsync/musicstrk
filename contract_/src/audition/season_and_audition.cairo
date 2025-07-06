@@ -128,7 +128,6 @@ pub trait ISeasonAndAudition<TContractState> {
 pub mod SeasonAndAudition {
     use core::num::traits::Zero;
     use starknet::get_contract_address;
-    // use errors::super::super::events::EventAggregator::InternalTrait;
     use starknet::event::EventEmitter;
     use OwnableComponent::HasComponent;
     use OwnableComponent::InternalTrait;

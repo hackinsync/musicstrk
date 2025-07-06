@@ -30,36 +30,6 @@ mod GovernanceIntegration {
         ArtistResponse: ArtistResponse,
     }
 
-    // #[derive(Drop, starknet::Event)]
-    // struct GovernanceInitialized {
-    //     proposal_system: ContractAddress,
-    //     voting_mechanism: ContractAddress,
-    //     factory_contract: ContractAddress,
-    // }
-
-    // #[derive(Drop, starknet::Event)]
-    // struct ProposalSubmitted {
-    //     proposal_id: u64,
-    //     token_contract: ContractAddress,
-    //     proposer: ContractAddress,
-    //     category: felt252,
-    // }
-
-    // #[derive(Drop, starknet::Event)]
-    // struct VoteCast {
-    //     proposal_id: u64,
-    //     voter: ContractAddress,
-    //     vote_type: VoteType,
-    //     weight: u256,
-    // }
-
-    // #[derive(Drop, starknet::Event)]
-    // struct ArtistResponse {
-    //     proposal_id: u64,
-    //     artist: ContractAddress,
-    //     status: u8,
-    // }
-
     #[constructor]
     fn constructor(ref self: ContractState, admin: ContractAddress) {
         self.admin.write(admin);

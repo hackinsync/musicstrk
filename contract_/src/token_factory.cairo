@@ -94,15 +94,6 @@ pub mod MusicShareTokenFactory {
         RoleRevoked: RoleRevoked,
     }
 
-    // #[derive(Drop, starknet::Event)]
-    // pub struct TokenDeployedEvent {
-    //     pub deployer: ContractAddress,
-    //     pub token_address: ContractAddress,
-    //     pub name: ByteArray,
-    //     pub symbol: ByteArray,
-    //     pub metadata_uri: ByteArray,
-    // }
-
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress, token_class_hash: ClassHash) {
         // Set owner
