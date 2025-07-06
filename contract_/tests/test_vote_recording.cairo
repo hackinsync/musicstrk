@@ -87,7 +87,7 @@ fn test_record_vote_success() {
     let audition_id: felt252 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
-    let weight: felt252 = 100;
+    let weight: u64 = 100;
 
     // Create audition first
     create_test_audition(contract, audition_id);
@@ -129,7 +129,7 @@ fn test_record_vote_duplicate_should_fail() {
     let audition_id: felt252 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
-    let weight: felt252 = 100;
+    let weight: u64 = 100;
 
     // Create audition first
     create_test_audition(contract, audition_id);
@@ -151,7 +151,7 @@ fn test_record_vote_unauthorized_should_fail() {
     let audition_id: felt252 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
-    let weight: felt252 = 100;
+    let weight: u64 = 100;
 
     // Create audition first
     create_test_audition(contract, audition_id);
@@ -171,7 +171,7 @@ fn test_record_multiple_votes_different_combinations() {
     let performer2: felt252 = 'performer2';
     let voter1: felt252 = 'voter1';
     let voter2: felt252 = 'voter2';
-    let weight: felt252 = 100;
+    let weight: u64 = 100;
 
     // Create audition first
     create_test_audition(contract, audition_id);
@@ -212,7 +212,7 @@ fn test_record_votes_different_auditions() {
     let audition_id2: felt252 = 2;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
-    let weight: felt252 = 100;
+    let weight: u64 = 100;
 
     // Create auditions first
     create_test_audition(contract, audition_id1);
