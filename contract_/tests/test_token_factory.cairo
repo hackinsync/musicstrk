@@ -170,7 +170,7 @@ fn test_deploy_music_share_token_event() {
                             name: name.into(),
                             symbol: symbol.into(),
                             metadata_uri: metadata_uri.into(),
-                            timestamp: get_block_timestamp()
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),

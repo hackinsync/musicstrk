@@ -1,12 +1,16 @@
 use contract_::token_factory::{
-    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait, MusicShareTokenFactory
+    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
+    MusicShareTokenFactory,
 };
 use contract_::governance::{
     ProposalSystem::{IProposalSystemDispatcher, IProposalSystemDispatcherTrait, ProposalSystem},
     VotingMechanism::{IVotingMechanismDispatcher, IVotingMechanismDispatcherTrait, VotingMechanism},
     types::VoteType,
 };
-use contract_::events::{ProposalCreated, VoteDelegated, VoteCast, ProposalStatusChanged, CommentAdded, ArtistRegistered, RoleGranted};
+use contract_::events::{
+    ProposalCreated, VoteDelegated, VoteCast, ProposalStatusChanged, CommentAdded, ArtistRegistered,
+    RoleGranted,
+};
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
 use core::traits::Into;
@@ -512,9 +516,7 @@ fn test_voting_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VoteDelegated(
-                        VoteDelegated {
-                            delegator: shareholder2, delegate: shareholder1,
-                        },
+                        VoteDelegated { delegator: shareholder2, delegate: shareholder1 },
                     ),
                 ),
             ],
@@ -547,9 +549,7 @@ fn test_comment_events() {
                 (
                     proposal_system.contract_address,
                     ProposalSystem::Event::CommentAdded(
-                        CommentAdded {
-                            proposal_id, comment_id: 0, commenter: shareholder,
-                        },
+                        CommentAdded { proposal_id, comment_id: 0, commenter: shareholder },
                     ),
                 ),
             ],
@@ -932,10 +932,7 @@ fn test_artist_management() {
                 (
                     factory.contract_address,
                     MusicShareTokenFactory::Event::RoleGranted(
-                        RoleGranted {
-                            artist: artist1,
-                            timestamp: get_block_timestamp()
-                        },
+                        RoleGranted { artist: artist1, timestamp: get_block_timestamp() },
                     ),
                 ),
             ],
@@ -948,10 +945,7 @@ fn test_artist_management() {
                 (
                     factory.contract_address,
                     MusicShareTokenFactory::Event::RoleGranted(
-                        RoleGranted {
-                            artist: artist2,
-                            timestamp: get_block_timestamp()
-                        },
+                        RoleGranted { artist: artist2, timestamp: get_block_timestamp() },
                     ),
                 ),
             ],
@@ -971,15 +965,12 @@ fn test_artist_management() {
         .assert_emitted(
             @array![
                 (
-                    proposal_system.contract_address, 
+                    proposal_system.contract_address,
                     ProposalSystem::Event::ArtistRegistered(
-                        ArtistRegistered {
-                            artist: artist2,
-                            token: token2
-                        }
+                        ArtistRegistered { artist: artist2, token: token2 },
                     ),
                 ),
-            ]
+            ],
         );
 
     // Test artist retrieval
@@ -1157,10 +1148,7 @@ fn test_empty_content_edge_cases() {
                     proposal_system.contract_address,
                     ProposalSystem::Event::ProposalStatusChanged(
                         ProposalStatusChanged {
-                            proposal_id,
-                            old_status: 0,
-                            new_status: 1,
-                            responder: artist
+                            proposal_id, old_status: 0, new_status: 1, responder: artist,
                         },
                     ),
                 ),

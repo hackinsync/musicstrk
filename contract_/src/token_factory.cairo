@@ -186,14 +186,14 @@ pub mod MusicShareTokenFactory {
             self.ownable.assert_only_owner();
             assert(!artist.is_zero(), errors::ZERO_ADDRESS_DETECTED);
             self.artist_role.write(artist, true);
-            self.emit( RoleGranted { artist, timestamp: get_block_timestamp()} );
+            self.emit(RoleGranted { artist, timestamp: get_block_timestamp() });
         }
 
         fn revoke_artist_role(ref self: ContractState, artist: ContractAddress) {
             // Only owner can revoke artist role
             self.ownable.assert_only_owner();
             self.artist_role.write(artist, false);
-            self.emit( RoleRevoked { artist, timestamp: get_block_timestamp() } );
+            self.emit(RoleRevoked { artist, timestamp: get_block_timestamp() });
         }
 
         fn has_artist_role(self: @ContractState, artist: ContractAddress) -> bool {

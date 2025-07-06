@@ -229,7 +229,9 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::PausedAll(PausedAll { timestamp: get_block_timestamp() }),
+                    SeasonAndAudition::Event::PausedAll(
+                        PausedAll { timestamp: get_block_timestamp() },
+                    ),
                 ),
             ],
         );
@@ -246,7 +248,9 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::ResumedAll(ResumedAll { timestamp: get_block_timestamp() }),
+                    SeasonAndAudition::Event::ResumedAll(
+                        ResumedAll { timestamp: get_block_timestamp() },
+                    ),
                 ),
             ],
         );

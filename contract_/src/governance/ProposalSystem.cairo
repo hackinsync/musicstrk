@@ -50,7 +50,9 @@ pub mod ProposalSystem {
     use starknet::{
         ContractAddress, get_caller_address, get_block_timestamp, contract_address_const,
     };
-    use contract_::events::{ProposalCreated, ProposalStatusChanged, CommentAdded, VoteCast, ArtistRegistered};
+    use contract_::events::{
+        ProposalCreated, ProposalStatusChanged, CommentAdded, VoteCast, ArtistRegistered,
+    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
@@ -272,7 +274,7 @@ pub mod ProposalSystem {
         ) {
             // This would typically be called by the factory or during token creation
             self.artists.write(token_contract, artist);
-            self.emit( ArtistRegistered { artist, token: token_contract } );
+            self.emit(ArtistRegistered { artist, token: token_contract });
         }
 
         fn get_total_proposals(self: @ContractState) -> u64 {

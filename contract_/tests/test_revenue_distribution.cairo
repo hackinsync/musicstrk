@@ -6,7 +6,10 @@ use contract_::RevenueDistribution::RevenueDistribution;
 use contract_::events::{RevenueAddedEvent, RevenueDistributedEvent, TokenShareTransferred};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
-use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events, EventSpyAssertionsTrait};
+use snforge_std::{
+    CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events,
+    EventSpyAssertionsTrait,
+};
 use starknet::{ContractAddress, get_block_timestamp};
 
 
@@ -79,10 +82,7 @@ fn test_revenue_distribution() {
                 (
                     revenue_address,
                     RevenueDistribution::Event::TokenShareTransferred(
-                        TokenShareTransferred {
-                            new_holder: lee(),
-                            amount: 70,
-                        },
+                        TokenShareTransferred { new_holder: lee(), amount: 70 },
                     ),
                 ),
             ],
@@ -106,8 +106,7 @@ fn test_revenue_distribution() {
                     revenue_address,
                     RevenueDistribution::Event::RevenueDistributedEvent(
                         RevenueDistributedEvent {
-                            total_distributed: 1000,
-                            time: get_block_timestamp(),
+                            total_distributed: 1000, time: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -137,7 +136,7 @@ fn test_add_revenue() {
                         RevenueAddedEvent {
                             category: Category::STREAMING,
                             amount: 1000,
-                            time: get_block_timestamp()
+                            time: get_block_timestamp(),
                         },
                     ),
                 ),

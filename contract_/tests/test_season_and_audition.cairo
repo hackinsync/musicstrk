@@ -4,8 +4,8 @@ use contract_::audition::season_and_audition::{
     SeasonAndAudition,
 };
 use contract_::events::{
-    SeasonCreated, AuditionCreated, AuditionPaused, AuditionResumed, AuditionEnded, SeasonUpdated, SeasonDeleted, AuditionUpdated,
-    AuditionDeleted, PriceDeposited, PriceDistributed,
+    SeasonCreated, AuditionCreated, AuditionPaused, AuditionResumed, AuditionEnded, SeasonUpdated,
+    SeasonDeleted, AuditionUpdated, AuditionDeleted, PriceDeposited, PriceDistributed,
 };
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -142,7 +142,7 @@ fn test_season_create() {
                             season_id: default_season.season_id,
                             genre: default_season.genre,
                             name: default_season.name,
-                            timestamp: get_block_timestamp()
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -203,8 +203,7 @@ fn test_update_season() {
                     contract.contract_address,
                     SeasonAndAudition::Event::SeasonUpdated(
                         SeasonUpdated {
-                            season_id: default_season.season_id,
-                            timestamp: get_block_timestamp()
+                            season_id: default_season.season_id, timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -259,8 +258,7 @@ fn test_delete_season() {
                     contract.contract_address,
                     SeasonAndAudition::Event::SeasonDeleted(
                         SeasonDeleted {
-                            season_id: default_season.season_id,
-                            timestamp: get_block_timestamp()
+                            season_id: default_season.season_id, timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -325,7 +323,7 @@ fn test_create_audition() {
                             season_id: default_audition.season_id,
                             genre: default_audition.genre,
                             name: default_audition.name,
-                            timestamp: get_block_timestamp()
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -1442,10 +1440,7 @@ fn test_update_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionUpdated(
-                        AuditionUpdated {
-                            audition_id,
-                            timestamp: get_block_timestamp()
-                        },
+                        AuditionUpdated { audition_id, timestamp: get_block_timestamp() },
                     ),
                 ),
             ],
@@ -1500,10 +1495,7 @@ fn test_delete_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionDeleted(
-                        AuditionDeleted {
-                            audition_id,
-                            timestamp: get_block_timestamp()
-                        },
+                        AuditionDeleted { audition_id, timestamp: get_block_timestamp() },
                     ),
                 ),
             ],
@@ -1733,7 +1725,9 @@ fn test_emission_of_event_for_pause_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionPaused(
-                        AuditionPaused { audition_id: audition_id, timestamp: get_block_timestamp() },
+                        AuditionPaused {
+                            audition_id: audition_id, timestamp: get_block_timestamp(),
+                        },
                     ),
                 ),
             ],
@@ -2087,7 +2081,9 @@ fn test_emission_of_event_for_resume_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionResumed(
-                        AuditionResumed { audition_id: audition_id, timestamp: get_block_timestamp() },
+                        AuditionResumed {
+                            audition_id: audition_id, timestamp: get_block_timestamp(),
+                        },
                     ),
                 ),
             ],
@@ -2219,7 +2215,7 @@ fn test_end_audition_as_non_owner() {
 #[test]
 fn test_emission_of_event_for_end_audition() {
     let (contract, _, _) = deploy_contract();
-    
+
     let mut spy = spy_events();
     let audition_id: felt252 = 1;
     let season_id: felt252 = 1;

@@ -55,7 +55,7 @@ pub struct AuditionDeleted {
 pub struct AuditionPaused {
     #[key]
     pub audition_id: felt252,
-    pub timestamp: u64
+    pub timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -110,20 +110,20 @@ pub struct PriceDistributed {
 }
 
 #[derive(Drop, starknet::Event)]
-pub struct PriceDeposited { 
-    pub audition_id: felt252, 
-    pub token_address: ContractAddress, 
-    pub amount: u256 
+pub struct PriceDeposited {
+    pub audition_id: felt252,
+    pub token_address: ContractAddress,
+    pub amount: u256,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct PausedAll {
-    pub timestamp: u64
+    pub timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct ResumedAll {
-    pub timestamp: u64
+    pub timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -233,14 +233,14 @@ pub struct RevenueDistributedEvent { //added
 pub struct ArtistRegistered {
     #[key]
     pub artist: ContractAddress,
-    pub token: ContractAddress
+    pub token: ContractAddress,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct TokenShareTransferred {
     #[key]
     pub new_holder: ContractAddress,
-    pub amount: u256
+    pub amount: u256,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -254,5 +254,5 @@ pub struct RoleGranted {
 pub struct RoleRevoked {
     #[key]
     pub artist: ContractAddress,
-    pub timestamp: u64
+    pub timestamp: u64,
 }
