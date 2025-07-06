@@ -2351,3 +2351,437 @@ fn test_end_audition_functionality() {
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
 }
+
+// Additional helper functions for testing query functions
+fn create_test_season(season_id: felt252, genre: felt252, name: felt252) -> Season {
+    Season {
+        season_id,
+        genre,
+        name,
+        start_timestamp: 1672531200,
+        end_timestamp: 1675123200,
+        paused: false,
+    }
+}
+
+fn create_test_audition_with_times(
+    audition_id: felt252,
+    season_id: felt252,
+    genre: felt252,
+    name: felt252,
+    start_timestamp: felt252,
+    end_timestamp: felt252,
+    paused: bool,
+) -> Audition {
+    Audition { audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused }
+}
+
+fn setup_test_data(contract: ISeasonAndAuditionDispatcher) {
+    // Create multiple seasons with different genres
+    contract.create_season(1, 'Pop', 'Pop Season 1', 1672531200, 1675123200, false);
+    contract.create_season(2, 'Rock', 'Rock Season 1', 1672531200, 1675123200, false);
+    contract.create_season(3, 'Pop', 'Pop Season 2', 1672531200, 1675123200, false);
+
+    contract.create_audition(1, 1, 'Pop', 'Pop Audition 1', 1672531200, 1675123200, false);
+    contract.create_audition(2, 1, 'Pop', 'Pop Audition 2', 1672531200, 1675123200, false);
+    contract.create_audition(3, 2, 'Rock', 'Rock Audition 1', 1672531200, 1675123200, false);
+    contract.create_audition(4, 3, 'Pop', 'Pop Audition 3', 1672531200, 1675123200, true); // paused
+
+    contract
+        .create_audition(
+            5, 1, 'Pop', 'Future Audition', 1893456000, 1896048000, false,
+        ); // Future dates
+    contract
+        .create_audition(
+            6, 2, 'Rock', 'Past Audition', 1640995200, 1643673600, false,
+        ); // Past dates
+
+    contract.add_oracle(OWNER());
+    contract.record_vote(1, 'performer1', 'voter1', 100);
+    contract.record_vote(2, 'performer1', 'voter1', 150); // Same performer in different audition
+    contract.record_vote(3, 'performer2', 'voter2', 200);
+}
+
+// Test genre-based filtering
+#[test]
+fn test_get_seasons_by_genre() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    // Test getting Pop seasons (should use index)
+    let pop_seasons = contract.get_seasons_by_genre('Pop', 10);
+    assert!(pop_seasons.len() == 2, "Should return 2 Pop seasons");
+
+    // Test getting Rock seasons
+    let rock_seasons = contract.get_seasons_by_genre('Rock', 10);
+    assert!(rock_seasons.len() == 1, "Should return 1 Rock season");
+
+    // Test max_results limit
+    let limited_seasons = contract.get_seasons_by_genre('Pop', 1);
+    assert!(limited_seasons.len() == 1, "Should respect max_results limit");
+
+    // Test non-existent genre
+    let jazz_seasons = contract.get_seasons_by_genre('Jazz', 10);
+    assert!(jazz_seasons.len() == 0, "Should return empty array for non-existent genre");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_get_auditions_by_genre() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    // Test getting Pop auditions (should use index)
+    let pop_auditions = contract.get_auditions_by_genre('Pop', 10);
+    assert!(pop_auditions.len() == 4, "Should return 4 Pop auditions");
+
+    // Test getting Rock auditions
+    let rock_auditions = contract.get_auditions_by_genre('Rock', 10);
+    assert!(rock_auditions.len() == 2, "Should return 2 Rock auditions");
+
+    // Test max_results limit
+    let limited_auditions = contract.get_auditions_by_genre('Pop', 2);
+    assert!(limited_auditions.len() == 2, "Should respect max_results limit");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+// Test time-based queries
+#[test]
+fn test_get_auditions_in_time_range() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    // Test getting auditions in a specific time range
+    let start_time: u64 = 1672531200;
+    let end_time: u64 = 1675123200;
+    let auditions_in_range = contract.get_auditions_in_time_range(start_time, end_time);
+
+    assert!(auditions_in_range.len() >= 4, "Should return auditions in time range");
+
+    // Test with future time range
+    let future_start: u64 = 1893456000;
+    let future_end: u64 = 1896048000;
+    let future_auditions = contract.get_auditions_in_time_range(future_start, future_end);
+    assert!(future_auditions.len() >= 1, "Should return future auditions");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+// Test invalid time range (start > end)
+#[test]
+#[should_panic(expected: ('Start time > end time',))]
+fn test_get_auditions_in_time_range_invalid() {
+    let (contract, _, _) = deploy_contract();
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.get_auditions_in_time_range(1675123200, 1672531200); // start > end
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+// Test season-based queries
+#[test]
+fn test_get_auditions_by_season() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    // Test getting auditions for season 1 (should use index)
+    let season1_auditions = contract.get_auditions_by_season(1);
+    assert!(season1_auditions.len() == 3, "Should return 3 auditions for season 1");
+
+    // Test getting auditions for season 2
+    let season2_auditions = contract.get_auditions_by_season(2);
+    assert!(season2_auditions.len() == 2, "Should return 2 auditions for season 2");
+
+    // Test getting auditions for season 3
+    let season3_auditions = contract.get_auditions_by_season(3);
+    assert!(season3_auditions.len() == 1, "Should return 1 audition for season 3");
+
+    // Test non-existent season
+    let nonexistent_auditions = contract.get_auditions_by_season(999);
+    assert!(nonexistent_auditions.len() == 0, "Should return empty array for non-existent season");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+// Test analytics functions
+#[test]
+fn test_vote_analytics() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    contract.record_vote(1, 'test_performer1', 'test_voter1', 100);
+    contract.record_vote(1, 'test_performer1', 'test_voter2', 150);
+    contract.record_vote(1, 'test_performer2', 'test_voter1', 200);
+
+    // Test vote count
+    let vote_count = contract.get_audition_vote_count(1);
+    assert!(
+        vote_count == 4, "Should return correct vote count",
+    ); // 1 in the setup_test_data + 3 here in this function = 4 votes total for the audition with `id = 1`
+
+    // Test total weight for performer
+    let performer1_weight = contract.get_total_vote_weight_for_performer(1, 'test_performer1');
+    assert!(performer1_weight == 250, "Should return correct total weight for performer1");
+
+    let performer2_weight = contract.get_total_vote_weight_for_performer(1, 'test_performer2');
+    assert!(performer2_weight == 200, "Should return correct total weight for performer2");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_get_genre_audition_count() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    let pop_count = contract.get_genre_audition_count('Pop');
+    assert!(pop_count == 4, "Should return 4 auditions for Pop genre");
+
+    let rock_count = contract.get_genre_audition_count('Rock');
+    assert!(rock_count == 2, "Should return 2 auditions for Rock genre");
+
+    let unknown_count = contract.get_genre_audition_count('Jazz');
+    assert!(unknown_count == 0, "Should return 0 for unknown genre");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+// Test pagination and listing
+#[test]
+fn test_get_seasons_by_ids() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    // Test getting multiple seasons by IDs
+    let season_ids = array![1, 2, 3];
+    let seasons = contract.get_seasons_by_ids(season_ids);
+    assert!(seasons.len() == 3, "Should return 3 seasons");
+
+    // Test with some non-existent IDs
+    let mixed_ids = array![1, 999, 2];
+    let mixed_seasons = contract.get_seasons_by_ids(mixed_ids);
+    assert!(mixed_seasons.len() == 2, "Should return only existing seasons");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_get_auditions_by_ids() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    // Test getting multiple auditions by IDs
+    let audition_ids = array![1, 2, 3];
+    let auditions = contract.get_auditions_by_ids(audition_ids);
+    assert!(auditions.len() == 3, "Should return 3 auditions");
+
+    // Test with some non-existent IDs
+    let mixed_ids = array![1, 999, 2];
+    let mixed_auditions = contract.get_auditions_by_ids(mixed_ids);
+    assert!(mixed_auditions.len() == 2, "Should return only existing auditions");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+// Test utility functions
+#[test]
+fn test_is_audition_active() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    // Test active audition
+    let current_time: u64 = 1673000000; // Between start and end
+    let is_active = contract.is_audition_active(1, current_time);
+    assert!(is_active, "Should return true for active audition");
+
+    // Test paused audition
+    let is_paused_active = contract.is_audition_active(4, current_time);
+    assert!(!is_paused_active, "Should return false for paused audition");
+
+    // Test future audition
+    let is_future_active = contract.is_audition_active(5, current_time);
+    assert!(!is_future_active, "Should return false for future audition");
+
+    // Test past audition
+    let is_past_active = contract.is_audition_active(6, current_time);
+    assert!(!is_past_active, "Should return false for past audition");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_count_votes_for_audition() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    contract.record_vote(1, 'test_performer1', 'test_voter1', 100);
+    contract.record_vote(1, 'test_performer2', 'test_voter2', 150);
+    contract.record_vote(1, 'test_performer3', 'test_voter3', 200);
+
+    // Test counting votes
+    let voter_performer_pairs = array![
+        ('test_performer1', 'test_voter1'),
+        ('test_performer2', 'test_voter2'),
+        ('test_performer3', 'test_voter3'),
+    ];
+    let vote_count = contract.count_votes_for_audition(1, voter_performer_pairs);
+    assert!(vote_count == 3, "Should return correct vote count");
+
+    // Test with some non-existent pairs
+    let mixed_pairs = array![('test_performer1', 'test_voter1'), ('performer999', 'voter999')];
+    let mixed_count = contract.count_votes_for_audition(1, mixed_pairs);
+    assert!(mixed_count == 1, "Should return count only for existing votes");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+// Test performer history
+#[test]
+fn test_get_performer_history() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    let history = contract.get_performer_history('performer1');
+    assert!(history.len() == 2, "Should return 2 auditions for performer1");
+    assert!(*history.at(0) == 1, "First audition should be 1");
+    assert!(*history.at(1) == 2, "Second audition should be 2");
+
+    let empty_history = contract.get_performer_history('unknown');
+    assert!(empty_history.len() == 0, "Should return empty for unknown performer");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+// Test voter history
+#[test]
+fn test_get_voter_history() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+
+    let history = contract.get_voter_history('voter1');
+    assert!(history.len() == 2, "Should return 2 auditions for voter1");
+    assert!(*history.at(0) == 1, "First audition should be 1");
+    assert!(*history.at(1) == 2, "Second audition should be 2");
+
+    let empty_history = contract.get_voter_history('unknown');
+    assert!(empty_history.len() == 0, "Should return empty for unknown voter");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+// Test edge cases and error scenarios
+#[test]
+fn test_query_functions_performance_limits() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Create many seasons and auditions
+    let mut i: u32 = 1;
+    while i <= 20 {
+        contract.create_season(i.into(), 'Pop', 'Season', 1672531200, 1675123200, false);
+        contract
+            .create_audition(i.into(), i.into(), 'Pop', 'Audition', 1672531200, 1675123200, false);
+        i += 1;
+    };
+
+    // Test max_results limiting
+    let limited_seasons = contract.get_seasons_by_genre('Pop', 5);
+    assert!(limited_seasons.len() == 5, "Should respect max_results limit");
+
+    let limited_auditions = contract.get_auditions_by_genre('Pop', 5);
+    assert!(limited_auditions.len() == 5, "Should respect max_results limit");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_query_functions_with_empty_data() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Test functions with no data
+    let empty_seasons = contract.get_seasons_by_genre('Pop', 10);
+    assert!(empty_seasons.len() == 0, "Should return empty array when no data");
+
+    let empty_auditions = contract.get_auditions_by_genre('Pop', 10);
+    assert!(empty_auditions.len() == 0, "Should return empty array when no data");
+
+    let empty_active = contract.get_active_auditions(1673000000);
+    assert!(empty_active.len() == 0, "Should return empty array when no data");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+// Stress test with large datasets
+#[test]
+fn test_stress_large_dataset() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Create 50 seasons and auditions
+    let mut i: u32 = 1;
+    while i <= 50 {
+        contract.create_season(i.into(), 'Pop', 'Season', 1672531200, 1675123200, false);
+        contract
+            .create_audition(i.into(), i.into(), 'Pop', 'Audition', 1672531200, 1675123200, false);
+        i += 1;
+    };
+
+    // Test querying with large data
+    let pop_seasons = contract.get_seasons_by_genre('Pop', 50);
+    assert!(pop_seasons.len() == 50, "Should handle 50 Pop seasons");
+
+    let pop_auditions = contract.get_auditions_by_genre('Pop', 50);
+    assert!(pop_auditions.len() == 50, "Should handle 50 Pop auditions");
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expected: ('Vote already exists',))]
+fn test_duplicate_vote() {
+    let (contract, _, _) = deploy_contract();
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    setup_test_data(contract);
+    contract.add_oracle(OWNER());
+
+    // Record a vote
+    contract.record_vote(1, 'performer1', 'voter1', 100);
+
+    // Attempt duplicate vote (same key)
+    contract.record_vote(1, 'performer1', 'voter1', 150);
+
+    stop_cheat_caller_address(contract.contract_address);
+}

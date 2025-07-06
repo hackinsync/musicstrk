@@ -26,7 +26,7 @@ pub struct Vote {
     pub audition_id: felt252,
     pub performer: felt252,
     pub voter: felt252,
-    pub weight: felt252,
+    pub weight: u64,
 }
 
 // Define the contract interface
@@ -106,7 +106,7 @@ pub trait ISeasonAndAudition<TContractState> {
         audition_id: felt252,
         performer: felt252,
         voter: felt252,
-        weight: felt252,
+        weight: u64,
     );
     fn get_vote(
         self: @TContractState, audition_id: felt252, performer: felt252, voter: felt252,
@@ -122,6 +122,60 @@ pub trait ISeasonAndAudition<TContractState> {
     fn is_audition_paused(self: @TContractState, audition_id: felt252) -> bool;
     fn is_audition_ended(self: @TContractState, audition_id: felt252) -> bool;
     fn audition_exists(self: @TContractState, audition_id: felt252) -> bool;
+
+    // Genre-based filtering
+    fn get_seasons_by_genre(
+        self: @TContractState, genre: felt252, max_results: u32,
+    ) -> Array<Season>;
+    fn get_auditions_by_genre(
+        self: @TContractState, genre: felt252, max_results: u32,
+    ) -> Array<Audition>;
+
+    // Time-based queries
+    fn get_active_auditions(self: @TContractState, current_timestamp: u64) -> Array<Audition>;
+    fn get_auditions_in_time_range(
+        self: @TContractState, start_timestamp: u64, end_timestamp: u64,
+    ) -> Array<Audition>;
+
+    // Season-based queries
+    fn get_auditions_by_season(self: @TContractState, season_id: felt252) -> Array<Audition>;
+
+    // Analytics functions
+    fn get_audition_vote_count(self: @TContractState, audition_id: felt252) -> u32;
+    fn get_total_vote_weight_for_performer(
+        self: @TContractState, audition_id: felt252, performer: felt252,
+    ) -> u64;
+
+    // Pagination and listing
+    fn get_seasons_by_ids(self: @TContractState, season_ids: Array<felt252>) -> Array<Season>;
+    fn get_auditions_by_ids(self: @TContractState, audition_ids: Array<felt252>) -> Array<Audition>;
+
+    // Complex filtering
+    fn get_auditions_by_criteria(
+        self: @TContractState,
+        audition_ids: Array<felt252>,
+        genre: Option<felt252>,
+        season_id: Option<felt252>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        paused_state: Option<bool>,
+    ) -> Array<Audition>;
+
+    // Utility functions
+    fn is_audition_active(
+        self: @TContractState, audition_id: felt252, current_timestamp: u64,
+    ) -> bool;
+    fn get_audition_status(
+        self: @TContractState, audition_id: felt252,
+    ) -> felt252; // 0=not_started, 1=active, 2=ended, 3=paused, 404= Not found
+    fn count_votes_for_audition(
+        self: @TContractState,
+        audition_id: felt252,
+        voter_performer_pairs: Array<(felt252, felt252)>,
+    ) -> u32;
+    fn get_performer_history(self: @TContractState, performer: felt252) -> Array<felt252>;
+    fn get_voter_history(self: @TContractState, voter: felt252) -> Array<felt252>;
+    fn get_genre_audition_count(self: @TContractState, genre: felt252) -> u32;
 }
 
 #[starknet::contract]
@@ -184,6 +238,36 @@ pub mod SeasonAndAudition {
         audition_winner_amounts: Map<felt252, (u256, u256, u256)>,
         /// price distributed status
         price_distributed: Map<felt252, bool>,
+        // For efficient querying - maintain lists of IDs
+        all_season_ids: Map<u32, felt252>, // index -> season_id
+        all_audition_ids: Map<u32, felt252>, // index -> audition_id
+        season_count: u32,
+        audition_count: u32,
+        // Vote counting cache
+        audition_vote_counts: Map<felt252, u32>, // audition_id -> vote_count
+        performer_total_weights: Map<
+            (felt252, felt252), u64,
+        >, // (audition_id, performer) -> total_weight
+        // Map from (genre, index) to season_id
+        seasons_by_genre_items: Map<(felt252, u32), felt252>,
+        // Map from genre to length of the list
+        seasons_by_genre_length: Map<felt252, u32>,
+        // Map from (genre, index) to audition_id
+        auditions_by_genre_items: Map<(felt252, u32), felt252>,
+        // Map from genre to length of the list
+        auditions_by_genre_length: Map<felt252, u32>,
+        // Map from (season_id, index) to audition_id
+        auditions_by_season_items: Map<(felt252, u32), felt252>,
+        // Map from season_id to length of the list
+        auditions_by_season_length: Map<felt252, u32>,
+        // Map from (performer, index) to audition_id
+        performer_audition_history_items: Map<(felt252, u32), felt252>,
+        // Map from performer to length of the list
+        performer_audition_history_length: Map<felt252, u32>,
+        // Map from (voter, index) to audition_id
+        voter_audition_history_items: Map<(felt252, u32), felt252>,
+        // Map from voter to length of the list
+        voter_audition_history_length: Map<felt252, u32>,
     }
 
     #[event]
@@ -229,11 +313,19 @@ pub mod SeasonAndAudition {
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
-
             self
                 .seasons
-                .entry(season_id)
-                .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
+                .write(
+                    season_id,
+                    Season { season_id, genre, name, start_timestamp, end_timestamp, paused },
+                );
+            let current_count = self.season_count.read();
+            self.all_season_ids.write(current_count, season_id);
+            self.season_count.write(current_count + 1);
+
+            let genre_length = self.seasons_by_genre_length.read(genre);
+            self.seasons_by_genre_items.write((genre, genre_length), season_id);
+            self.seasons_by_genre_length.write(genre, genre_length + 1);
 
             self
                 .emit(
@@ -296,6 +388,18 @@ pub mod SeasonAndAudition {
                         audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused,
                     },
                 );
+            let current_count = self.audition_count.read();
+            self.all_audition_ids.write(current_count, audition_id);
+            self.audition_count.write(current_count + 1);
+
+            // Append to auditions_by_genre_items using simulated list
+            let genre_length = self.auditions_by_genre_length.read(genre);
+            self.auditions_by_genre_items.write((genre, genre_length), audition_id);
+            self.auditions_by_genre_length.write(genre, genre_length + 1);
+
+            let season_length = self.auditions_by_season_length.read(season_id);
+            self.auditions_by_season_items.write((season_id, season_length), audition_id);
+            self.auditions_by_season_length.write(season_id, season_length + 1);
 
             self
                 .emit(
@@ -512,7 +616,7 @@ pub mod SeasonAndAudition {
             audition_id: felt252,
             performer: felt252,
             voter: felt252,
-            weight: felt252,
+            weight: u64,
         ) {
             self.only_oracle();
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -526,7 +630,35 @@ pub mod SeasonAndAudition {
 
             self.votes.entry(vote_key).write(Vote { audition_id, performer, voter, weight });
 
-            self.emit(Event::VoteRecorded(VoteRecorded { audition_id, performer, voter, weight }));
+            let current_count = self.audition_vote_counts.read(audition_id);
+            self.audition_vote_counts.write(audition_id, current_count + 1);
+
+            let performer_key = (audition_id, performer);
+            let current_weight = self.performer_total_weights.read(performer_key);
+            self.performer_total_weights.write(performer_key, current_weight + weight);
+
+            let performer_length = self.performer_audition_history_length.read(performer);
+
+            if performer_length == 0
+                || self
+                    .performer_audition_history_items
+                    .read((performer, performer_length - 1)) != audition_id {
+                self
+                    .performer_audition_history_items
+                    .write((performer, performer_length), audition_id);
+                self.performer_audition_history_length.write(performer, performer_length + 1);
+            }
+
+            let voter_length = self.voter_audition_history_length.read(voter);
+            if voter_length == 0
+                || self
+                    .voter_audition_history_items
+                    .read((voter, voter_length - 1)) != audition_id {
+                self.voter_audition_history_items.write((voter, voter_length), audition_id);
+                self.voter_audition_history_length.write(voter, voter_length + 1);
+            }
+
+            self.emit(Event::VoteRecorded(VoteRecorded { audition_id, performer, voter, weight: weight.into() }));
         }
 
         fn get_vote(
@@ -641,6 +773,327 @@ pub mod SeasonAndAudition {
         fn audition_exists(self: @ContractState, audition_id: felt252) -> bool {
             let audition = self.auditions.entry(audition_id).read();
             audition.audition_id != 0
+        }
+
+        // Genre-based filtering
+        fn get_seasons_by_genre(
+            self: @ContractState, genre: felt252, max_results: u32,
+        ) -> Array<Season> {
+            let mut result = ArrayTrait::new();
+            let length = self
+                .seasons_by_genre_length
+                .read(genre); // Get the list length for this genre
+
+            let mut i = 0;
+            while i < length && i < max_results {
+                let season_id = self
+                    .seasons_by_genre_items
+                    .read((genre, i)); // Read item at index i
+                if season_id != 0 {
+                    let season = self.seasons.read(season_id);
+                    result.append(season);
+                }
+                i += 1;
+            };
+
+            result
+        }
+
+
+        fn get_auditions_by_genre(
+            self: @ContractState, genre: felt252, max_results: u32,
+        ) -> Array<Audition> {
+            let mut result = ArrayTrait::new();
+            let length = self
+                .auditions_by_genre_length
+                .read(genre); // Get the list length for this genre
+
+            let mut i = 0;
+            while i < length && i < max_results {
+                let audition_id = self
+                    .auditions_by_genre_items
+                    .read((genre, i)); // Read item at index i
+                if audition_id != 0 {
+                    let audition = self.auditions.read(audition_id);
+                    result.append(audition);
+                }
+                i += 1;
+            };
+
+            result
+        }
+
+
+        // Time-based queries
+        fn get_active_auditions(self: @ContractState, current_timestamp: u64) -> Array<Audition> {
+            let mut result = ArrayTrait::new();
+            let total_auditions = self.audition_count.read();
+
+            let mut i = 0;
+            while i < total_auditions {
+                let audition_id = self.all_audition_ids.read(i);
+                if audition_id != 0 {
+                    let audition = self.auditions.read(audition_id);
+                    if self.is_audition_active(audition_id, current_timestamp.into()) {
+                        result.append(audition);
+                    }
+                }
+                i += 1;
+            };
+
+            result
+        }
+
+        fn get_auditions_in_time_range(
+            self: @ContractState, start_timestamp: u64, end_timestamp: u64,
+        ) -> Array<Audition> {
+            assert(end_timestamp > start_timestamp, 'Start time > end time');
+            let mut result = ArrayTrait::new();
+            let total_auditions: u32 = self.audition_count.read().try_into().unwrap();
+
+            let mut i = 0_u32;
+            while i < total_auditions {
+                let audition_id = self.all_audition_ids.read(i);
+                if audition_id != 0 {
+                    let audition = self.auditions.read(audition_id);
+                    if audition.start_timestamp.try_into().unwrap() >= start_timestamp
+                        && audition.end_timestamp.try_into().unwrap() <= end_timestamp {
+                        result.append(audition);
+                    }
+                }
+                i += 1;
+            };
+
+            result
+        }
+
+        // Season-based queries
+        fn get_auditions_by_season(self: @ContractState, season_id: felt252) -> Array<Audition> {
+            let mut result = ArrayTrait::new();
+            let length = self
+                .auditions_by_season_length
+                .read(season_id); // Get the list length for this season
+
+            let mut i = 0;
+            while i < length {
+                let audition_id = self
+                    .auditions_by_season_items
+                    .read((season_id, i)); // Read item at index i
+                if audition_id != 0 {
+                    let audition = self.auditions.read(audition_id);
+                    result.append(audition);
+                }
+                i += 1;
+            };
+
+            result
+        }
+
+        // Analytics functions
+        fn get_audition_vote_count(self: @ContractState, audition_id: felt252) -> u32 {
+            self.audition_vote_counts.read(audition_id)
+        }
+
+        fn get_total_vote_weight_for_performer(
+            self: @ContractState, audition_id: felt252, performer: felt252,
+        ) -> u64 {
+            self.performer_total_weights.read((audition_id, performer))
+        }
+
+        // Pagination and listing
+        fn get_seasons_by_ids(self: @ContractState, season_ids: Array<felt252>) -> Array<Season> {
+            let mut result = ArrayTrait::new();
+            let season_ids_span = season_ids.span();
+
+            for season_id in season_ids_span {
+                let season = self.seasons.read(*season_id);
+                if season.season_id != 0 {
+                    result.append(season);
+                }
+            };
+
+            result
+        }
+
+        fn get_auditions_by_ids(
+            self: @ContractState, audition_ids: Array<felt252>,
+        ) -> Array<Audition> {
+            let mut result = ArrayTrait::new();
+            let audition_ids_span = audition_ids.span();
+
+            for audition_id in audition_ids_span {
+                let audition = self.auditions.read(*audition_id);
+                if audition.audition_id != 0 {
+                    result.append(audition);
+                }
+            };
+
+            result
+        }
+
+        // Complex filtering
+        fn get_auditions_by_criteria(
+            self: @ContractState,
+            audition_ids: Array<felt252>,
+            genre: Option<felt252>,
+            season_id: Option<felt252>,
+            start_time: Option<u64>,
+            end_time: Option<u64>,
+            paused_state: Option<bool>,
+        ) -> Array<Audition> {
+            let mut result = ArrayTrait::new();
+            let audition_ids_span = audition_ids.span();
+
+            for audition_id in audition_ids_span {
+                let audition = self.auditions.read(*audition_id);
+                if audition.audition_id == 0 {
+                    continue;
+                }
+
+                // Apply filters
+                if let Option::Some(filter_genre) = genre {
+                    if audition.genre != filter_genre {
+                        continue;
+                    }
+                }
+
+                if let Option::Some(filter_season_id) = season_id {
+                    if audition.season_id != filter_season_id {
+                        continue;
+                    }
+                }
+
+                if let Option::Some(filter_start_time) = start_time {
+                    if audition
+                        .start_timestamp
+                        .try_into()
+                        .expect('start_timestamp conversion') < filter_start_time {
+                        continue;
+                    }
+                }
+
+                if let Option::Some(filter_end_time) = end_time {
+                    if audition
+                        .end_timestamp
+                        .try_into()
+                        .expect('end_timestamp conversion') > filter_end_time {
+                        continue;
+                    }
+                }
+
+                if let Option::Some(filter_paused) = paused_state {
+                    if audition.paused != filter_paused {
+                        continue;
+                    }
+                }
+
+                result.append(audition);
+            };
+
+            result
+        }
+
+        // Utility functions
+        fn is_audition_active(
+            self: @ContractState, audition_id: felt252, current_timestamp: u64,
+        ) -> bool {
+            let audition = self.auditions.read(audition_id);
+            if audition.audition_id == 0 || audition.paused {
+                return false;
+            }
+
+            audition
+                .start_timestamp
+                .try_into()
+                .expect('start_timestamp conversion') <= current_timestamp
+                && (audition.end_timestamp == 0
+                    || audition
+                        .end_timestamp
+                        .try_into()
+                        .expect('end_timestamp conversion') > current_timestamp)
+        }
+
+        /// returns 404 if not found
+        /// 0 = Not started
+        /// 1 = Active
+        /// 2 = Ended
+        /// 3 = Paused
+        fn get_audition_status(self: @ContractState, audition_id: felt252) -> felt252 {
+            let audition = self.auditions.read(audition_id);
+            if audition.audition_id == 0 {
+                return 404; // Not found
+            }
+
+            if audition.paused {
+                return 3; // Paused
+            }
+
+            let current_time = get_block_timestamp();
+
+            if audition
+                .start_timestamp
+                .try_into()
+                .expect('start_timestamp conversion') > current_time {
+                return 0; // Not started
+            }
+
+            if audition.end_timestamp != 0
+                && audition
+                    .end_timestamp
+                    .try_into()
+                    .expect('end_timestamp conversion') <= current_time {
+                return 2; // Ended
+            }
+
+            1 // Active
+        }
+
+        fn count_votes_for_audition(
+            self: @ContractState,
+            audition_id: felt252,
+            voter_performer_pairs: Array<(felt252, felt252)>,
+        ) -> u32 {
+            let mut count = 0;
+            let pairs_span = voter_performer_pairs.span();
+
+            for pair in pairs_span {
+                let (performer, voter) = *pair;
+                let vote_key = (audition_id, performer, voter);
+                let vote = self.votes.read(vote_key);
+                if vote.audition_id != 0 {
+                    count += 1;
+                }
+            };
+
+            count
+        }
+
+        fn get_performer_history(self: @ContractState, performer: felt252) -> Array<felt252> {
+            let length = self.performer_audition_history_length.read(performer);
+            let mut result = ArrayTrait::new();
+            let mut i = 0;
+            while i < length {
+                let audition_id = self.performer_audition_history_items.read((performer, i));
+                result.append(audition_id);
+                i += 1;
+            };
+            result
+        }
+
+        fn get_voter_history(self: @ContractState, voter: felt252) -> Array<felt252> {
+            let length = self.voter_audition_history_length.read(voter);
+            let mut result = ArrayTrait::new();
+            let mut i = 0;
+            while i < length {
+                let audition_id = self.voter_audition_history_items.read((voter, i));
+                result.append(audition_id);
+                i += 1;
+            };
+            result
+        }
+
+        fn get_genre_audition_count(self: @ContractState, genre: felt252) -> u32 {
+            self.auditions_by_genre_length.read(genre)
         }
     }
 
