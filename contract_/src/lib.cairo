@@ -7,6 +7,7 @@ pub mod audition {
     pub mod season_and_audition;
 }
 pub mod governance {
+    pub mod GovernanceToken;
     pub mod ProposalSystem;
     pub mod VotingMechanism;
     pub mod types;
