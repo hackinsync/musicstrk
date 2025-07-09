@@ -58,7 +58,7 @@ pub mod VotingMechanism {
         },
     };
     use super::*;
-    use contract_::events::{VoteCast, VoteDelegated};
+    use contract_::events::{VoteCast, VoteDelegated, VoteChanged, VotingPeriodEnded, VotingPeriodStarted, ProposalFinalized, TokenTransferDuringVoting};
 
     #[storage]
     struct Storage {

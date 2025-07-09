@@ -14,7 +14,7 @@ use snforge_std::{
     start_cheat_caller_address, stop_cheat_caller_address, spy_events, start_cheat_block_timestamp,
     stop_cheat_block_timestamp,
 };
-use starknet::{ContractAddress, contract_address_const};
+use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 
 // Test account -> Owner
 fn OWNER() -> ContractAddress {

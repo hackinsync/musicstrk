@@ -256,3 +256,52 @@ pub struct RoleRevoked {
     pub artist: ContractAddress,
     pub timestamp: u64,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct VoteChanged {
+    #[key]
+    pub proposal_id: u64,
+    #[key]
+    pub voter: ContractAddress,
+    pub old_vote_type: VoteType,
+    pub new_vote_type: VoteType,
+    pub weight: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct VotingPeriodStarted {
+    #[key]
+    pub proposal_id: u64,
+    pub end_timestamp: u64,
+    pub duration_seconds: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct VotingPeriodEnded {
+    #[key]
+    pub proposal_id: u64,
+    pub final_status: u8,
+    pub votes_for: u256,
+    pub votes_against: u256,
+    pub votes_abstain: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ProposalFinalized {
+    #[key]
+    pub proposal_id: u64,
+    pub final_status: u8, // 1=Approved, 2=Rejected
+    pub threshold_met: bool,
+    pub total_votes_for: u256,
+    pub required_threshold: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct TokenTransferDuringVoting {
+    #[key]
+    pub proposal_id: u64,
+    pub from: ContractAddress,
+    pub to: ContractAddress,
+    pub amount: u256,
+    pub affected_weight: bool,
+}

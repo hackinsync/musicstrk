@@ -63,11 +63,7 @@ pub mod ProposalSystem {
     use starknet::{
         ContractAddress, get_caller_address, get_block_timestamp, contract_address_const,
     };
-    use contract_::events::{
-        ProposalCreated, ProposalStatusChanged, CommentAdded, VoteCast, ArtistRegistered,
-    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use starknet::{contract_address_const, get_block_timestamp, get_caller_address};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
