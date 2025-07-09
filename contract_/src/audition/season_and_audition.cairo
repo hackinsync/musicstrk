@@ -433,14 +433,14 @@ pub mod SeasonAndAudition {
         /// @param shares An array of 3 u256 values representing the percentage shares (out of 100)
         /// for each winner.
         /// @custom:reverts If the distribution conditions are not met, as checked by
-        /// `assert_distribue`.
+        /// `assert_distributed`.
         fn distribute_prize(
             ref self: ContractState,
             audition_id: felt252,
             winners: [ContractAddress; 3],
             shares: [u256; 3],
         ) {
-            self.assert_distribue(audition_id, winners, shares);
+            self.assert_distributed(audition_id, winners, shares);
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
@@ -725,7 +725,7 @@ pub mod SeasonAndAudition {
         /// @custom:reverts If there is no prize for the audition.
         /// @custom:reverts If any winner address is zero.
         /// @custom:reverts If the total shares do not add up to 100.
-        fn assert_distribue(
+        fn assert_distributed(
             ref self: ContractState,
             audition_id: felt252,
             winners: [ContractAddress; 3],
