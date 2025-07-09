@@ -12,7 +12,7 @@ use contract_::token_factory::{
 };
 use contract_::events::{
     ProposalCreated, VoteDelegated, VoteCast, ProposalStatusChanged, CommentAdded, ArtistRegistered,
-    RoleGranted, VotingPeriodEnded, VotingPeriodStarted, TokenTransferDuringVoting
+    RoleGranted, VotingPeriodEnded, VotingPeriodStarted, TokenTransferDuringVoting,
 };
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
@@ -1768,7 +1768,8 @@ fn test_zero_duration_voting_period() {
 //     music_token.transfer(shareholder, 30_u256);
 
 //     // Try to vote on proposal that doesn't exist
-//     cheat_caller_address(voting_mechanism.contract_address, shareholder, CheatSpan::TargetCalls(1));
+//     cheat_caller_address(voting_mechanism.contract_address, shareholder,
+//     CheatSpan::TargetCalls(1));
 //     voting_mechanism.cast_vote(999_u64, VoteType::For, token_address);
 // }
 
@@ -1783,7 +1784,8 @@ fn test_zero_duration_voting_period() {
 //     cheat_caller_address(token_address, artist, CheatSpan::TargetCalls(1));
 //     music_token.transfer(shareholder, 60_u256);
 
-//     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(1));
+//     cheat_caller_address(proposal_system.contract_address, shareholder,
+//     CheatSpan::TargetCalls(1));
 //     let proposal_id = proposal_system
 //         .submit_proposal(token_address, "Finalized Test", "Testing finalized", 'OTHER');
 
@@ -1792,7 +1794,8 @@ fn test_zero_duration_voting_period() {
 //     proposal_system.respond_to_proposal(proposal_id, 1, "Approved");
 
 //     // Try to vote on finalized proposal - should fail
-//     cheat_caller_address(voting_mechanism.contract_address, shareholder, CheatSpan::TargetCalls(1));
+//     cheat_caller_address(voting_mechanism.contract_address, shareholder,
+//     CheatSpan::TargetCalls(1));
 //     voting_mechanism.cast_vote(proposal_id, VoteType::For, token_address);
 // }
 
@@ -1806,7 +1809,8 @@ fn test_zero_duration_voting_period() {
 //     cheat_caller_address(token_address, artist, CheatSpan::TargetCalls(1));
 //     music_token.transfer(shareholder, 10_u256);
 
-//     cheat_caller_address(proposal_system.contract_address, shareholder, CheatSpan::TargetCalls(1));
+//     cheat_caller_address(proposal_system.contract_address, shareholder,
+//     CheatSpan::TargetCalls(1));
 //     let proposal_id = proposal_system
 //         .submit_proposal(token_address, "Zero Duration", "Testing zero duration", 'OTHER');
 
@@ -1902,9 +1906,7 @@ fn test_voting_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VoteDelegated(
-                        VoteDelegated {
-                            delegator: shareholder2, delegate: shareholder1,
-                        },
+                        VoteDelegated { delegator: shareholder2, delegate: shareholder1 },
                     ),
                 ),
             ],
@@ -2103,13 +2105,15 @@ fn test_governance_token_transfer_during_voting() {
 //     let shareholder2 = SHAREHOLDER_2();
 
 //     // Setup: shareholder1 gets exactly 100 tokens using underlying token
-//     let gov_token = IERC20MixinDispatcher { contract_address: governance_token.contract_address };
+//     let gov_token = IERC20MixinDispatcher { contract_address: governance_token.contract_address
+//     };
 //     let gov_token_address = gov_token.contract_address;
 //     cheat_caller_address(gov_token_address, owner, CheatSpan::TargetCalls(1));
 //     gov_token.transfer(shareholder1, 100_u256);
 
 //     // Create proposal and vote
-//     cheat_caller_address(proposal_system.contract_address, shareholder1, CheatSpan::TargetCalls(1));
+//     cheat_caller_address(proposal_system.contract_address, shareholder1,
+//     CheatSpan::TargetCalls(1));
 //     let proposal_id = proposal_system
 //         .submit_proposal(
 //             gov_token_address, "Invalidation Test", "Testing vote invalidation", 'OTHER',
