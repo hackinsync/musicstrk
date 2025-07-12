@@ -8,7 +8,8 @@ use contract_::governance::{
     types::VoteType,
 };
 use contract_::token_factory::{
-    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait, MusicShareTokenFactory
+    IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
+    MusicShareTokenFactory,
 };
 use contract_::events::{
     ProposalCreated, VoteDelegated, VoteCast, ProposalStatusChanged, CommentAdded, ArtistRegistered,
@@ -259,7 +260,7 @@ fn test_proposal_submission() {
                             token_contract: token_address,
                             proposer: shareholder,
                             category: 'REVENUE', // All 3 proposals should be affected
-                            title: "Revenue Distribution Proposal"
+                            title: "Revenue Distribution Proposal",
                         },
                     ),
                 ),
@@ -1625,8 +1626,6 @@ fn test_vote_tracking_functions() {
     music_token.transfer(shareholder1, 30_u256);
     music_token.transfer(shareholder2, 20_u256);
 
-    
-
     cheat_caller_address(proposal_system.contract_address, shareholder1, CheatSpan::TargetCalls(1));
     let proposal_id = proposal_system
         .submit_proposal(token_address, "Tracking Test", "Testing vote tracking", 'OTHER');
@@ -1642,7 +1641,7 @@ fn test_vote_tracking_functions() {
                             token_contract: token_address,
                             proposer: shareholder1,
                             category: 'OTHER',
-                            title: "Tracking Test"
+                            title: "Tracking Test",
                         },
                     ),
                 ),
@@ -1669,10 +1668,7 @@ fn test_vote_tracking_functions() {
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VoteCast(
                         VoteCast {
-                            voter: shareholder1,
-                            proposal_id,
-                            vote_type: VoteType::For,
-                            weight: 30,
+                            voter: shareholder1, proposal_id, vote_type: VoteType::For, weight: 30,
                         },
                     ),
                 ),
@@ -2114,7 +2110,6 @@ fn test_governance_token_transfer_invalidates_insufficient_vote() {
                 ),
             ],
         );
-
 
     cheat_caller_address(
         voting_mechanism.contract_address, shareholder1, CheatSpan::TargetCalls(1),
