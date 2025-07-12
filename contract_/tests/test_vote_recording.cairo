@@ -2,6 +2,7 @@ use contract_::audition::season_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher, SeasonAndAudition,
 };
+use contract_::events::VoteRecorded;
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
@@ -114,7 +115,7 @@ fn test_record_vote_success() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::VoteRecorded(
-                        SeasonAndAudition::VoteRecorded { audition_id, performer, voter, weight },
+                        VoteRecorded { audition_id, performer, voter, weight },
                     ),
                 ),
             ],
@@ -122,7 +123,7 @@ fn test_record_vote_success() {
 }
 
 #[test]
-#[should_panic(expected: ('Vote already exists',))]
+#[should_panic(expect: ('Vote already exists',))]
 fn test_record_vote_duplicate_should_fail() {
     let contract = setup_contract_with_oracle();
 
@@ -144,7 +145,7 @@ fn test_record_vote_duplicate_should_fail() {
 }
 
 #[test]
-#[should_panic(expected: ('Not Authorized',))]
+#[should_panic(expect: ('Not Authorized',))]
 fn test_record_vote_unauthorized_should_fail() {
     let contract = setup_contract_with_oracle();
 

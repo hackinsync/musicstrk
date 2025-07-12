@@ -3,6 +3,7 @@ use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
     MusicShareTokenFactory,
 };
+use contract_::events::{TokenDeployedEvent};
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
 use core::traits::Into;
@@ -12,7 +13,7 @@ use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
     cheat_caller_address, declare, spy_events,
 };
-use starknet::ContractAddress;
+use starknet::{ContractAddress, get_block_timestamp};
 use starknet::class_hash::ClassHash;
 
 
@@ -163,12 +164,13 @@ fn test_deploy_music_share_token_event() {
                 (
                     factory_address,
                     MusicShareTokenFactory::Event::TokenDeployedEvent(
-                        MusicShareTokenFactory::TokenDeployedEvent {
+                        TokenDeployedEvent {
                             deployer: artist_1,
                             token_address,
                             name: name.into(),
                             symbol: symbol.into(),
                             metadata_uri: metadata_uri.into(),
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -319,7 +321,7 @@ fn test_token_functionality() {
 }
 
 #[test]
-#[should_panic(expected: 'Index out of bounds;')]
+#[should_panic(expect: 'Index out of bounds;')]
 fn test_no_deploy_invalid_token_index() {
     // Setup test accounts from address constants
     let owner = owner();
@@ -332,7 +334,7 @@ fn test_no_deploy_invalid_token_index() {
 }
 
 #[test]
-#[should_panic(expected: 'Not owner or authorized artist')]
+#[should_panic(expect: 'Not owner or authorized artist')]
 fn test_unauthorized_user_deploy_failure() {
     // Setup test accounts from address constants
     let owner = owner();
@@ -390,7 +392,7 @@ fn test_artist_role_management() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_grant_artist_role_unauthorized() {
     // Setup test accounts from address constants
     let owner = owner();
@@ -430,7 +432,7 @@ fn test_update_token_class_hash() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_update_token_class_hash_unauthorized() {
     // Setup test accounts from address constants
     let owner = owner();
@@ -447,7 +449,7 @@ fn test_update_token_class_hash_unauthorized() {
 }
 
 #[test]
-#[should_panic(expected: 'Result::unwrap failed.')]
+#[should_panic(expect: 'Result::unwrap failed.')]
 fn test_deploy_factory_with_zero_owner() {
     // For this test, we need to modify the deploy function to handle zero address directly
     // Get the token class hash

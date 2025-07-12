@@ -7,19 +7,6 @@ pub enum Category {
     STREAMING,
 }
 
-#[derive(Drop, starknet::Event)]
-pub struct RevenueAddedEvent {
-    pub category: Category,
-    pub amount: u256,
-    pub time: u64,
-}
-
-#[derive(Drop, starknet::Event)]
-pub struct RevenueDistributedEvent {
-    pub total_distributed: u256,
-    pub time: u64,
-}
-
 #[starknet::interface]
 pub trait IRevenueDistribution<TContractState> {
     fn add_revenue(ref self: TContractState, category: Category, amount: u256);
