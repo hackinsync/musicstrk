@@ -9,6 +9,11 @@ use contract_::governance::{
 };
 use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
+    MusicShareTokenFactory,
+};
+use contract_::events::{
+    ProposalCreated, VoteDelegated, VoteCast, ProposalStatusChanged, CommentAdded, ArtistRegistered,
+    RoleGranted, VotingPeriodEnded, VotingPeriodStarted, TokenTransferDuringVoting,
 };
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
@@ -227,6 +232,7 @@ fn test_proposal_submission() {
     let (token_address, artist, proposal_system, _voting_mechanism, music_token, _) =
         setup_governance_environment();
     let shareholder = SHAREHOLDER_1();
+    let mut spy = spy_events();
 
     // Transfer some tokens to shareholder to meet threshold
     cheat_caller_address(token_address, artist, CheatSpan::TargetCalls(1));
@@ -243,6 +249,24 @@ fn test_proposal_submission() {
             'REVENUE',
         );
 
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    proposal_system.contract_address,
+                    ProposalSystem::Event::ProposalCreated(
+                        ProposalCreated {
+                            proposal_id,
+                            token_contract: token_address,
+                            proposer: shareholder,
+                            category: 'REVENUE', // All 3 proposals should be affected
+                            title: "Revenue Distribution Proposal",
+                        },
+                    ),
+                ),
+            ],
+        );
+
     // Verify proposal was created
     assert(proposal_id == 1, 'Proposal ID should be 1');
 
@@ -257,6 +281,7 @@ fn test_artist_response_to_proposal() {
     let (token_address, artist, proposal_system, _voting_mechanism, music_token, _) =
         setup_governance_environment();
     let shareholder = SHAREHOLDER_1();
+    let mut spy = spy_events();
 
     // Transfer tokens and submit proposal
     cheat_caller_address(token_address, artist, CheatSpan::TargetCalls(1));
@@ -274,6 +299,23 @@ fn test_artist_response_to_proposal() {
         .respond_to_proposal(
             proposal_id, 1, // Approved
             "I approve this marketing campaign proposal",
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    proposal_system.contract_address,
+                    ProposalSystem::Event::ProposalStatusChanged(
+                        ProposalStatusChanged {
+                            proposal_id,
+                            old_status: 0,
+                            new_status: 1,
+                            responder: artist // All 3 proposals should be affected
+                        },
+                    ),
+                ),
+            ],
         );
 
     // Verify response
@@ -448,7 +490,7 @@ fn test_proposal_filtering() {
 }
 
 #[test]
-#[should_panic(expected: ('Insufficient token balance',))]
+#[should_panic(expect: ('Insufficient token balance',))]
 fn test_insufficient_threshold_proposal_fails() {
     let (token_address, artist, proposal_system, _voting_mechanism, music_token, _) =
         setup_governance_environment();
@@ -657,14 +699,28 @@ fn test_artist_management() {
     let artist1 = ARTIST_1();
     let artist2 = ARTIST_2();
     let factory = deploy_token_factory(owner);
+    let mut spy = spy_events();
     let proposal_system = deploy_proposal_system(
         factory.contract_address, MIN_THRESHOLD_PERCENTAGE,
     );
 
     // Create two tokens
     cheat_caller_address(factory.contract_address, owner, CheatSpan::TargetCalls(2));
+    cheat_block_timestamp(factory.contract_address, 0, CheatSpan::TargetCalls(2));
     factory.grant_artist_role(artist1);
     factory.grant_artist_role(artist2);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    factory.contract_address,
+                    MusicShareTokenFactory::Event::RoleGranted(
+                        RoleGranted { artist: artist2, timestamp: 0 },
+                    ),
+                ),
+            ],
+        );
 
     cheat_caller_address(factory.contract_address, artist1, CheatSpan::TargetCalls(1));
     let token1 = factory.deploy_music_token("Album 1", "A1", 6, "ipfs://1");
@@ -903,7 +959,7 @@ fn test_proposal_events() {
                 (
                     proposal_system.contract_address,
                     ProposalSystem::Event::ProposalCreated(
-                        ProposalSystem::ProposalCreated {
+                        ProposalCreated {
                             proposal_id,
                             token_contract: token_address,
                             proposer: shareholder,
@@ -926,7 +982,7 @@ fn test_proposal_events() {
                 (
                     proposal_system.contract_address,
                     ProposalSystem::Event::ProposalStatusChanged(
-                        ProposalSystem::ProposalStatusChanged {
+                        ProposalStatusChanged {
                             proposal_id, old_status: 0, new_status: 1, responder: artist,
                         },
                     ),
@@ -961,9 +1017,7 @@ fn test_comment_events() {
                 (
                     proposal_system.contract_address,
                     ProposalSystem::Event::CommentAdded(
-                        ProposalSystem::CommentAdded {
-                            proposal_id, comment_id: 0, commenter: shareholder,
-                        },
+                        CommentAdded { proposal_id, comment_id: 0, commenter: shareholder },
                     ),
                 ),
             ],
@@ -1565,6 +1619,7 @@ fn test_vote_tracking_functions() {
         setup_governance_environment();
     let shareholder1 = SHAREHOLDER_1();
     let shareholder2 = SHAREHOLDER_2();
+    let mut spy = spy_events();
 
     // Setup tokens and proposal
     cheat_caller_address(token_address, artist, CheatSpan::TargetCalls(2));
@@ -1574,6 +1629,24 @@ fn test_vote_tracking_functions() {
     cheat_caller_address(proposal_system.contract_address, shareholder1, CheatSpan::TargetCalls(1));
     let proposal_id = proposal_system
         .submit_proposal(token_address, "Tracking Test", "Testing vote tracking", 'OTHER');
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    proposal_system.contract_address,
+                    ProposalSystem::Event::ProposalCreated(
+                        ProposalCreated {
+                            proposal_id,
+                            token_contract: token_address,
+                            proposer: shareholder1,
+                            category: 'OTHER',
+                            title: "Tracking Test",
+                        },
+                    ),
+                ),
+            ],
+        );
 
     // Test initial state
     assert(!voting_mechanism.has_voted(proposal_id, shareholder1), 'Should not have voted yet');
@@ -1588,6 +1661,19 @@ fn test_vote_tracking_functions() {
         voting_mechanism.contract_address, shareholder1, CheatSpan::TargetCalls(1),
     );
     voting_mechanism.cast_vote(proposal_id, VoteType::For, token_address);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    voting_mechanism.contract_address,
+                    VotingMechanism::Event::VoteCast(
+                        VoteCast {
+                            voter: shareholder1, proposal_id, vote_type: VoteType::For, weight: 30,
+                        },
+                    ),
+                ),
+            ],
+        );
 
     cheat_caller_address(
         voting_mechanism.contract_address, shareholder2, CheatSpan::TargetCalls(1),
@@ -1640,7 +1726,7 @@ fn test_voting_period_management() {
 }
 
 #[test]
-#[should_panic(expected: ('Already voted',))]
+#[should_panic(expect: ('Already voted',))]
 fn test_double_voting_fails() {
     let (token_address, artist, proposal_system, voting_mechanism, music_token, _) =
         setup_governance_environment();
@@ -1720,7 +1806,7 @@ fn test_zero_duration_voting_period() {
 }
 
 #[test]
-#[should_panic(expected: ('No voting power',))]
+#[should_panic(expect: ('No voting power',))]
 fn test_zero_balance_voting_fails() {
     let (token_address, _artist, proposal_system, voting_mechanism, music_token, _) =
         setup_governance_environment();
@@ -1743,7 +1829,7 @@ fn test_zero_balance_voting_fails() {
 }
 
 #[test]
-#[should_panic(expected: ('Cannot delegate to self',))]
+#[should_panic(expect: ('Cannot delegate to self',))]
 fn test_self_delegation_fails() {
     let (token_address, _artist, _proposal_system, voting_mechanism, _token, _) =
         setup_governance_environment();
@@ -1783,7 +1869,7 @@ fn test_voting_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VoteCast(
-                        VotingMechanism::VoteCast {
+                        VoteCast {
                             proposal_id,
                             voter: shareholder1,
                             vote_type: VoteType::For,
@@ -1806,9 +1892,7 @@ fn test_voting_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VoteDelegated(
-                        VotingMechanism::VoteDelegated {
-                            delegator: shareholder2, delegate: shareholder1,
-                        },
+                        VoteDelegated { delegator: shareholder2, delegate: shareholder1 },
                     ),
                 ),
             ],
@@ -1839,7 +1923,7 @@ fn test_voting_period_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VotingPeriodStarted(
-                        VotingMechanism::VotingPeriodStarted {
+                        VotingPeriodStarted {
                             proposal_id,
                             end_timestamp: get_block_timestamp() + 3600_u64,
                             duration_seconds: 3600_u64,
@@ -1858,7 +1942,7 @@ fn test_voting_period_events() {
                 (
                     voting_mechanism.contract_address,
                     VotingMechanism::Event::VotingPeriodEnded(
-                        VotingMechanism::VotingPeriodEnded {
+                        VotingPeriodEnded {
                             proposal_id,
                             final_status: 2, // Rejected (no votes)
                             votes_for: 0_u256,
@@ -1914,6 +1998,7 @@ fn test_governance_token_transfer_during_voting() {
     ) =
         setup_governance_environment();
     let shareholder1 = SHAREHOLDER_1();
+    let mut spy = spy_events();
     let shareholder2 = SHAREHOLDER_2();
     let owner = OWNER();
 
@@ -1993,6 +2078,8 @@ fn test_governance_token_transfer_invalidates_insufficient_vote() {
     let shareholder1 = SHAREHOLDER_1();
     let shareholder2 = SHAREHOLDER_2();
 
+    let mut spy = spy_events();
+
     // Setup: shareholder1 gets exactly 100 tokens using underlying token
     let gov_token = IERC20MixinDispatcher { contract_address: governance_token.contract_address };
     let gov_token_address = gov_token.contract_address;
@@ -2006,10 +2093,45 @@ fn test_governance_token_transfer_invalidates_insufficient_vote() {
             gov_token_address, "Invalidation Test", "Testing vote invalidation", 'OTHER',
         );
 
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    proposal_system.contract_address,
+                    ProposalSystem::Event::ProposalCreated(
+                        ProposalCreated {
+                            proposal_id,
+                            token_contract: gov_token_address,
+                            proposer: shareholder1,
+                            category: 'OTHER',
+                            title: "Invalidation Test",
+                        },
+                    ),
+                ),
+            ],
+        );
+
     cheat_caller_address(
         voting_mechanism.contract_address, shareholder1, CheatSpan::TargetCalls(1),
     );
     voting_mechanism.cast_vote(proposal_id, VoteType::For, gov_token_address);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    voting_mechanism.contract_address,
+                    VotingMechanism::Event::VoteCast(
+                        VoteCast {
+                            proposal_id,
+                            voter: shareholder1,
+                            vote_type: VoteType::For,
+                            weight: 100_u256 // All 3 proposals should be affected
+                        },
+                    ),
+                ),
+            ],
+        );
 
     // Verify initial vote
     let initial_breakdown = voting_mechanism.get_vote_breakdown(proposal_id);

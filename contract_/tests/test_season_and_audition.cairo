@@ -3,6 +3,10 @@ use contract_::audition::season_and_audition::{
     ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait, Season,
     SeasonAndAudition,
 };
+use contract_::events::{
+    SeasonCreated, AuditionCreated, AuditionPaused, AuditionResumed, AuditionEnded, SeasonUpdated,
+    SeasonDeleted, AuditionUpdated, AuditionDeleted, PriceDeposited, PriceDistributed,
+};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use snforge_std::{
@@ -10,7 +14,7 @@ use snforge_std::{
     start_cheat_caller_address, stop_cheat_caller_address, spy_events, start_cheat_block_timestamp,
     stop_cheat_block_timestamp,
 };
-use starknet::{ContractAddress, contract_address_const};
+use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 
 // Test account -> Owner
 fn OWNER() -> ContractAddress {
@@ -132,10 +136,11 @@ fn test_season_create() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::SeasonCreated(
-                        SeasonAndAudition::SeasonCreated {
+                        SeasonCreated {
                             season_id: default_season.season_id,
                             genre: default_season.genre,
                             name: default_season.name,
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -149,6 +154,7 @@ fn test_season_create() {
 #[test]
 fn test_update_season() {
     let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
 
     // Define season ID
     let season_id: felt252 = 1;
@@ -188,6 +194,20 @@ fn test_update_season() {
     assert!(read_updated_season.name == 'Summer Hits', "Failed to update season name");
     assert!(read_updated_season.paused, "Failed to update season paused");
 
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::SeasonUpdated(
+                        SeasonUpdated {
+                            season_id: default_season.season_id, timestamp: get_block_timestamp(),
+                        },
+                    ),
+                ),
+            ],
+        );
+
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
 }
@@ -195,6 +215,7 @@ fn test_update_season() {
 #[test]
 fn test_delete_season() {
     let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
 
     // Define season ID
     let season_id: felt252 = 1;
@@ -227,6 +248,20 @@ fn test_delete_season() {
     assert!(deleted_season.start_timestamp == 0, "Failed to delete season start timestamp");
     assert!(deleted_season.end_timestamp == 0, "Failed to delete season end timestamp");
     assert!(!deleted_season.paused, "Failed to delete season paused");
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::SeasonDeleted(
+                        SeasonDeleted {
+                            season_id: default_season.season_id, timestamp: get_block_timestamp(),
+                        },
+                    ),
+                ),
+            ],
+        );
 
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
@@ -281,11 +316,12 @@ fn test_create_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionCreated(
-                        SeasonAndAudition::AuditionCreated {
+                        AuditionCreated {
                             audition_id: default_audition.audition_id,
                             season_id: default_audition.season_id,
                             genre: default_audition.genre,
                             name: default_audition.name,
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -335,7 +371,7 @@ fn test_audition_deposit_price_successful() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::PriceDeposited(
-                        SeasonAndAudition::PriceDeposited {
+                        PriceDeposited {
                             audition_id: audition_id,
                             token_address: mock_token_dispatcher.contract_address,
                             amount: 10,
@@ -806,7 +842,7 @@ fn test_audition_distribute_prize_successful() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::PriceDistributed(
-                        SeasonAndAudition::PriceDistributed {
+                        PriceDistributed {
                             audition_id: audition_id,
                             winners: [winner1, winner2, winner3],
                             shares: [50, 30, 20],
@@ -1351,6 +1387,7 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
 #[test]
 fn test_update_audition() {
     let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
 
     // Define audition ID and season ID
     let audition_id: felt252 = 1;
@@ -1393,6 +1430,18 @@ fn test_update_audition() {
     assert!(read_updated_audition.name == 'Summer Audition', "Failed to update audition name");
     assert!(read_updated_audition.paused, "Failed to update audition paused");
 
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::AuditionUpdated(
+                        AuditionUpdated { audition_id, timestamp: get_block_timestamp() },
+                    ),
+                ),
+            ],
+        );
+
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
 }
@@ -1400,6 +1449,7 @@ fn test_update_audition() {
 #[test]
 fn test_delete_audition() {
     let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
 
     // Define audition ID and season ID
     let audition_id: felt252 = 1;
@@ -1434,6 +1484,18 @@ fn test_delete_audition() {
     assert!(deleted_audition.start_timestamp == 0, "Failed to delete audition start timestamp");
     assert!(deleted_audition.end_timestamp == 0, "Failed to delete audition end timestamp");
     assert!(!deleted_audition.paused, "Failed to delete audition paused");
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::AuditionDeleted(
+                        AuditionDeleted { audition_id, timestamp: get_block_timestamp() },
+                    ),
+                ),
+            ],
+        );
 
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
@@ -1659,7 +1721,9 @@ fn test_emission_of_event_for_pause_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionPaused(
-                        SeasonAndAudition::AuditionPaused { audition_id: audition_id },
+                        AuditionPaused {
+                            audition_id: audition_id, timestamp: get_block_timestamp(),
+                        },
                     ),
                 ),
             ],
@@ -2013,7 +2077,9 @@ fn test_emission_of_event_for_resume_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionResumed(
-                        SeasonAndAudition::AuditionResumed { audition_id: audition_id },
+                        AuditionResumed {
+                            audition_id: audition_id, timestamp: get_block_timestamp(),
+                        },
                     ),
                 ),
             ],
@@ -2095,7 +2161,7 @@ fn test_end_audition() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_end_audition_as_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -2145,8 +2211,8 @@ fn test_end_audition_as_non_owner() {
 #[test]
 fn test_emission_of_event_for_end_audition() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
+    let mut spy = spy_events();
     let audition_id: felt252 = 1;
     let season_id: felt252 = 1;
 
@@ -2188,7 +2254,9 @@ fn test_emission_of_event_for_end_audition() {
     // Check that the audition is paused
     let is_audition_paused = contract.read_audition(audition_id);
     assert(is_audition_paused.paused, 'Audition should be paused');
+    // stop_cheat_block_timestamp(contract.contract_address);
 
+    // start_cheat_block_timestamp(contract.contract_address, 1672617600);
     // End the audition
     let end_result = contract.end_audition(audition_id);
     assert(end_result, 'End audition should succeed');
@@ -2205,7 +2273,7 @@ fn test_emission_of_event_for_end_audition() {
                 (
                     contract.contract_address,
                     SeasonAndAudition::Event::AuditionEnded(
-                        SeasonAndAudition::AuditionEnded { audition_id: audition_id },
+                        AuditionEnded { audition_id: audition_id, timestamp: 1672531200 },
                     ),
                 ),
             ],

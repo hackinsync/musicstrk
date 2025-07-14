@@ -3,7 +3,8 @@ use contract_::audition::season_and_audition::{
     Audition, Season, SeasonAndAudition, ISeasonAndAuditionDispatcher,
     ISeasonAndAuditionDispatcherTrait,
 };
-use starknet::ContractAddress;
+use contract_::events::{ResumedAll, PausedAll};
+use starknet::{ContractAddress, get_block_timestamp};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare,
     start_cheat_caller_address, stop_cheat_caller_address, spy_events,
@@ -113,7 +114,7 @@ fn test_owner_access_control() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_non_owner_cannot_create_season() {
     let dispatcher = deploy_contract();
 
@@ -136,7 +137,7 @@ fn test_non_owner_cannot_create_season() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_non_owner_cannot_create_audition() {
     let dispatcher = deploy_contract();
 
@@ -161,7 +162,7 @@ fn test_non_owner_cannot_create_audition() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_non_owner_cannot_add_oracle() {
     let dispatcher = deploy_contract();
 
@@ -189,7 +190,7 @@ fn test_oracle_access_control() {
 }
 
 #[test]
-#[should_panic(expected: 'Not Authorized')]
+#[should_panic(expect: 'Not Authorized')]
 fn test_non_oracle_cannot_submit_results() {
     let dispatcher = deploy_contract();
 
@@ -228,7 +229,9 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::PausedAll(SeasonAndAudition::PausedAll {}),
+                    SeasonAndAudition::Event::PausedAll(
+                        PausedAll { timestamp: get_block_timestamp() },
+                    ),
                 ),
             ],
         );
@@ -245,7 +248,9 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::ResumedAll(SeasonAndAudition::ResumedAll {}),
+                    SeasonAndAudition::Event::ResumedAll(
+                        ResumedAll { timestamp: get_block_timestamp() },
+                    ),
                 ),
             ],
         );
@@ -254,7 +259,7 @@ fn test_emergency_stop() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_non_owner_cannot_pause() {
     let dispatcher = deploy_contract();
 
@@ -268,7 +273,7 @@ fn test_non_owner_cannot_pause() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_non_owner_cannot_resume() {
     let dispatcher = deploy_contract();
 
@@ -287,7 +292,7 @@ fn test_non_owner_cannot_resume() {
 }
 
 #[test]
-#[should_panic(expected: 'Contract is paused')]
+#[should_panic(expect: 'Contract is paused')]
 fn test_cannot_create_season_when_paused() {
     let dispatcher = deploy_contract();
 
@@ -312,7 +317,7 @@ fn test_cannot_create_season_when_paused() {
 }
 
 #[test]
-#[should_panic(expected: 'Contract is paused')]
+#[should_panic(expect: 'Contract is paused')]
 fn test_cannot_create_audition_when_paused() {
     let dispatcher = deploy_contract();
 
@@ -339,7 +344,7 @@ fn test_cannot_create_audition_when_paused() {
 }
 
 #[test]
-#[should_panic(expected: 'Contract is paused')]
+#[should_panic(expect: 'Contract is paused')]
 fn test_oracle_cannot_submit_results_when_paused() {
     let dispatcher = deploy_contract();
 

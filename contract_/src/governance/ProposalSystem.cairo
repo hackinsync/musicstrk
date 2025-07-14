@@ -56,8 +56,14 @@ pub mod ProposalSystem {
     use contract_::token_factory::{
         IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
     };
+    use contract_::events::{
+        ProposalCreated, ProposalStatusChanged, CommentAdded, VoteCast, ArtistRegistered,
+    };
+    use contract_::governance::types::{Proposal, Comment, ProposalMetrics};
+    use starknet::{
+        ContractAddress, get_caller_address, get_block_timestamp, contract_address_const,
+    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use starknet::{contract_address_const, get_block_timestamp, get_caller_address};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
@@ -87,43 +93,7 @@ pub mod ProposalSystem {
         ProposalStatusChanged: ProposalStatusChanged,
         CommentAdded: CommentAdded,
         VoteCast: VoteCast,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct ProposalCreated {
-        #[key]
-        pub proposal_id: u64,
-        #[key]
-        pub token_contract: ContractAddress,
-        pub proposer: ContractAddress,
-        pub category: felt252,
-        pub title: ByteArray,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct ProposalStatusChanged {
-        #[key]
-        pub proposal_id: u64,
-        pub old_status: u8,
-        pub new_status: u8,
-        pub responder: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct CommentAdded {
-        #[key]
-        pub proposal_id: u64,
-        pub comment_id: u64,
-        pub commenter: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct VoteCast {
-        #[key]
-        pub proposal_id: u64,
-        pub voter: ContractAddress,
-        pub vote_type: u8, // 0=Against, 1=For
-        pub weight: u256,
+        ArtistRegistered: ArtistRegistered,
     }
 
     #[constructor]
