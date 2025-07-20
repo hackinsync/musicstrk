@@ -26,4 +26,38 @@ pub mod errors {
 
     // Voting errors (6000-6999)
     pub const DUPLICATE_VOTE: felt252 = 'Vote already exists';
+    
+    // Contract state errors (7000-7999)
+    pub const CONTRACT_PAUSED: felt252 = 'Contract is paused';
+    
+    // Audition errors (8000-8999)
+    pub const AUDITION_NOT_FOUND: felt252 = 'Audition does not exist';
+    pub const AUDITION_PAUSED: felt252 = 'Audition is paused';
+    pub const AUDITION_ENDED: felt252 = 'Audition has ended';
+    pub const AUDITION_NOT_ENDED: felt252 = 'Audition must end first';
+    pub const AUDITION_NOT_PAUSED: felt252 = 'Audition is not paused';
+    pub const AUDITION_NOT_CANCELED_OR_ENDED: felt252 = 'Audition not canceled/ended';
+    
+    // Registration errors (9000-9999)
+    pub const ALREADY_REGISTERED: felt252 = 'Already registered';
+    pub const NO_FEE_TO_REFUND: felt252 = 'No fee to refund';
+    pub const ALREADY_REFUNDED: felt252 = 'Registration already refunded';
+    
+    // Token transfer errors (10000-10999)
+    pub const TRANSFER_FAILED: felt252 = 'Transfer failed';
+    pub const REFUND_TRANSFER_FAILED: felt252 = 'Refund transfer failed';
+    pub const INVALID_TOKEN_ADDRESS: felt252 = 'Invalid token address';
+    pub const FEE_AMOUNT_TOO_LARGE: felt252 = 'Fee amount too large';
+    pub const AMOUNT_TOO_LARGE: felt252 = 'Amount too large';
+    
+    // Prize errors (11000-11999)
+    pub const NO_PRIZE: felt252 = 'No prize for this audition';
+    pub const PRIZE_ALREADY_DEPOSITED: felt252 = 'Prize already deposited';
+    pub const PRIZE_ALREADY_DISTRIBUTED: felt252 = 'Prize already distributed';
+    pub const INVALID_AMOUNT: felt252 = 'Amount must be more than zero';
+    pub const INVALID_WINNER_ADDRESS: felt252 = 'null contract address';
+    pub const INVALID_SHARES_TOTAL: felt252 = 'total does not add up';
+    
+    // Authorization errors (12000-12999)
+    pub const NOT_AUTHORIZED: felt252 = 'Not Authorized';
 }
