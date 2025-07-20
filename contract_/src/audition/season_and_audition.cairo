@@ -92,6 +92,8 @@ pub trait ISeasonAndAudition<TContractState> {
 
     fn refund_all_registrations(ref self: TContractState, audition_id: felt252);
 
+    fn get_registration_count(self: @TContractState, audition_id: felt252) -> u256;
+
     // price deposit and distribute functionalities
     fn deposit_prize(
         ref self: TContractState,
@@ -190,6 +192,7 @@ pub mod SeasonAndAudition {
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
         registrations: Map<(felt252, ContractAddress), Registration>,
+        registration_counts: Map<felt252, u256>,
         collected_fees: Map<ContractAddress, u256>,
         votes: Map<(felt252, felt252, felt252), Vote>,
         global_paused: bool,
@@ -417,6 +420,9 @@ pub mod SeasonAndAudition {
             token_address: ContractAddress,
             fee_amount: u256,
         ) {
+            // Check if contract is globally paused
+            assert(!self.global_paused.read(), 'Contract is paused');
+            
             // Verify the audition exists and is not paused
             let audition = self.auditions.entry(audition_id).read();
             assert(audition.audition_id != 0, 'Audition does not exist');
@@ -424,33 +430,51 @@ pub mod SeasonAndAudition {
 
             let performer = get_caller_address();
 
-            // Check if already registered
+            // Check if already registered - improved logic
             let existing = self.registrations.entry((audition_id, performer)).read();
-
+            // Check if registration actually exists by looking at fee_amount or refunded status
+            // A valid registration will have either a fee_amount > 0 or be explicitly marked as not refunded
             let zero_address = contract_address_const::<0x0>();
-            assert(existing.performer == zero_address, 'Already registered');
+            let is_registered = existing.performer != zero_address || 
+                               existing.fee_amount > 0 || 
+                               !existing.refunded;
+            assert(!is_registered, 'Already registered');
 
             // Handle payment if fee is required
             if fee_amount > 0 {
-                let token = IERC20Dispatcher {
-                    contract_address: token_address.try_into().expect('Invalid token address'),
-                };
-                assert(
-                    token
-                        .allowance(performer, get_contract_address()) >= fee_amount
-                        .try_into()
-                        .unwrap(),
-                    'Insufficient allowance',
-                );
-                token
-                    .transfer_from(
-                        performer, get_contract_address(), fee_amount.try_into().unwrap(),
+                if token_address.is_zero() {
+                    assert(false, 'Native token not implemented');
+                } else {
+                    // Handle ERC20 token payment
+                    let token = IERC20Dispatcher {
+                        contract_address: token_address,
+                    };
+                    
+                    // Check allowance
+                    let allowance = token.allowance(performer, get_contract_address());
+                    assert(allowance >= fee_amount, 'Insufficient allowance');
+                    
+                    // Check balance
+                    let balance = token.balance_of(performer);
+                    assert(balance >= fee_amount, 'Insufficient balance');
+                    
+                    // Perform transfer with proper error handling
+                    let success = token.transfer_from(
+                        performer, 
+                        get_contract_address(), 
+                        fee_amount
                     );
+                    assert(success, 'Transfer failed');
+                }
             }
 
             // Update collected fees
             let current_fees = self.collected_fees.read(token_address);
             self.collected_fees.write(token_address, current_fees + fee_amount);
+            
+            // Update registration count
+            let current_count = self.registration_counts.read(audition_id);
+            self.registration_counts.write(audition_id, current_count + 1);
 
             // Record registration
             self
@@ -753,17 +777,25 @@ pub mod SeasonAndAudition {
             let token_address = registration.token_address;
             let fee_amount = registration.fee_amount;
 
-            // Transfer tokens back to performer
-            self._send_tokens(performer, fee_amount, token_address);
+            // REENTRANCY PROTECTION: Mark as refunded FIRST to prevent reentrancy attacks
+            let mut updated_registration = registration;
+            updated_registration.refunded = true;
+            self.registrations.entry((audition_id, performer)).write(updated_registration);
+
+            // Transfer tokens back to performer with native token support
+            if token_address.is_zero() {
+                // Handle native token refund
+                assert(false, 'Refund not implemented');
+            } else {
+                // Handle ERC20 token refund
+                let token = IERC20Dispatcher { contract_address: token_address };
+                let success = token.transfer(performer, fee_amount);
+                assert(success, 'Refund transfer failed');
+            }
 
             // Update collected fees
             let current_fees = self.collected_fees.read(token_address);
             self.collected_fees.write(token_address, current_fees - fee_amount);
-
-            // Mark as refunded
-            let mut updated_registration = registration;
-            updated_registration.refunded = true;
-            self.registrations.entry((audition_id, performer)).write(updated_registration);
 
             // Emit refund event
             self
@@ -779,20 +811,23 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
 
-            // This is a simplified implementation that would need to be enhanced
-            // to iterate through all registrations for the audition
-            // For now, we'll emit an event indicating the intent
-            self
-                .emit(
-                    Event::RegistrationRefunded(
-                        RegistrationRefunded {
-                            audition_id,
-                            performer: contract_address_const::<0x0>(),
-                            token_address: contract_address_const::<0x0>(),
-                            fee_amount: 0,
-                        },
-                    ),
-                );
+            // NOTE: This is a simplified implementation.
+            // In a production environment, you would need to:
+            // 1. Maintain a list/array of registered performers per audition
+            // 2. Iterate through that list and call refund_registration for each
+            // 3. Consider gas limits and possibly implement pagination
+            
+            // For now, this function serves as a placeholder that indicates
+            // the contract owner's intent to refund all registrations.
+            // The actual refunds should be done individually using refund_registration
+            // until a proper iteration mechanism is implemented.
+            
+            // We don't emit any events here as no actual refunds are performed
+            // This prevents giving false hope to users
+        }
+        
+        fn get_registration_count(self: @ContractState, audition_id: felt252) -> u256 {
+            self.registration_counts.read(audition_id)
         }
     }
 
