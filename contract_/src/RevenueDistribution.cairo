@@ -1,9 +1,8 @@
 #[starknet::contract]
 pub mod RevenueDistribution {
     use alexandria_storage::{List, ListTrait};
-    use contract_::IRevenueDistribution::{
-        Category, IRevenueDistribution, RevenueAddedEvent, RevenueDistributedEvent,
-    };
+    use contract_::IRevenueDistribution::{Category, IRevenueDistribution};
+    use contract_::events::{RevenueAddedEvent, RevenueDistributedEvent, TokenShareTransferred};
     use contract_::erc20::MusicStrk::TOTAL_SHARES;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -46,6 +45,7 @@ pub mod RevenueDistribution {
         OwnableEvent: OwnableComponent::Event,
         RevenueAddedEvent: RevenueAddedEvent,
         RevenueDistributedEvent: RevenueDistributedEvent,
+        TokenShareTransferred: TokenShareTransferred,
     }
 
 
@@ -70,6 +70,7 @@ pub mod RevenueDistribution {
             let mut holders = self.token_holders.read(token_contract);
             let _index = holders.append(to);
             self.token_holders.write(token_contract, holders);
+            self.emit(TokenShareTransferred { new_holder: to, amount });
         }
 
         fn add_revenue(ref self: ContractState, category: Category, amount: u256) {

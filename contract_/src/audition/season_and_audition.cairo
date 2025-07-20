@@ -154,14 +154,21 @@ pub trait ISeasonAndAudition<TContractState> {
 pub mod SeasonAndAudition {
     use core::num::traits::Zero;
     use starknet::get_contract_address;
+    use starknet::event::EventEmitter;
+    use OwnableComponent::HasComponent;
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use super::{Audition, Registration, ISeasonAndAudition, Season, Vote};
-    use starknet::{
-        ContractAddress, get_caller_address, get_block_timestamp, contract_address_const,
+    use super::{Audition,Registration, ISeasonAndAudition, Season, Vote};
+    use crate::events::{
+        SeasonCreated, SeasonUpdated, SeasonDeleted, AuditionCreated, AuditionUpdated,
+        AuditionDeleted, ResultsSubmitted, OracleAdded, OracleRemoved, AuditionPaused,
+        AuditionResumed, AuditionEnded, VoteRecorded, PausedAll, ResumedAll, PriceDistributed,
+        PriceDeposited,
     };
+    use starknet::{ContractAddress, get_caller_address, get_block_timestamp,contract_address_const,};
+
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -212,7 +219,11 @@ pub mod SeasonAndAudition {
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         SeasonCreated: SeasonCreated,
+        SeasonUpdated: SeasonUpdated,
+        SeasonDeleted: SeasonDeleted,
         AuditionCreated: AuditionCreated,
+        AuditionUpdated: AuditionUpdated,
+        AuditionDeleted: AuditionDeleted,
         AuditionPaused: AuditionPaused,
         AuditionResumed: AuditionResumed,
         AuditionEnded: AuditionEnded,
@@ -351,7 +362,12 @@ pub mod SeasonAndAudition {
                 .entry(season_id)
                 .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
 
-            self.emit(SeasonCreated { season_id, genre, name });
+            self
+                .emit(
+                    Event::SeasonCreated(
+                        SeasonCreated { season_id, genre, name, timestamp: get_block_timestamp() },
+                    ),
+                );
         }
 
         fn read_season(self: @ContractState, season_id: felt252) -> Season {
@@ -363,6 +379,12 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
 
             self.seasons.entry(season_id).write(season);
+            self
+                .emit(
+                    Event::SeasonUpdated(
+                        SeasonUpdated { season_id, timestamp: get_block_timestamp() },
+                    ),
+                );
         }
 
         fn delete_season(ref self: ContractState, season_id: felt252) {
@@ -372,6 +394,12 @@ pub mod SeasonAndAudition {
             let default_season: Season = Default::default();
 
             self.seasons.entry(season_id).write(default_season);
+            self
+                .emit(
+                    Event::SeasonDeleted(
+                        SeasonDeleted { season_id, timestamp: get_block_timestamp() },
+                    ),
+                );
         }
 
         fn create_audition(
@@ -396,7 +424,14 @@ pub mod SeasonAndAudition {
                     },
                 );
 
-            self.emit(AuditionCreated { audition_id, season_id, genre, name });
+            self
+                .emit(
+                    Event::AuditionCreated(
+                        AuditionCreated {
+                            audition_id, season_id, genre, name, timestamp: get_block_timestamp(),
+                        },
+                    ),
+                );
         }
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
@@ -409,6 +444,12 @@ pub mod SeasonAndAudition {
             assert(!self.is_audition_paused(audition_id), 'Cannot update paused audition');
             assert(!self.is_audition_ended(audition_id), 'Cannot update ended audition');
             self.auditions.entry(audition_id).write(audition);
+            self
+                .emit(
+                    Event::AuditionUpdated(
+                        AuditionUpdated { audition_id, timestamp: get_block_timestamp() },
+                    ),
+                );
         }
 
         fn delete_audition(ref self: ContractState, audition_id: felt252) {
@@ -420,6 +461,12 @@ pub mod SeasonAndAudition {
             let default_audition: Audition = Default::default();
 
             self.auditions.entry(audition_id).write(default_audition);
+            self
+                .emit(
+                    Event::AuditionDeleted(
+                        AuditionDeleted { audition_id, timestamp: get_block_timestamp() },
+                    ),
+                );
         }
 
         fn submit_results(
@@ -431,7 +478,9 @@ pub mod SeasonAndAudition {
             self
                 .emit(
                     Event::ResultsSubmitted(
-                        ResultsSubmitted { audition_id, top_performers, shares },
+                        ResultsSubmitted {
+                            audition_id, top_performers, shares, timestamp: get_block_timestamp(),
+                        },
                     ),
                 );
         }
@@ -563,14 +612,14 @@ pub mod SeasonAndAudition {
         /// @param shares An array of 3 u256 values representing the percentage shares (out of 100)
         /// for each winner.
         /// @custom:reverts If the distribution conditions are not met, as checked by
-        /// `assert_distribue`.
+        /// `assert_distributed`.
         fn distribute_prize(
             ref self: ContractState,
             audition_id: felt252,
             winners: [ContractAddress; 3],
             shares: [u256; 3],
         ) {
-            self.assert_distribue(audition_id, winners, shares);
+            self.assert_distributed(audition_id, winners, shares);
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
@@ -670,13 +719,13 @@ pub mod SeasonAndAudition {
         fn pause_all(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.global_paused.write(true);
-            self.emit(Event::PausedAll(PausedAll {}));
+            self.emit(Event::PausedAll(PausedAll { timestamp: get_block_timestamp() }));
         }
 
         fn resume_all(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.global_paused.write(false);
-            self.emit(Event::ResumedAll(ResumedAll {}));
+            self.emit(Event::ResumedAll(ResumedAll { timestamp: get_block_timestamp() }));
         }
 
         fn is_paused(self: @ContractState) -> bool {
@@ -695,7 +744,12 @@ pub mod SeasonAndAudition {
             audition.paused = true;
             self.auditions.entry(audition_id).write(audition);
 
-            self.emit(Event::AuditionPaused(AuditionPaused { audition_id }));
+            self
+                .emit(
+                    Event::AuditionPaused(
+                        AuditionPaused { audition_id, timestamp: get_block_timestamp() },
+                    ),
+                );
             true
         }
 
@@ -711,7 +765,12 @@ pub mod SeasonAndAudition {
             audition.paused = false;
             self.auditions.entry(audition_id).write(audition);
 
-            self.emit(Event::AuditionResumed(AuditionResumed { audition_id }));
+            self
+                .emit(
+                    Event::AuditionResumed(
+                        AuditionResumed { audition_id, timestamp: get_block_timestamp() },
+                    ),
+                );
             true
         }
 
@@ -729,7 +788,12 @@ pub mod SeasonAndAudition {
             audition.end_timestamp = current_time.into();
             self.auditions.entry(audition_id).write(audition);
 
-            self.emit(Event::AuditionEnded(AuditionEnded { audition_id }));
+            self
+                .emit(
+                    Event::AuditionEnded(
+                        AuditionEnded { audition_id, timestamp: get_block_timestamp() },
+                    ),
+                );
             true
         }
 
@@ -906,7 +970,7 @@ pub mod SeasonAndAudition {
         /// @custom:reverts If there is no prize for the audition.
         /// @custom:reverts If any winner address is zero.
         /// @custom:reverts If the total shares do not add up to 100.
-        fn assert_distribue(
+        fn assert_distributed(
             ref self: ContractState,
             audition_id: felt252,
             winners: [ContractAddress; 3],
