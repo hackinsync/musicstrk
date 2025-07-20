@@ -22,7 +22,6 @@ pub struct Audition {
 }
 
 
-
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {
     pub audition_id: felt252,
@@ -31,7 +30,7 @@ pub struct Vote {
     pub weight: felt252,
 }
 
-#[derive(Drop, Copy,  Serde, starknet::Store)]
+#[derive(Drop, Copy, Serde, starknet::Store)]
 pub struct Registration {
     pub performer: ContractAddress,
     pub token_address: ContractAddress,
@@ -164,14 +163,14 @@ pub mod SeasonAndAudition {
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use super::{Audition,Registration, ISeasonAndAudition, Season, Vote};
+    use super::{Audition, Registration, ISeasonAndAudition, Season, Vote};
     use crate::events::{
         SeasonCreated, SeasonUpdated, SeasonDeleted, AuditionCreated, AuditionUpdated,
         AuditionDeleted, ResultsSubmitted, OracleAdded, OracleRemoved, AuditionPaused,
         AuditionResumed, AuditionEnded, VoteRecorded, PausedAll, ResumedAll, PriceDistributed,
-        PriceDeposited,PerformerRegistered, RegistrationRefunded,
+        PriceDeposited, PerformerRegistered, RegistrationRefunded,
     };
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp,};
+    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
 
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
@@ -193,7 +192,9 @@ pub mod SeasonAndAudition {
         auditions: Map<felt252, Audition>,
         registrations: Map<(felt252, ContractAddress), Registration>,
         collected_fees: Map<ContractAddress, u256>,
-        registered_performers: Map<(felt252, u32), ContractAddress>, // (audition_id, index) => performer
+        registered_performers: Map<
+            (felt252, u32), ContractAddress,
+        >, // (audition_id, index) => performer
         registration_counts: Map<felt252, u32>, // audition_id => count
         votes: Map<(felt252, felt252, felt252), Vote>,
         global_paused: bool,
@@ -436,22 +437,24 @@ pub mod SeasonAndAudition {
                 self._check_token_balance(performer, fee_amount, token_address);
                 assert(
                     token.allowance(performer, get_contract_address()) >= fee_amount,
-                    errors::INSUFFICIENT_ALLOWANCE
+                    errors::INSUFFICIENT_ALLOWANCE,
                 );
-                let success = token.transfer_from(
-                    performer,
-                    get_contract_address(),
-                    fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE)
-                );
+                let success = token
+                    .transfer_from(
+                        performer,
+                        get_contract_address(),
+                        fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE),
+                    );
                 assert(success, errors::TRANSFER_FAILED);
             }
 
             let current_fees = self.collected_fees.read(token_address);
             self.collected_fees.write(token_address, current_fees + fee_amount);
 
-            self.registrations.entry((audition_id, performer)).write(
-                Registration { performer, token_address, fee_amount, refunded: false }
-            );
+            self
+                .registrations
+                .entry((audition_id, performer))
+                .write(Registration { performer, token_address, fee_amount, refunded: false });
 
             let count = self.registration_counts.read(audition_id);
             self.registered_performers.write((audition_id, count), performer);
@@ -741,7 +744,7 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
             assert(
                 self.is_audition_ended(audition_id) || self.is_audition_paused(audition_id),
-                errors::AUDITION_NOT_CANCELED_OR_ENDED
+                errors::AUDITION_NOT_CANCELED_OR_ENDED,
             );
 
             let mut registration = self.registrations.entry((audition_id, performer)).read();
@@ -756,21 +759,19 @@ pub mod SeasonAndAudition {
             assert(!token_address.is_zero(), errors::INVALID_TOKEN_ADDRESS);
             let token = IERC20Dispatcher { contract_address: token_address };
             self._check_token_balance(get_contract_address(), fee_amount, token_address);
-            let success = token.transfer(
-                performer,
-                fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE)
-            );
+            let success = token
+                .transfer(performer, fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE));
             assert(success, errors::REFUND_TRANSFER_FAILED);
 
             let current_fees = self.collected_fees.read(token_address);
             self.collected_fees.write(token_address, current_fees - fee_amount);
 
-            self.emit(Event::RegistrationRefunded(RegistrationRefunded {
-                audition_id,
-                performer,
-                token_address,
-                fee_amount
-            }));
+            self
+                .emit(
+                    Event::RegistrationRefunded(
+                        RegistrationRefunded { audition_id, performer, token_address, fee_amount },
+                    ),
+                );
         }
 
         fn refund_all_registrations(ref self: ContractState, audition_id: felt252) {
@@ -779,7 +780,7 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
             assert(
                 self.is_audition_ended(audition_id) || self.is_audition_paused(audition_id),
-                errors::AUDITION_NOT_CANCELED_OR_ENDED
+                errors::AUDITION_NOT_CANCELED_OR_ENDED,
             );
 
             let count = self.registration_counts.read(audition_id);
@@ -798,26 +799,28 @@ pub mod SeasonAndAudition {
                     assert(!token_address.is_zero(), errors::INVALID_TOKEN_ADDRESS);
                     let token = IERC20Dispatcher { contract_address: token_address };
                     self._check_token_balance(get_contract_address(), fee_amount, token_address);
-                    let success = token.transfer(
-                        performer,
-                        fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE)
-                    );
+                    let success = token
+                        .transfer(
+                            performer, fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE),
+                        );
                     assert(success, errors::REFUND_TRANSFER_FAILED);
 
                     let current_fees = self.collected_fees.read(token_address);
                     self.collected_fees.write(token_address, current_fees - fee_amount);
 
-                    self.emit(Event::RegistrationRefunded(RegistrationRefunded {
-                        audition_id,
-                        performer,
-                        token_address,
-                        fee_amount
-                    }));
+                    self
+                        .emit(
+                            Event::RegistrationRefunded(
+                                RegistrationRefunded {
+                                    audition_id, performer, token_address, fee_amount,
+                                },
+                            ),
+                        );
                 }
                 i += 1;
             }
         }
-        
+
         fn get_registration_count(self: @ContractState, audition_id: felt252) -> u32 {
             self.registration_counts.read(audition_id)
         }
@@ -836,7 +839,10 @@ pub mod SeasonAndAudition {
             let contract_address = get_contract_address();
             self._check_token_allowance(caller, amount, token_address);
             self._check_token_balance(caller, amount, token_address);
-            let success = payment_token.transfer_from(caller, contract_address, amount.try_into().expect(errors::AMOUNT_TOO_LARGE));
+            let success = payment_token
+                .transfer_from(
+                    caller, contract_address, amount.try_into().expect(errors::AMOUNT_TOO_LARGE),
+                );
             assert(success, errors::TRANSFER_FAILED);
         }
 
@@ -883,7 +889,8 @@ pub mod SeasonAndAudition {
             let token = IERC20Dispatcher { contract_address: token_address };
             let contract = get_contract_address();
             self._check_token_balance(contract, amount, token_address);
-            let success = token.transfer(recipient, amount.try_into().expect(errors::AMOUNT_TOO_LARGE));
+            let success = token
+                .transfer(recipient, amount.try_into().expect(errors::AMOUNT_TOO_LARGE));
             assert(success, errors::TRANSFER_FAILED);
         }
 
