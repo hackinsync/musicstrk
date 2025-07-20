@@ -21,13 +21,7 @@ pub struct Audition {
     pub paused: bool,
 }
 
-#[derive(Drop, Serde, starknet::Store)]
-pub struct Registration {
-    pub performer: ContractAddress,
-    pub token_address: ContractAddress,
-    pub fee_amount: u256,
-    pub refunded: bool,
-}
+
 
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {
@@ -35,6 +29,14 @@ pub struct Vote {
     pub performer: felt252,
     pub voter: felt252,
     pub weight: felt252,
+}
+
+#[derive(Drop, Serde, starknet::Store)]
+pub struct Registration {
+    pub performer: ContractAddress,
+    pub token_address: ContractAddress,
+    pub fee_amount: u256,
+    pub refunded: bool,
 }
 
 // Define the contract interface
@@ -165,7 +167,7 @@ pub mod SeasonAndAudition {
         SeasonCreated, SeasonUpdated, SeasonDeleted, AuditionCreated, AuditionUpdated,
         AuditionDeleted, ResultsSubmitted, OracleAdded, OracleRemoved, AuditionPaused,
         AuditionResumed, AuditionEnded, VoteRecorded, PausedAll, ResumedAll, PriceDistributed,
-        PriceDeposited,
+        PriceDeposited,PerformerRegistered, RegistrationRefunded,
     };
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp,contract_address_const,};
 
@@ -241,101 +243,6 @@ pub mod SeasonAndAudition {
         RegistrationRefunded: RegistrationRefunded,
     }
 
-    #[derive(Drop, starknet::Event)]
-    pub struct SeasonCreated {
-        pub season_id: felt252,
-        pub genre: felt252,
-        pub name: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionCreated {
-        pub audition_id: felt252,
-        pub season_id: felt252,
-        pub genre: felt252,
-        pub name: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionPaused {
-        pub audition_id: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionResumed {
-        pub audition_id: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct AuditionEnded {
-        pub audition_id: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct ResultsSubmitted {
-        pub audition_id: felt252,
-        pub top_performers: felt252,
-        pub shares: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct OracleAdded {
-        pub oracle_address: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct OracleRemoved {
-        pub oracle_address: ContractAddress,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct PerformerRegistered {
-        pub audition_id: felt252,
-        pub performer: ContractAddress,
-        pub token_address: ContractAddress,
-        pub fee_amount: u256,
-    }
-
-
-    #[derive(Drop, starknet::Event)]
-    pub struct VoteRecorded {
-        pub audition_id: felt252,
-        pub performer: felt252,
-        pub voter: felt252,
-        pub weight: felt252,
-    }
-
-    #[derive(Drop, starknet::Event)]
-    pub struct PriceDeposited {
-        pub audition_id: felt252,
-        pub token_address: ContractAddress,
-        pub amount: u256,
-    }
-
-
-    #[derive(Drop, starknet::Event)]
-    pub struct PriceDistributed {
-        pub audition_id: felt252,
-        pub winners: [ContractAddress; 3],
-        pub shares: [u256; 3],
-        pub token_address: ContractAddress,
-        pub amounts: Span<u256>,
-    }
-
-
-    #[derive(Drop, starknet::Event)]
-    pub struct PausedAll {}
-
-    #[derive(Drop, starknet::Event)]
-    pub struct ResumedAll {}
-
-    #[derive(Drop, starknet::Event)]
-    pub struct RegistrationRefunded {
-        pub audition_id: felt252,
-        pub performer: ContractAddress,
-        pub token_address: ContractAddress,
-        pub fee_amount: u256,
-    }
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
