@@ -305,3 +305,19 @@ pub struct TokenTransferDuringVoting {
     pub amount: u256,
     pub affected_weight: bool,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct PerformerRegistered {
+    pub audition_id: felt252,
+    pub performer: ContractAddress,
+    pub token_address: ContractAddress,
+    pub fee_amount: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct RegistrationRefunded {
+    pub audition_id: felt252,
+    pub performer: ContractAddress,
+    pub token_address: ContractAddress,
+    pub fee_amount: u256,
+}
