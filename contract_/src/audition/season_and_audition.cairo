@@ -21,12 +21,21 @@ pub struct Audition {
     pub paused: bool,
 }
 
+
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {
     pub audition_id: felt252,
     pub performer: felt252,
     pub voter: felt252,
     pub weight: felt252,
+}
+
+#[derive(Drop, Copy, Serde, starknet::Store)]
+pub struct Registration {
+    pub performer: ContractAddress,
+    pub token_address: ContractAddress,
+    pub fee_amount: u256,
+    pub refunded: bool,
 }
 
 // Define the contract interface
@@ -63,6 +72,26 @@ pub trait ISeasonAndAudition<TContractState> {
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
+
+
+    fn register_performer(
+        ref self: TContractState,
+        audition_id: felt252,
+        token_address: ContractAddress,
+        fee_amount: u256,
+    );
+
+    fn read_registration(
+        self: @TContractState, audition_id: felt252, performer: ContractAddress,
+    ) -> Registration;
+
+    fn refund_registration(
+        ref self: TContractState, audition_id: felt252, performer: ContractAddress,
+    );
+
+    fn refund_all_registrations(ref self: TContractState, audition_id: felt252);
+
+    fn get_registration_count(self: @TContractState, audition_id: felt252) -> u32;
 
     // price deposit and distribute functionalities
     fn deposit_prize(
@@ -127,21 +156,22 @@ pub trait ISeasonAndAudition<TContractState> {
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use core::num::traits::Zero;
+    use core::array::ArrayTrait;
     use starknet::get_contract_address;
     use starknet::event::EventEmitter;
-    use OwnableComponent::HasComponent;
     use OwnableComponent::InternalTrait;
     use contract_::errors::errors;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use super::{Audition, ISeasonAndAudition, Season, Vote};
+    use super::{Audition, Registration, ISeasonAndAudition, Season, Vote};
     use crate::events::{
         SeasonCreated, SeasonUpdated, SeasonDeleted, AuditionCreated, AuditionUpdated,
         AuditionDeleted, ResultsSubmitted, OracleAdded, OracleRemoved, AuditionPaused,
         AuditionResumed, AuditionEnded, VoteRecorded, PausedAll, ResumedAll, PriceDistributed,
-        PriceDeposited,
+        PriceDeposited, PerformerRegistered, RegistrationRefunded,
     };
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
+
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -160,6 +190,12 @@ pub mod SeasonAndAudition {
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<felt252, Season>,
         auditions: Map<felt252, Audition>,
+        registrations: Map<(felt252, ContractAddress), Registration>,
+        collected_fees: Map<ContractAddress, u256>,
+        registered_performers: Map<
+            (felt252, u32), ContractAddress,
+        >, // (audition_id, index) => performer
+        registration_counts: Map<felt252, u32>, // audition_id => count
         votes: Map<(felt252, felt252, felt252), Vote>,
         global_paused: bool,
         #[substorage(v0)]
@@ -201,6 +237,7 @@ pub mod SeasonAndAudition {
         ResultsSubmitted: ResultsSubmitted,
         OracleAdded: OracleAdded,
         OracleRemoved: OracleRemoved,
+        PerformerRegistered: PerformerRegistered,
         VoteRecorded: VoteRecorded,
         PausedAll: PausedAll,
         ResumedAll: ResumedAll,
@@ -208,7 +245,9 @@ pub mod SeasonAndAudition {
         OwnableEvent: OwnableComponent::Event,
         PriceDeposited: PriceDeposited,
         PriceDistributed: PriceDistributed,
+        RegistrationRefunded: RegistrationRefunded,
     }
+
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
@@ -228,7 +267,7 @@ pub mod SeasonAndAudition {
             paused: bool,
         ) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
             self
                 .seasons
@@ -249,7 +288,7 @@ pub mod SeasonAndAudition {
 
         fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
             self.seasons.entry(season_id).write(season);
             self
@@ -262,7 +301,7 @@ pub mod SeasonAndAudition {
 
         fn delete_season(ref self: ContractState, season_id: felt252) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
             let default_season: Season = Default::default();
 
@@ -286,7 +325,7 @@ pub mod SeasonAndAudition {
             paused: bool,
         ) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
             self
                 .auditions
@@ -313,7 +352,7 @@ pub mod SeasonAndAudition {
 
         fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
             assert(!self.is_audition_paused(audition_id), 'Cannot update paused audition');
             assert(!self.is_audition_ended(audition_id), 'Cannot update ended audition');
             self.auditions.entry(audition_id).write(audition);
@@ -327,7 +366,7 @@ pub mod SeasonAndAudition {
 
         fn delete_audition(ref self: ContractState, audition_id: felt252) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
             assert(!self.is_audition_paused(audition_id), 'Cannot delete paused audition');
             assert(!self.is_audition_ended(audition_id), 'Cannot delete ended audition');
 
@@ -346,7 +385,7 @@ pub mod SeasonAndAudition {
             ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
         ) {
             self.only_oracle();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
             self
                 .emit(
@@ -361,7 +400,7 @@ pub mod SeasonAndAudition {
         fn only_oracle(ref self: ContractState) {
             let caller = get_caller_address();
             let is_whitelisted = self.whitelisted_oracles.read(caller);
-            assert(is_whitelisted, 'Not Authorized');
+            assert(is_whitelisted, errors::NOT_AUTHORIZED);
         }
 
         fn add_oracle(ref self: ContractState, oracle_address: ContractAddress) {
@@ -374,6 +413,54 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
             self.whitelisted_oracles.write(oracle_address, false);
             self.emit(Event::OracleRemoved(OracleRemoved { oracle_address }));
+        }
+
+
+        fn register_performer(
+            ref self: ContractState,
+            audition_id: felt252,
+            token_address: ContractAddress,
+            fee_amount: u256,
+        ) {
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
+            let audition = self.auditions.entry(audition_id).read();
+            assert(audition.audition_id != 0, errors::AUDITION_NOT_FOUND);
+            assert(!audition.paused, errors::AUDITION_PAUSED);
+
+            let performer = get_caller_address();
+            let registration = self.registrations.entry((audition_id, performer)).read();
+            assert(registration.performer.is_zero(), errors::ALREADY_REGISTERED);
+
+            if fee_amount > 0 {
+                assert(!token_address.is_zero(), errors::INVALID_TOKEN_ADDRESS);
+                let token = IERC20Dispatcher { contract_address: token_address };
+                self._check_token_balance(performer, fee_amount, token_address);
+                assert(
+                    token.allowance(performer, get_contract_address()) >= fee_amount,
+                    errors::INSUFFICIENT_ALLOWANCE,
+                );
+                let success = token
+                    .transfer_from(
+                        performer,
+                        get_contract_address(),
+                        fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE),
+                    );
+                assert(success, errors::TRANSFER_FAILED);
+            }
+
+            let current_fees = self.collected_fees.read(token_address);
+            self.collected_fees.write(token_address, current_fees + fee_amount);
+
+            self
+                .registrations
+                .entry((audition_id, performer))
+                .write(Registration { performer, token_address, fee_amount, refunded: false });
+
+            let count = self.registration_counts.read(audition_id);
+            self.registered_performers.write((audition_id, count), performer);
+            self.registration_counts.write(audition_id, count + 1);
+
+            self.emit(PerformerRegistered { audition_id, performer, token_address, fee_amount });
         }
 
         /// @notice Deposits the prize for a specific audition.
@@ -392,10 +479,10 @@ pub mod SeasonAndAudition {
             amount: u256,
         ) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
+            assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
-            assert(amount > 0, 'Amount must be more than zero');
+            assert(amount > 0, errors::INVALID_AMOUNT);
             assert(!token_address.is_zero(), 'Token address cannot be zero');
             let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
             assert(
@@ -515,7 +602,7 @@ pub mod SeasonAndAudition {
             weight: felt252,
         ) {
             self.only_oracle();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
             // Check if vote already exists (duplicate vote prevention)
             let vote_key = (audition_id, performer, voter);
@@ -555,9 +642,9 @@ pub mod SeasonAndAudition {
 
         fn pause_audition(ref self: ContractState, audition_id: felt252) -> bool {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is already paused');
 
@@ -576,9 +663,9 @@ pub mod SeasonAndAudition {
 
         fn resume_audition(ref self: ContractState, audition_id: felt252) -> bool {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
             assert(self.is_audition_paused(audition_id), 'Audition is not paused');
 
@@ -597,9 +684,9 @@ pub mod SeasonAndAudition {
 
         fn end_audition(ref self: ContractState, audition_id: felt252) -> bool {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
 
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
             assert(!self.is_audition_ended(audition_id), 'Audition already ended');
 
             let mut audition = self.auditions.entry(audition_id).read();
@@ -642,6 +729,101 @@ pub mod SeasonAndAudition {
             let audition = self.auditions.entry(audition_id).read();
             audition.audition_id != 0
         }
+
+        fn read_registration(
+            self: @ContractState, audition_id: felt252, performer: ContractAddress,
+        ) -> Registration {
+            self.registrations.entry((audition_id, performer)).read()
+        }
+
+        fn refund_registration(
+            ref self: ContractState, audition_id: felt252, performer: ContractAddress,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
+            assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
+            assert(
+                self.is_audition_ended(audition_id) || self.is_audition_paused(audition_id),
+                errors::AUDITION_NOT_CANCELED_OR_ENDED,
+            );
+
+            let mut registration = self.registrations.entry((audition_id, performer)).read();
+            assert(registration.fee_amount > 0, errors::NO_FEE_TO_REFUND);
+            assert(!registration.refunded, errors::ALREADY_REFUNDED);
+
+            let token_address = registration.token_address;
+            let fee_amount = registration.fee_amount;
+            registration.refunded = true;
+            self.registrations.entry((audition_id, performer)).write(registration);
+
+            assert(!token_address.is_zero(), errors::INVALID_TOKEN_ADDRESS);
+            let token = IERC20Dispatcher { contract_address: token_address };
+            self._check_token_balance(get_contract_address(), fee_amount, token_address);
+            let success = token
+                .transfer(performer, fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE));
+            assert(success, errors::REFUND_TRANSFER_FAILED);
+
+            let current_fees = self.collected_fees.read(token_address);
+            self.collected_fees.write(token_address, current_fees - fee_amount);
+
+            self
+                .emit(
+                    Event::RegistrationRefunded(
+                        RegistrationRefunded { audition_id, performer, token_address, fee_amount },
+                    ),
+                );
+        }
+
+        fn refund_all_registrations(ref self: ContractState, audition_id: felt252) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
+            assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
+            assert(
+                self.is_audition_ended(audition_id) || self.is_audition_paused(audition_id),
+                errors::AUDITION_NOT_CANCELED_OR_ENDED,
+            );
+
+            let count = self.registration_counts.read(audition_id);
+            let mut i = 0;
+            while i < count {
+                let performer = self.registered_performers.read((audition_id, i));
+                let mut registration = self.registrations.entry((audition_id, performer)).read();
+                let fee_amount = registration.fee_amount;
+                let refunded = registration.refunded;
+                let token_address = registration.token_address;
+                if fee_amount > 0 && !refunded {
+                    registration.refunded = true;
+                    self.registrations.entry((audition_id, performer)).write(registration);
+                    // Do not use registration after this point
+
+                    assert(!token_address.is_zero(), errors::INVALID_TOKEN_ADDRESS);
+                    let token = IERC20Dispatcher { contract_address: token_address };
+                    self._check_token_balance(get_contract_address(), fee_amount, token_address);
+                    let success = token
+                        .transfer(
+                            performer, fee_amount.try_into().expect(errors::FEE_AMOUNT_TOO_LARGE),
+                        );
+                    assert(success, errors::REFUND_TRANSFER_FAILED);
+
+                    let current_fees = self.collected_fees.read(token_address);
+                    self.collected_fees.write(token_address, current_fees - fee_amount);
+
+                    self
+                        .emit(
+                            Event::RegistrationRefunded(
+                                RegistrationRefunded {
+                                    audition_id, performer, token_address, fee_amount,
+                                },
+                            ),
+                        );
+                }
+                i += 1;
+            }
+        }
+
+        fn get_registration_count(self: @ContractState, audition_id: felt252) -> u32 {
+            self.registration_counts.read(audition_id)
+        }
     }
 
     #[generate_trait]
@@ -657,7 +839,11 @@ pub mod SeasonAndAudition {
             let contract_address = get_contract_address();
             self._check_token_allowance(caller, amount, token_address);
             self._check_token_balance(caller, amount, token_address);
-            payment_token.transfer_from(caller, contract_address, amount);
+            let success = payment_token
+                .transfer_from(
+                    caller, contract_address, amount.try_into().expect(errors::AMOUNT_TOO_LARGE),
+                );
+            assert(success, errors::TRANSFER_FAILED);
         }
 
         /// @notice Checks if the caller has sufficient token allowance.
@@ -696,14 +882,16 @@ pub mod SeasonAndAudition {
 
         fn _send_tokens(
             ref self: ContractState,
-            recepient: ContractAddress,
+            recipient: ContractAddress,
             amount: u256,
             token_address: ContractAddress,
         ) {
             let token = IERC20Dispatcher { contract_address: token_address };
             let contract = get_contract_address();
             self._check_token_balance(contract, amount, token_address);
-            token.transfer(recepient, amount);
+            let success = token
+                .transfer(recipient, amount.try_into().expect(errors::AMOUNT_TOO_LARGE));
+            assert(success, errors::TRANSFER_FAILED);
         }
 
         /// @notice Asserts the validity of prize distribution for a given audition.
@@ -732,8 +920,8 @@ pub mod SeasonAndAudition {
             shares: [u256; 3],
         ) {
             self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.global_paused.read(), errors::CONTRACT_PAUSED);
+            assert(self.audition_exists(audition_id), errors::AUDITION_NOT_FOUND);
             assert(self.is_audition_ended(audition_id), 'Audition must end first');
             let (token_contract_address, _): (ContractAddress, u256) = self
                 .audition_prices
@@ -752,10 +940,10 @@ pub mod SeasonAndAudition {
             };
 
             for winners in winners_span {
-                assert(!winners.is_zero(), 'null contract address');
+                assert(!winners.is_zero(), errors::INVALID_WINNER_ADDRESS);
             };
 
-            assert(total == 100, 'total does not add up');
+            assert(total == 100, errors::INVALID_SHARES_TOTAL);
         }
     }
 }
