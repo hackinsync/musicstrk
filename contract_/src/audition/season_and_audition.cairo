@@ -429,7 +429,7 @@ pub mod SeasonAndAudition {
 
             let performer = get_caller_address();
             let registration = self.registrations.entry((audition_id, performer)).read();
-            assert(registration.fee_amount == 0, errors::ALREADY_REGISTERED);
+            assert(registration.performer.is_zero(), errors::ALREADY_REGISTERED);
 
             if fee_amount > 0 {
                 assert(!token_address.is_zero(), errors::INVALID_TOKEN_ADDRESS);
