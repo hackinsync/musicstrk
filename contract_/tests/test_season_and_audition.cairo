@@ -2679,7 +2679,7 @@ fn test_refund_registration_success() {
     // Pause the audition to allow refunds
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.pause_audition(audition_id);
-    
+
     // Refund the registration (as owner)
     contract.refund_registration(audition_id, USER());
     stop_cheat_caller_address(contract.contract_address);
@@ -2708,7 +2708,7 @@ fn test_refund_registration_success() {
                     ),
                 ),
             ],
-       );
+        );
 }
 
 #[test]
@@ -3027,7 +3027,7 @@ fn test_get_registration_count() {
             season_id,
             default_audition.genre,
             default_audition.name,
-        default_audition.start_timestamp,
+            default_audition.start_timestamp,
             default_audition.end_timestamp,
             default_audition.paused,
         );
