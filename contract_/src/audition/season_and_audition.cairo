@@ -381,7 +381,7 @@ pub mod SeasonAndAudition {
             self.assert_judge_not_added(audition_id, judge_address);
             assert(!judge_address.is_zero(), 'Cannot be zero');
 
-            self.audition_judge.entry(audition_id).append().write(judge_address);
+            self.audition_judge.entry(audition_id).push(judge_address);
 
             self.emit(Event::JudgeAdded(JudgeAdded { audition_id, judge_address }));
         }
