@@ -122,10 +122,32 @@ pub trait ISeasonAndAudition<TContractState> {
     fn is_audition_paused(self: @TContractState, audition_id: felt252) -> bool;
     fn is_audition_ended(self: @TContractState, audition_id: felt252) -> bool;
     fn audition_exists(self: @TContractState, audition_id: felt252) -> bool;
+
+
+    /// @notice adds a judge to an audition
+    /// @dev only the owner can add a judge to an audition
+    /// @param audition_id the id of the audition to add the judge to
+    /// @param judge_address the address of the judge to add
+    fn add_judge(ref self: TContractState, audition_id: felt252, judge_address: ContractAddress);
+
+    /// @notice removes a judge from an audition
+    /// @dev only the owner can remove a judge from an audition
+    /// @param audition_id the id of the audition to remove the judge from
+    /// @param judge_address the address of the judge to remove
+    fn remove_judge(ref self: TContractState, audition_id: felt252, judge_address: ContractAddress);
+
+    /// @notice gets all judges for an audition
+    /// @dev returns a vec of all judges for an audition
+    /// @param audition_id the id of the audition to get the judges for
+    fn get_judges(self: @TContractState, audition_id: felt252) -> Array<ContractAddress>;
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
+    use starknet::contract_address_const;
+    use starknet::storage::VecTrait;
+    use starknet::storage::MutableVecTrait;
+    use starknet::storage::Vec;
     use core::num::traits::Zero;
     use starknet::get_contract_address;
     use starknet::event::EventEmitter;
@@ -139,7 +161,7 @@ pub mod SeasonAndAudition {
         SeasonCreated, SeasonUpdated, SeasonDeleted, AuditionCreated, AuditionUpdated,
         AuditionDeleted, ResultsSubmitted, OracleAdded, OracleRemoved, AuditionPaused,
         AuditionResumed, AuditionEnded, VoteRecorded, PausedAll, ResumedAll, PriceDistributed,
-        PriceDeposited,
+        PriceDeposited, JudgeAdded, JudgeRemoved,
     };
     use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
     use starknet::storage::{
@@ -184,6 +206,9 @@ pub mod SeasonAndAudition {
         audition_winner_amounts: Map<felt252, (u256, u256, u256)>,
         /// price distributed status
         price_distributed: Map<felt252, bool>,
+        /// @notice maps each audition id to a list of judges
+        /// @dev a vec containing all judges contract addresses
+        audition_judge: Map<felt252, Vec<ContractAddress>>,
     }
 
     #[event]
@@ -208,6 +233,8 @@ pub mod SeasonAndAudition {
         OwnableEvent: OwnableComponent::Event,
         PriceDeposited: PriceDeposited,
         PriceDistributed: PriceDistributed,
+        JudgeAdded: JudgeAdded,
+        JudgeRemoved: JudgeRemoved,
     }
 
     #[constructor]
@@ -341,6 +368,72 @@ pub mod SeasonAndAudition {
                     ),
                 );
         }
+
+        /// @notice adds a judge to an audition
+        /// @dev only the owner can add a judge to an audition
+        /// @param audition_id the id of the audition to add the judge to
+        /// @param judge_address the address of the judge to add
+        fn add_judge(
+            ref self: ContractState, audition_id: felt252, judge_address: ContractAddress,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
+            assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+            self.assert_judge_not_added(audition_id, judge_address);
+            assert(!judge_address.is_zero(), 'Cannot be zero');
+
+            self.audition_judge.entry(audition_id).append().write(judge_address);
+
+            self.emit(Event::JudgeAdded(JudgeAdded { audition_id, judge_address }));
+        }
+
+        /// @notice removes a judge from an audition
+        /// @dev only the owner can remove a judge from an audition
+        /// @param audition_id the id of the audition to remove the judge from
+        /// @param judge_address the address of the judge to remove
+        fn remove_judge(
+            ref self: ContractState, audition_id: felt252, judge_address: ContractAddress,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has ended');
+            assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+
+            let judges = self.get_judges(audition_id);
+
+            let judge_vec = self.audition_judge.entry(audition_id);
+
+            for judge in judges.clone() {
+                assert(judge != judge_address, 'Judge not found');
+            };
+
+            let mut index = 0;
+
+            for judge in judges {
+                if judge == judge_address {
+                    judge_vec.at(index).write(contract_address_const::<0>());
+                };
+                index += 1;
+            };
+
+            self.emit(Event::JudgeRemoved(JudgeRemoved { audition_id, judge_address }));
+        }
+
+        /// @notice gets all judges for an audition
+        /// @dev returns a vec of all judges for an audition
+        /// @param audition_id the id of the audition to get the judges for
+        fn get_judges(self: @ContractState, audition_id: felt252) -> Array<ContractAddress> {
+            let mut judges = ArrayTrait::<ContractAddress>::new();
+            for i in 0..self.audition_judge.entry(audition_id).len() {
+                let judge: ContractAddress = self.audition_judge.entry(audition_id).at(i).read();
+                judges.append(judge);
+            };
+            judges
+        }
+
 
         fn submit_results(
             ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
@@ -756,6 +849,16 @@ pub mod SeasonAndAudition {
             };
 
             assert(total == 100, 'total does not add up');
+        }
+
+        // asserts that the judge has not been added to the audition already
+        fn assert_judge_not_added(
+            ref self: ContractState, audition_id: felt252, judge_address: ContractAddress,
+        ) {
+            let judges = self.get_judges(audition_id);
+            for judge in judges {
+                assert(judge != judge_address, 'Judge already added');
+            }
         }
     }
 }

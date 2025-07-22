@@ -305,3 +305,17 @@ pub struct TokenTransferDuringVoting {
     pub amount: u256,
     pub affected_weight: bool,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct JudgeAdded {
+    #[key]
+    pub audition_id: felt252,
+    pub judge_address: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct JudgeRemoved {
+    #[key]
+    pub audition_id: felt252,
+    pub judge_address: ContractAddress,
+}
