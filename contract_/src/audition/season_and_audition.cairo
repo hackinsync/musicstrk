@@ -380,7 +380,7 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
-            assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+
             self.assert_judge_not_added(audition_id, judge_address);
             assert(!judge_address.is_zero(), 'Cannot be zero');
 
