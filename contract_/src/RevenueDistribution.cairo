@@ -2,8 +2,8 @@
 pub mod RevenueDistribution {
     use alexandria_storage::{List, ListTrait};
     use contract_::IRevenueDistribution::{Category, IRevenueDistribution};
-    use contract_::events::{RevenueAddedEvent, RevenueDistributedEvent, TokenShareTransferred};
     use contract_::erc20::MusicStrk::TOTAL_SHARES;
+    use contract_::events::{RevenueAddedEvent, RevenueDistributedEvent, TokenShareTransferred};
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -118,7 +118,7 @@ pub mod RevenueDistribution {
                 self.distribution_history.write(history);
 
                 i += 1;
-            };
+            }
 
             self.total_revenue.write(0);
             self
@@ -162,7 +162,7 @@ pub mod RevenueDistribution {
                 artist_array.append(id);
 
                 i += 1;
-            };
+            }
 
             artist_array
         }
@@ -183,7 +183,7 @@ pub mod RevenueDistribution {
                 history_array.append(id);
 
                 i += 1;
-            };
+            }
 
             history_array
         }

@@ -2,7 +2,8 @@
 
 use core::array::{Array, ArrayTrait};
 use core::byte_array::ByteArray;
-use starknet::{ClassHash, ContractAddress, syscalls::deploy_syscall};
+use starknet::syscalls::deploy_syscall;
+use starknet::{ClassHash, ContractAddress};
 
 #[starknet::interface]
 pub trait IMusicShareTokenFactory<ContractState> {
@@ -45,17 +46,15 @@ pub mod MusicShareTokenFactory {
     use core::clone::Clone;
     use core::num::traits::Zero;
     use core::traits::Into;
-    use openzeppelin::access::ownable::{
-        interface::{IOwnableDispatcher, IOwnableDispatcherTrait}, OwnableComponent,
+    use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
+    use openzeppelin::upgrades::UpgradeableComponent;
+    use openzeppelin::upgrades::interface::IUpgradeable;
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
     };
-    use openzeppelin::upgrades::{interface::IUpgradeable, UpgradeableComponent};
-    use starknet::{
-        {get_caller_address, get_block_timestamp}, get_contract_address,
-        storage::{
-            Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
-            StoragePointerWriteAccess,
-        },
-    };
+    use starknet::{get_block_timestamp, get_caller_address, get_contract_address};
     use super::*;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -245,7 +244,7 @@ pub mod MusicShareTokenFactory {
             while i < count {
                 tokens_array.append(self.artist_tokens.read((artist, i)));
                 i += 1;
-            };
+            }
             tokens_array
         }
 
@@ -265,7 +264,7 @@ pub mod MusicShareTokenFactory {
             while i < token_count {
                 all_tokens.append(self.tokens.read(i));
                 i += 1;
-            };
+            }
 
             all_tokens
         }

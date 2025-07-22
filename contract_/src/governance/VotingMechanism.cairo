@@ -1,4 +1,4 @@
-use contract_::governance::types::{VoteType, Vote, VoteBreakdown, VoteTally};
+use contract_::governance::types::{Vote, VoteBreakdown, VoteTally, VoteType};
 use starknet::ContractAddress;
 
 #[starknet::interface]
@@ -46,22 +46,20 @@ pub trait IVotingMechanism<TContractState> {
 
 #[starknet::contract]
 pub mod VotingMechanism {
+    use contract_::events::{
+        ProposalFinalized, TokenTransferDuringVoting, VoteCast, VoteChanged, VoteDelegated,
+        VotingPeriodEnded, VotingPeriodStarted,
+    };
     use contract_::governance::ProposalSystem::{
         IProposalSystemDispatcher, IProposalSystemDispatcherTrait,
     };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use starknet::{
-        contract_address_const, get_caller_address, get_block_timestamp,
-        storage::{
-            Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
-            StoragePointerWriteAccess,
-        },
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
     };
+    use starknet::{contract_address_const, get_block_timestamp, get_caller_address};
     use super::*;
-    use contract_::events::{
-        VoteCast, VoteDelegated, VoteChanged, VotingPeriodEnded, VotingPeriodStarted,
-        ProposalFinalized, TokenTransferDuringVoting,
-    };
 
     #[storage]
     struct Storage {

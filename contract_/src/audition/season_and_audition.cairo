@@ -144,30 +144,27 @@ pub trait ISeasonAndAudition<TContractState> {
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
-    use starknet::contract_address_const;
-    use starknet::storage::VecTrait;
-    use starknet::storage::MutableVecTrait;
-    use starknet::storage::Vec;
-    use core::num::traits::Zero;
-    use starknet::get_contract_address;
-    use starknet::event::EventEmitter;
-    use OwnableComponent::HasComponent;
-    use OwnableComponent::InternalTrait;
+    use OwnableComponent::{HasComponent, InternalTrait};
     use contract_::errors::errors;
+    use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use super::{Audition, ISeasonAndAudition, Season, Vote};
-    use crate::events::{
-        SeasonCreated, SeasonUpdated, SeasonDeleted, AuditionCreated, AuditionUpdated,
-        AuditionDeleted, ResultsSubmitted, OracleAdded, OracleRemoved, AuditionPaused,
-        AuditionResumed, AuditionEnded, VoteRecorded, PausedAll, ResumedAll, PriceDistributed,
-        PriceDeposited, JudgeAdded, JudgeRemoved,
-    };
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
+    use starknet::event::EventEmitter;
     use starknet::storage::{
-        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
-        StoragePointerReadAccess, StoragePointerWriteAccess,
+        Map, MutableVecTrait, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
+        StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
     };
+    use starknet::{
+        ContractAddress, contract_address_const, get_block_timestamp, get_caller_address,
+        get_contract_address,
+    };
+    use crate::events::{
+        AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
+        AuditionUpdated, JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll,
+        PriceDeposited, PriceDistributed, ResultsSubmitted, ResumedAll, SeasonCreated,
+        SeasonDeleted, SeasonUpdated, VoteRecorded,
+    };
+    use super::{Audition, ISeasonAndAudition, Season, Vote};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -401,23 +398,20 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+            self.assert_judge_found(audition_id, judge_address);
 
-            let judges = self.get_judges(audition_id);
+            let judges: Array<ContractAddress> = self.get_judges(audition_id);
 
-            let judge_vec = self.audition_judge.entry(audition_id);
-
-            for judge in judges.clone() {
-                assert(judge != judge_address, 'Judge not found');
-            };
-
-            let mut index = 0;
+            let mut judge_vec = self.audition_judge.entry(audition_id);
+            for _ in 0..judge_vec.len() {
+                let _ = judge_vec.pop();
+            }
 
             for judge in judges {
-                if judge == judge_address {
-                    judge_vec.at(index).write(contract_address_const::<0>());
+                if judge != judge_address {
+                    judge_vec.push(judge);
                 };
-                index += 1;
-            };
+            }
 
             self.emit(Event::JudgeRemoved(JudgeRemoved { audition_id, judge_address }));
         }
@@ -430,7 +424,7 @@ pub mod SeasonAndAudition {
             for i in 0..self.audition_judge.entry(audition_id).len() {
                 let judge: ContractAddress = self.audition_judge.entry(audition_id).at(i).read();
                 judges.append(judge);
-            };
+            }
             judges
         }
 
@@ -545,14 +539,14 @@ pub mod SeasonAndAudition {
                 let amount = price_pool * *share / 100;
                 distributed_amounts.append(amount);
                 i += 1;
-            };
+            }
             let mut count = 0;
             for elements in winners_span {
                 let winner_contract_address = *elements;
                 let amount = *distributed_amounts.at(count);
                 self._send_tokens(winner_contract_address, amount, token_contract_address);
                 count += 1;
-            };
+            }
             self
                 .audition_winner_addresses
                 .write(
@@ -842,23 +836,39 @@ pub mod SeasonAndAudition {
 
             for shares in shares_span {
                 total = total + *shares;
-            };
+            }
 
             for winners in winners_span {
                 assert(!winners.is_zero(), 'null contract address');
-            };
+            }
 
             assert(total == 100, 'total does not add up');
         }
 
         // asserts that the judge has not been added to the audition already
         fn assert_judge_not_added(
-            ref self: ContractState, audition_id: felt252, judge_address: ContractAddress,
+            self: @ContractState, audition_id: felt252, judge_address: ContractAddress,
         ) {
             let judges = self.get_judges(audition_id);
             for judge in judges {
                 assert(judge != judge_address, 'Judge already added');
             }
+        }
+
+        fn assert_judge_found(
+            self: @ContractState, audition_id: felt252, judge_address: ContractAddress,
+        ) {
+            let judges: Array<ContractAddress> = self.get_judges(audition_id);
+
+            let mut found = false;
+
+            for judge in judges.clone() {
+                if judge == judge_address {
+                    found = true;
+                    break;
+                };
+            }
+            assert(found, 'Judge not found');
         }
     }
 }

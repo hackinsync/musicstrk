@@ -1,5 +1,5 @@
+use contract_::governance::types::VoteType;
 use starknet::ContractAddress;
-use contract_::governance::types::{VoteType};
 use crate::IRevenueDistribution::Category;
 
 #[derive(Drop, starknet::Event)]

@@ -4,15 +4,15 @@ use contract_::audition::season_and_audition::{
     SeasonAndAudition,
 };
 use contract_::events::{
-    SeasonCreated, AuditionCreated, AuditionPaused, AuditionResumed, AuditionEnded, SeasonUpdated,
-    SeasonDeleted, AuditionUpdated, AuditionDeleted, PriceDeposited, PriceDistributed,
+    AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
+    AuditionUpdated, PriceDeposited, PriceDistributed, SeasonCreated, SeasonDeleted, SeasonUpdated,
 };
-use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
+use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare,
-    start_cheat_caller_address, stop_cheat_caller_address, spy_events, start_cheat_block_timestamp,
-    stop_cheat_block_timestamp,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
+    start_cheat_block_timestamp, start_cheat_caller_address, stop_cheat_block_timestamp,
+    stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 
@@ -2544,8 +2544,7 @@ fn test_add_judges_should_panic_if_audition_has_ended() {
         contract.contract_address,
         initial_timestamp + default_audition.end_timestamp.try_into().unwrap() + 10,
     );
-    // contract.end_audition(audition_id);
-    // stop_cheat_block_timestamp(contract.contract_address);
+
     let judge_address = contract_address_const::<0x123>();
     contract.add_judge(audition_id, judge_address);
     stop_cheat_caller_address(contract.contract_address);
@@ -2591,6 +2590,49 @@ fn test_add_judges_should_panic_if_judge_already_added() {
     assert(*judges.at(0) == judge_address, 'Judge should be added');
 
     contract.add_judge(audition_id, judge_address);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_remove_judge() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_audition = create_default_audition(audition_id, season_id);
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+    let judge_address = contract_address_const::<0x1777723>();
+    contract.add_judge(audition_id, judge_address);
+    let judges = contract.get_judges(audition_id);
+    assert(judges.len() == 1, 'Judge should be added');
+    assert(*judges.at(0) == judge_address, 'Judge should be added');
+
+    let judge_address2 = contract_address_const::<0x1777724>();
+    contract.add_judge(audition_id, judge_address2);
+    let judges = contract.get_judges(audition_id);
+    assert(judges.len() == 2, 'Second judge should be added');
+    assert(*judges.at(1) == judge_address2, 'judge address dont match');
+
+    // print the judges
+    println!("judges: {:?}", judges);
+
+    contract.remove_judge(audition_id, judge_address);
+    let judges = contract.get_judges(audition_id);
+    assert(judges.len() == 1, 'Judge should be removed');
+    println!("judges: {:?}", judges);
 
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);

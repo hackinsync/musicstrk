@@ -32,11 +32,10 @@ pub mod GovernanceToken {
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::ERC20Component;
-    use openzeppelin::upgrades::{interface::IUpgradeable, UpgradeableComponent};
-    use starknet::{
-        ClassHash, ContractAddress, get_caller_address, get_contract_address,
-        storage::{StoragePointerReadAccess, StoragePointerWriteAccess},
-    };
+    use openzeppelin::upgrades::UpgradeableComponent;
+    use openzeppelin::upgrades::interface::IUpgradeable;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress, get_caller_address, get_contract_address};
     use super::*;
 
     // OpenZeppelin Components
@@ -229,7 +228,7 @@ pub mod GovernanceToken {
                     .handle_token_transfer_during_voting(proposal_id, from, recipient, amount);
 
                 i += 1;
-            };
+            }
 
             // Emit GovernanceTokenTransfer event
             contract_state
