@@ -33,14 +33,12 @@ pub struct Vote {
 /// @param audition_id The ID of the audition being evaluated
 /// @param performer The ID of the performer being evaluated
 /// @param voter The ID of the voter submitting the evaluation
-/// @param weight The weight of the evaluation (e.g., 1 for first place, 2 for second, etc.)
+/// @param weight The weight of each evaluation (e.g. (40%, 30%, 30%))
 /// @param criteria A tuple containing technical skills, creativity, and presentation scores
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Evaluation {
     pub audition_id: felt252,
     pub performer: felt252,
-    pub voter: felt252,
-    pub weight: felt252,
     pub criteria: (u8, u8, u8),
 }
 
@@ -162,45 +160,42 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @dev Only authorized judges can submit evaluations.
     /// @param audition_id The ID of the audition being evaluated.
     /// @param performer The ID of the performer being evaluated.
-    /// @param voter The ID of the voter submitting the evaluation.
     /// @param weight The weight of the evaluation (e.g., 1 for first place, 2 for second, etc.)
     /// @param criteria A tuple containing technical skills, creativity, and presentation scores.
     fn submit_evaluation(
-        ref self: TContractState,
-        audition_id: felt252,
-        performer: felt252,
-        voter: felt252,
-        weight: felt252,
-        criteria: (u8, u8, u8),
+        ref self: TContractState, audition_id: felt252, performer: felt252, criteria: (u8, u8, u8),
     );
 
     /// @notice Retrieves an evaluation for a specific performer in an audition.
     /// @param audition_id The ID of the audition being evaluated.
     /// @param performer The ID of the performer being evaluated.
-    /// @param voter The ID of the voter submitting the evaluation.
     /// @return Evaluation The evaluation for the performer.
     fn get_evaluation(
-        self: @TContractState, audition_id: felt252, performer: felt252, voter: felt252,
-    ) -> Evaluation;
+        self: @TContractState, audition_id: felt252, performer: felt252,
+    ) -> Array<Evaluation>;
 
     /// @notice Retrieves all evaluations for a specific audition.
     /// @param audition_id The ID of the audition being evaluated.
     /// @return [Evaluation; 3] An array of evaluations for the audition.
     fn get_evaluations(self: @TContractState, audition_id: felt252) -> Array<Evaluation>;
 
-    /// @notice Retrieves all evaluations for a specific performer in an audition.
-    /// @param audition_id The ID of the audition being evaluated.
-    /// @param performer The ID of the performer being evaluated.
-    /// @return [Evaluation; 3] An array of evaluations for the performer.
-    fn get_evaluations_for_performer(
-        self: @TContractState, audition_id: felt252, performer: felt252,
-    ) -> Array<Evaluation>;
+    // Judging pause functionality
+    /// @notice Pauses judging for all auditions
+    /// @dev Only the owner can pause judging
+    fn pause_judging(ref self: TContractState);
+
+    /// @notice Resumes judging for all auditions
+    /// @dev Only the owner can resume judging
+    fn resume_judging(ref self: TContractState);
+
+    /// @notice Returns whether judging is currently paused
+    /// @return bool True if judging is paused, false otherwise
+    fn is_judging_paused(self: @TContractState) -> bool;
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
-    use super::Evaluation;
-use OwnableComponent::{HasComponent, InternalTrait};
+    use OwnableComponent::{HasComponent, InternalTrait};
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -216,11 +211,11 @@ use OwnableComponent::{HasComponent, InternalTrait};
     };
     use crate::events::{
         AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-        AuditionUpdated, JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll,
-        PriceDeposited, PriceDistributed, ResultsSubmitted, ResumedAll, SeasonCreated,
+        AuditionUpdated, EvaluationSubmitted, JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved,
+        PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted, ResumedAll, SeasonCreated,
         SeasonDeleted, SeasonUpdated, VoteRecorded,
     };
-    use super::{Audition, ISeasonAndAudition, Season, Vote};
+    use super::{Audition, Evaluation, ISeasonAndAudition, Season, Vote};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -265,12 +260,22 @@ use OwnableComponent::{HasComponent, InternalTrait};
         /// @notice maps each audition id to a list of evaluation id
         /// @dev a vec containing all evaluation ids
         audition_evaluations: Map<felt252, Vec<u256>>,
-        /// @notice maps each audition id to a list of evaluation id for a specific performer
-        /// @dev a vec containing all evaluation ids for a specific performer
-        audition_evaluations_for_performer: Map<felt252, Vec<u256>>,
+        /// @notice maps each audition id and performer id to a list of evaluation id for a specific
+        /// performer @dev a vec containing all evaluation ids for a specific performer
+        audition_evaluations_for_performer: Map<(felt252, felt252), Vec<u256>>,
         /// @notice maps an evaluation id to an evaluation
         /// @dev a map containing an evaluation
-        evaluation: Map<u256, Evaluation>,
+        evaluations: Map<u256, Evaluation>,
+        /// @notice stores the number of evaluations
+        /// @dev a u256 containing the number of evaluations
+        evaluation_count: u256,
+        /// @notice global pause state for judging functionality
+        /// @dev when true, all judging operations are paused
+        judging_paused: bool,
+        /// @notice maps the submission status of an evaluation for a given audition, performer, and
+        /// judge @dev Map from (audition_id, performer_id, judge_address) to bool indicating if
+        /// evaluation was submitted
+        evaluation_submission_status: Map<(felt252, felt252, ContractAddress), bool>,
     }
 
     #[event]
@@ -297,12 +302,14 @@ use OwnableComponent::{HasComponent, InternalTrait};
         PriceDistributed: PriceDistributed,
         JudgeAdded: JudgeAdded,
         JudgeRemoved: JudgeRemoved,
+        EvaluationSubmitted: EvaluationSubmitted,
     }
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
         self.ownable.initializer(owner);
         self.global_paused.write(false);
+        self.judging_paused.write(false);
     }
 
     #[abi(embed_v0)]
@@ -493,15 +500,95 @@ use OwnableComponent::{HasComponent, InternalTrait};
             judges
         }
 
+        /// @notice submits an evaluation for a performer in an audition
+        /// @dev only judges can submit evaluations
+        /// @param audition_id the id of the audition to submit the evaluation for
+        /// @param performer the id of the performer to submit the evaluation for
+        /// @param weight the weight of the evaluation
+        /// @param criteria the criteria of the evaluation
         fn submit_evaluation(
             ref self: ContractState,
             audition_id: felt252,
             performer: felt252,
-            voter: felt252,
-            weight: felt252,
             criteria: (u8, u8, u8),
         ) {
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(!self.judging_paused.read(), 'Judging is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has ended');
+            assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+            let judge = get_caller_address();
+            self.assert_judge_found(audition_id, judge);
+            self.assert_evaluation_not_submitted(audition_id, performer, judge);
+            self.evaluation_submission_status.write((audition_id, performer, judge), true);
 
+            let mut new_evaluation_id = self.evaluation_count.read() + 1;
+            self.evaluation_count.write(new_evaluation_id);
+
+            self
+                .evaluations
+                .entry(new_evaluation_id)
+                .write(Evaluation { audition_id, performer, criteria });
+
+            self.audition_evaluations.entry(audition_id).push(new_evaluation_id);
+            self
+                .audition_evaluations_for_performer
+                .entry((audition_id, performer))
+                .push(new_evaluation_id);
+            self
+                .emit(
+                    Event::EvaluationSubmitted(
+                        EvaluationSubmitted { audition_id, performer, criteria },
+                    ),
+                );
+        }
+
+        /// @notice gets an evaluation for a specific performer in an audition
+        /// @param audition_id the id of the audition to get the evaluation for
+        /// @param performer the id of the performer to get the evaluation for
+        /// @return the evaluation for the performer
+        fn get_evaluation(
+            self: @ContractState, audition_id: felt252, performer: felt252,
+        ) -> Array<Evaluation> {
+            let evaluation_ids = self
+                .audition_evaluations_for_performer
+                .entry((audition_id, performer));
+            let mut evaluations = ArrayTrait::new();
+            for i in 0..evaluation_ids.len() {
+                let evaluation_id = evaluation_ids.at(i).read();
+                let evaluation = self.evaluations.entry(evaluation_id).read();
+                evaluations.append(evaluation);
+            }
+            evaluations
+        }
+
+        /// @notice gets all evaluations for an audition
+        /// @param audition_id the id of the audition to get the evaluations for
+        /// @return the evaluations for the audition
+        fn get_evaluations(self: @ContractState, audition_id: felt252) -> Array<Evaluation> {
+            let evaluation_ids = self.audition_evaluations.entry(audition_id);
+            let mut evaluations = ArrayTrait::new();
+            for i in 0..evaluation_ids.len() {
+                let evaluation_id = evaluation_ids.at(i).read();
+                let evaluation = self.evaluations.entry(evaluation_id).read();
+                evaluations.append(evaluation);
+            }
+            evaluations
+        }
+
+
+        fn pause_judging(ref self: ContractState) {
+            self.ownable.assert_only_owner();
+            self.judging_paused.write(true);
+        }
+
+        fn resume_judging(ref self: ContractState) {
+            self.ownable.assert_only_owner();
+            self.judging_paused.write(false);
+        }
+
+        fn is_judging_paused(self: @ContractState) -> bool {
+            self.judging_paused.read()
         }
 
 
@@ -947,15 +1034,25 @@ use OwnableComponent::{HasComponent, InternalTrait};
             assert(found, 'Judge not found');
         }
 
-        fn assert_only_judge(self: @ContractState, audition_id: felt252, judge_address: ContractAddress) {
+        fn assert_only_judge(
+            self: @ContractState, audition_id: felt252, judge_address: ContractAddress,
+        ) {
             let judges = self.get_judges(audition_id);
             for judge in judges {
                 assert(judge == judge_address, 'Judge not found');
             }
         }
 
-        fn assert_judge_not_evaluated() {
-
+        fn assert_evaluation_not_submitted(
+            self: @ContractState, audition_id: felt252, performer: felt252, judge: ContractAddress,
+        ) {
+            let evaluation_submission_status = self
+                .evaluation_submission_status
+                .entry((audition_id, performer, judge))
+                .read();
+            assert(!evaluation_submission_status, 'Evaluation already submitted');
         }
+
+        fn assert_performer_not_evaluated_by_judge_already() {}
     }
 }

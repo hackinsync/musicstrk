@@ -319,3 +319,12 @@ pub struct JudgeRemoved {
     pub audition_id: felt252,
     pub judge_address: ContractAddress,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct EvaluationSubmitted {
+    #[key]
+    pub audition_id: felt252,
+    pub performer: felt252,
+    pub criteria: (u8, u8, u8),
+}
+
