@@ -263,13 +263,13 @@ pub mod SeasonAndAudition {
         get_contract_address,
     };
     use crate::events::{
-        AggregateScoreCalculated, AuditionCalculationCompleted, AuditionCreated, AuditionDeleted,
-        AuditionEnded, AuditionPaused, AuditionResumed, AuditionUpdated, EvaluationSubmitted,
-        EvaluationWeightSet, JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll,
-        PriceDeposited, PriceDistributed, ResultsSubmitted, ResumedAll, SeasonCreated,
-        SeasonDeleted, SeasonUpdated, VoteRecorded, AppealSubmitted, AppealResolved,
+        AggregateScoreCalculated, AppealResolved, AppealSubmitted, AuditionCalculationCompleted,
+        AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
+        AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
+        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted,
+        ResumedAll, SeasonCreated, SeasonDeleted, SeasonUpdated, VoteRecorded,
     };
-    use super::{Audition, Evaluation, ISeasonAndAudition, Season, Vote, Appeal};
+    use super::{Appeal, Audition, Evaluation, ISeasonAndAudition, Season, Vote};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -1091,20 +1091,14 @@ pub mod SeasonAndAudition {
             let existing_appeal = self.appeals.entry(evaluation_id).read();
             assert(existing_appeal.evaluation_id == 0, 'Appeal already exists');
             let appeal = Appeal {
-                evaluation_id,
-                appellant,
-                reason,
-                resolved: false,
-                resolution_comment: 0,
+                evaluation_id, appellant, reason, resolved: false, resolution_comment: 0,
             };
             self.appeals.write(evaluation_id, appeal);
-            self.emit(Event::AppealSubmitted(AppealSubmitted {
-                evaluation_id,
-                appellant,
-                reason,
-            }));
+            self.emit(Event::AppealSubmitted(AppealSubmitted { evaluation_id, appellant, reason }));
         }
-        fn resolve_appeal(ref self: ContractState, evaluation_id: u256, resolution_comment: felt252) {
+        fn resolve_appeal(
+            ref self: ContractState, evaluation_id: u256, resolution_comment: felt252,
+        ) {
             let resolver = starknet::get_caller_address();
             // Only owner or judge can resolve
             let evaluation = self.evaluations.entry(evaluation_id).read();
@@ -1124,11 +1118,12 @@ pub mod SeasonAndAudition {
             appeal.resolved = true;
             appeal.resolution_comment = resolution_comment;
             self.appeals.write(evaluation_id, appeal);
-            self.emit(Event::AppealResolved(AppealResolved {
-                evaluation_id,
-                resolver,
-                resolution_comment,
-            }));
+            self
+                .emit(
+                    Event::AppealResolved(
+                        AppealResolved { evaluation_id, resolver, resolution_comment },
+                    ),
+                );
         }
         fn get_appeal(self: @ContractState, evaluation_id: u256) -> Appeal {
             self.appeals.entry(evaluation_id).read()
