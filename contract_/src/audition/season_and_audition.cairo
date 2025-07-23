@@ -191,6 +191,17 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @notice Returns whether judging is currently paused
     /// @return bool True if judging is paused, false otherwise
     fn is_judging_paused(self: @TContractState) -> bool;
+
+    /// @notice sets the weight of each evaluation for an audition
+    /// @dev only the owner can set the weight of each evaluation
+    /// @param audition_id the id of the audition to set the weight for
+    /// @param weight the weight of each evaluation
+    fn set_evaluation_weight(ref self: TContractState, audition_id: felt252, weight: (u8, u8, u8));
+
+    /// @notice gets the weight of each evaluation for an audition
+    /// @param audition_id the id of the audition to get the weight for
+    /// @return the weight of each evaluation
+    fn get_evaluation_weight(self: @TContractState, audition_id: felt252) -> (u8, u8, u8);
 }
 
 #[starknet::contract]
@@ -211,9 +222,9 @@ pub mod SeasonAndAudition {
     };
     use crate::events::{
         AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-        AuditionUpdated, EvaluationSubmitted, JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved,
-        PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted, ResumedAll, SeasonCreated,
-        SeasonDeleted, SeasonUpdated, VoteRecorded,
+        AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
+        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted,
+        ResumedAll, SeasonCreated, SeasonDeleted, SeasonUpdated, VoteRecorded,
     };
     use super::{Audition, Evaluation, ISeasonAndAudition, Season, Vote};
 
@@ -276,6 +287,12 @@ pub mod SeasonAndAudition {
         /// judge @dev Map from (audition_id, performer_id, judge_address) to bool indicating if
         /// evaluation was submitted
         evaluation_submission_status: Map<(felt252, felt252, ContractAddress), bool>,
+        /// @notice maps each audition to the weight of each evaluation
+        /// @dev Map from audition_id to (u8, u8, u8) indicating the weight of each evaluation
+        /// @dev NOTE: THE CRITERIA IS A TUPLE OF THE SCORE OF EACH EVALUATION: TECHNICAL SKILLS,
+        /// CREATIVITY, AND PRESENTATION This is how it will be passed whenever it is being used in
+        /// a tuple
+        audition_evaluation_weight: Map<felt252, (u8, u8, u8)>,
     }
 
     #[event]
@@ -303,6 +320,7 @@ pub mod SeasonAndAudition {
         JudgeAdded: JudgeAdded,
         JudgeRemoved: JudgeRemoved,
         EvaluationSubmitted: EvaluationSubmitted,
+        EvaluationWeightSet: EvaluationWeightSet,
     }
 
     #[constructor]
@@ -436,6 +454,31 @@ pub mod SeasonAndAudition {
                         AuditionDeleted { audition_id, timestamp: get_block_timestamp() },
                     ),
                 );
+        }
+
+        /// @notice sets the weight of each evaluation for an audition
+        /// @dev only the owner can set the weight of each evaluation
+        /// @param audition_id the id of the audition to set the weight for
+        /// @param weight the weight of each evaluation
+        fn set_evaluation_weight(
+            ref self: ContractState, audition_id: felt252, weight: (u8, u8, u8),
+        ) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition has ended');
+            assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+            self.assert_evaluation_weight_should_be_100(weight);
+            self.audition_evaluation_weight.write(audition_id, weight);
+            self.emit(Event::EvaluationWeightSet(EvaluationWeightSet { audition_id, weight }));
+        }
+
+        /// @notice gets the weight of each evaluation for an audition
+        /// @dev returns the weight of each evaluation for an audition
+        /// @param audition_id the id of the audition to get the weight for
+        /// @return a tupule of the weight of each evaluation
+        fn get_evaluation_weight(self: @ContractState, audition_id: felt252) -> (u8, u8, u8) {
+            self.audition_evaluation_weight.read(audition_id)
         }
 
         /// @notice adds a judge to an audition
@@ -1053,6 +1096,10 @@ pub mod SeasonAndAudition {
             assert(!evaluation_submission_status, 'Evaluation already submitted');
         }
 
-        fn assert_performer_not_evaluated_by_judge_already() {}
+        fn assert_evaluation_weight_should_be_100(self: @ContractState, weight: (u8, u8, u8)) {
+            let (first_weight, second_weight, third_weight) = weight;
+            let total = first_weight + second_weight + third_weight;
+            assert(total == 100, 'Total weight should be 100');
+        }
     }
 }
