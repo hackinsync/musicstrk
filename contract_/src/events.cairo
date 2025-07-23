@@ -348,3 +348,17 @@ pub struct AggregateScoreCalculated {
     pub aggregate_scores: Array<(felt252, u256)>,
     pub timestamp: u64,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct AppealSubmitted {
+    pub evaluation_id: u256,
+    pub appellant: ContractAddress,
+    pub reason: felt252,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AppealResolved {
+    pub evaluation_id: u256,
+    pub resolver: ContractAddress,
+    pub resolution_comment: felt252,
+}

@@ -42,6 +42,15 @@ pub struct Evaluation {
     pub criteria: (u8, u8, u8),
 }
 
+#[derive(Drop, Serde, starknet::Store)]
+pub struct Appeal {
+    pub evaluation_id: u256,
+    pub appellant: ContractAddress,
+    pub reason: felt252,
+    pub resolved: bool,
+    pub resolution_comment: felt252,
+}
+
 
 // Define the contract interface
 #[starknet::interface]
@@ -224,6 +233,17 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @notice dummy function to register a performer to an audition
     fn register_performer(ref self: TContractState, audition_id: felt252, performer_id: felt252);
     fn get_enrolled_performers(self: @TContractState, audition_id: felt252) -> Array<felt252>;
+
+    /// @notice Submits an appeal for a specific evaluation.
+    /// @param evaluation_id The ID of the evaluation being appealed.
+    /// @param reason The reason/comment for the appeal.
+    fn submit_appeal(ref self: TContractState, evaluation_id: u256, reason: felt252);
+    /// @notice Resolves an appeal for a specific evaluation.
+    /// @param evaluation_id The ID of the evaluation being appealed.
+    /// @param resolution_comment The comment/reason for resolution.
+    fn resolve_appeal(ref self: TContractState, evaluation_id: u256, resolution_comment: felt252);
+    /// @notice Gets the appeal for a specific evaluation.
+    fn get_appeal(self: @TContractState, evaluation_id: u256) -> Appeal;
 }
 
 #[starknet::contract]
@@ -247,9 +267,9 @@ pub mod SeasonAndAudition {
         AuditionEnded, AuditionPaused, AuditionResumed, AuditionUpdated, EvaluationSubmitted,
         EvaluationWeightSet, JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll,
         PriceDeposited, PriceDistributed, ResultsSubmitted, ResumedAll, SeasonCreated,
-        SeasonDeleted, SeasonUpdated, VoteRecorded,
+        SeasonDeleted, SeasonUpdated, VoteRecorded, AppealSubmitted, AppealResolved,
     };
-    use super::{Audition, Evaluation, ISeasonAndAudition, Season, Vote};
+    use super::{Audition, Evaluation, ISeasonAndAudition, Season, Vote, Appeal};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -333,6 +353,7 @@ pub mod SeasonAndAudition {
         /// so that the aggregate score calculation can be tested
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
+        appeals: Map<u256, Appeal>,
     }
 
     #[event]
@@ -363,6 +384,8 @@ pub mod SeasonAndAudition {
         EvaluationWeightSet: EvaluationWeightSet,
         AuditionCalculationCompleted: AuditionCalculationCompleted,
         AggregateScoreCalculated: AggregateScoreCalculated,
+        AppealSubmitted: AppealSubmitted,
+        AppealResolved: AppealResolved,
     }
 
     #[constructor]
@@ -1060,6 +1083,55 @@ pub mod SeasonAndAudition {
                 performers_array.append(performer);
             }
             performers_array
+        }
+
+        fn submit_appeal(ref self: ContractState, evaluation_id: u256, reason: felt252) {
+            let appellant = get_caller_address();
+            let _ = self.evaluations.entry(evaluation_id).read();
+            let existing_appeal = self.appeals.entry(evaluation_id).read();
+            assert(existing_appeal.evaluation_id == 0, 'Appeal already exists');
+            let appeal = Appeal {
+                evaluation_id,
+                appellant,
+                reason,
+                resolved: false,
+                resolution_comment: 0,
+            };
+            self.appeals.write(evaluation_id, appeal);
+            self.emit(Event::AppealSubmitted(AppealSubmitted {
+                evaluation_id,
+                appellant,
+                reason,
+            }));
+        }
+        fn resolve_appeal(ref self: ContractState, evaluation_id: u256, resolution_comment: felt252) {
+            let resolver = starknet::get_caller_address();
+            // Only owner or judge can resolve
+            let evaluation = self.evaluations.entry(evaluation_id).read();
+            let audition_id = evaluation.audition_id;
+            self.ownable.assert_only_owner();
+            let mut is_judge = false;
+            let judges = self.get_judges(audition_id);
+            for judge in judges {
+                if judge == resolver {
+                    is_judge = true;
+                    break;
+                }
+            }
+            let mut appeal = self.appeals.entry(evaluation_id).read();
+            assert(appeal.evaluation_id != 0, 'Appeal does not exist');
+            assert(!appeal.resolved, 'Appeal already resolved');
+            appeal.resolved = true;
+            appeal.resolution_comment = resolution_comment;
+            self.appeals.write(evaluation_id, appeal);
+            self.emit(Event::AppealResolved(AppealResolved {
+                evaluation_id,
+                resolver,
+                resolution_comment,
+            }));
+        }
+        fn get_appeal(self: @ContractState, evaluation_id: u256) -> Appeal {
+            self.appeals.entry(evaluation_id).read()
         }
     }
 
