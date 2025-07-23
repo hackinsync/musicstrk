@@ -29,6 +29,22 @@ pub struct Vote {
     pub weight: felt252,
 }
 
+/// @notice Evaluation struct for storing performer evaluations
+/// @param audition_id The ID of the audition being evaluated
+/// @param performer The ID of the performer being evaluated
+/// @param voter The ID of the voter submitting the evaluation
+/// @param weight The weight of the evaluation (e.g., 1 for first place, 2 for second, etc.)
+/// @param criteria A tuple containing technical skills, creativity, and presentation scores
+#[derive(Drop, Serde, Default, starknet::Store)]
+pub struct Evaluation {
+    pub audition_id: felt252,
+    pub performer: felt252,
+    pub voter: felt252,
+    pub weight: felt252,
+    pub criteria: (u8, u8, u8),
+}
+
+
 // Define the contract interface
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
@@ -140,11 +156,51 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @dev returns a vec of all judges for an audition
     /// @param audition_id the id of the audition to get the judges for
     fn get_judges(self: @TContractState, audition_id: felt252) -> Array<ContractAddress>;
+
+
+    /// @notice Submits an evaluation for a performer in an audition.
+    /// @dev Only authorized judges can submit evaluations.
+    /// @param audition_id The ID of the audition being evaluated.
+    /// @param performer The ID of the performer being evaluated.
+    /// @param voter The ID of the voter submitting the evaluation.
+    /// @param weight The weight of the evaluation (e.g., 1 for first place, 2 for second, etc.)
+    /// @param criteria A tuple containing technical skills, creativity, and presentation scores.
+    fn submit_evaluation(
+        ref self: TContractState,
+        audition_id: felt252,
+        performer: felt252,
+        voter: felt252,
+        weight: felt252,
+        criteria: (u8, u8, u8),
+    );
+
+    /// @notice Retrieves an evaluation for a specific performer in an audition.
+    /// @param audition_id The ID of the audition being evaluated.
+    /// @param performer The ID of the performer being evaluated.
+    /// @param voter The ID of the voter submitting the evaluation.
+    /// @return Evaluation The evaluation for the performer.
+    fn get_evaluation(
+        self: @TContractState, audition_id: felt252, performer: felt252, voter: felt252,
+    ) -> Evaluation;
+
+    /// @notice Retrieves all evaluations for a specific audition.
+    /// @param audition_id The ID of the audition being evaluated.
+    /// @return [Evaluation; 3] An array of evaluations for the audition.
+    fn get_evaluations(self: @TContractState, audition_id: felt252) -> Array<Evaluation>;
+
+    /// @notice Retrieves all evaluations for a specific performer in an audition.
+    /// @param audition_id The ID of the audition being evaluated.
+    /// @param performer The ID of the performer being evaluated.
+    /// @return [Evaluation; 3] An array of evaluations for the performer.
+    fn get_evaluations_for_performer(
+        self: @TContractState, audition_id: felt252, performer: felt252,
+    ) -> Array<Evaluation>;
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
-    use OwnableComponent::{HasComponent, InternalTrait};
+    use super::Evaluation;
+use OwnableComponent::{HasComponent, InternalTrait};
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -206,6 +262,15 @@ pub mod SeasonAndAudition {
         /// @notice maps each audition id to a list of judges
         /// @dev a vec containing all judges contract addresses
         audition_judge: Map<felt252, Vec<ContractAddress>>,
+        /// @notice maps each audition id to a list of evaluation id
+        /// @dev a vec containing all evaluation ids
+        audition_evaluations: Map<felt252, Vec<u256>>,
+        /// @notice maps each audition id to a list of evaluation id for a specific performer
+        /// @dev a vec containing all evaluation ids for a specific performer
+        audition_evaluations_for_performer: Map<felt252, Vec<u256>>,
+        /// @notice maps an evaluation id to an evaluation
+        /// @dev a map containing an evaluation
+        evaluation: Map<u256, Evaluation>,
     }
 
     #[event]
@@ -426,6 +491,17 @@ pub mod SeasonAndAudition {
                 judges.append(judge);
             }
             judges
+        }
+
+        fn submit_evaluation(
+            ref self: ContractState,
+            audition_id: felt252,
+            performer: felt252,
+            voter: felt252,
+            weight: felt252,
+            criteria: (u8, u8, u8),
+        ) {
+
         }
 
 
@@ -869,6 +945,17 @@ pub mod SeasonAndAudition {
                 };
             }
             assert(found, 'Judge not found');
+        }
+
+        fn assert_only_judge(self: @ContractState, audition_id: felt252, judge_address: ContractAddress) {
+            let judges = self.get_judges(audition_id);
+            for judge in judges {
+                assert(judge == judge_address, 'Judge not found');
+            }
+        }
+
+        fn assert_judge_not_evaluated() {
+
         }
     }
 }
