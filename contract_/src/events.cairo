@@ -334,3 +334,17 @@ pub struct EvaluationWeightSet {
     pub audition_id: felt252,
     pub weight: (u8, u8, u8),
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct AuditionCalculationCompleted {
+    #[key]
+    pub audition_id: felt252,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AggregateScoreCalculated {
+    #[key]
+    pub audition_id: felt252,
+    pub aggregate_scores: Array<(felt252, u256)>,
+    pub timestamp: u64,
+}

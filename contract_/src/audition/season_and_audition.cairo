@@ -243,10 +243,11 @@ pub mod SeasonAndAudition {
         get_contract_address,
     };
     use crate::events::{
-        AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-        AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
-        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted,
-        ResumedAll, SeasonCreated, SeasonDeleted, SeasonUpdated, VoteRecorded,
+        AggregateScoreCalculated, AuditionCalculationCompleted, AuditionCreated, AuditionDeleted,
+        AuditionEnded, AuditionPaused, AuditionResumed, AuditionUpdated, EvaluationSubmitted,
+        EvaluationWeightSet, JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll,
+        PriceDeposited, PriceDistributed, ResultsSubmitted, ResumedAll, SeasonCreated,
+        SeasonDeleted, SeasonUpdated, VoteRecorded,
     };
     use super::{Audition, Evaluation, ISeasonAndAudition, Season, Vote};
 
@@ -254,7 +255,7 @@ pub mod SeasonAndAudition {
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 
     // @notice the precision for the score
-    const PRECISION: u8 = 10;
+    const PRECISION: u8 = 100;
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
@@ -323,8 +324,11 @@ pub mod SeasonAndAudition {
         /// performer
         performer_aggregate_score: Map<(felt252, felt252), u256>,
         /// @notice maps each audition to a list of aggregate scores
-        /// @dev Map from audition_id to Vec<u256> containing aggregate scores
-        audition_aggregate_scores: Map<felt252, Vec<u256>>,
+        /// @dev Map from audition_id to Vec<(felt252, u256)> containing performer id and aggregate
+        /// scores
+        audition_aggregate_scores: Map<felt252, Vec<(felt252, u256)>>,
+        // @notice function fro audition calculation completed
+        audition_calculation_completed: Map<felt252, bool>,
         /// @notice implementing this to register people to an audition
         /// so that the aggregate score calculation can be tested
         enrolled_performers: Map<felt252, Vec<felt252>>,
@@ -357,6 +361,8 @@ pub mod SeasonAndAudition {
         JudgeRemoved: JudgeRemoved,
         EvaluationSubmitted: EvaluationSubmitted,
         EvaluationWeightSet: EvaluationWeightSet,
+        AuditionCalculationCompleted: AuditionCalculationCompleted,
+        AggregateScoreCalculated: AggregateScoreCalculated,
     }
 
     #[constructor]
@@ -504,7 +510,7 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is paused');
-            self.assert_evaluation_weight_should_be_10(weight);
+            self.assert_evaluation_weight_should_be_100(weight);
             self.audition_evaluation_weight.write(audition_id, weight);
             self.emit(Event::EvaluationWeightSet(EvaluationWeightSet { audition_id, weight }));
         }
@@ -523,45 +529,57 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition has not ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is paused');
-
-            let evaluations = self.get_evaluations(audition_id);
+            assert(
+                !self.audition_calculation_completed.read(audition_id), 'Audition calculation done',
+            );
             let (technical_weight, creativity_weight, presentation_weight) = self
                 .get_evaluation_weight(audition_id);
 
             let all_performers: Array<felt252> = self.get_enrolled_performers(audition_id);
-
-            //this is where all the scores will be stored
-            let mut array_of_aggregate_scores: Array<u256> = ArrayTrait::new();
-
+            let mut aggregate_scores: Array<(felt252, u256)> = ArrayTrait::<(felt252, u256)>::new();
             for performer in all_performers {
-                // get all the judges for the audition on the performer
                 let all_evaluations_for_performer: Array<Evaluation> = self
                     .get_evaluation(audition_id, performer);
-                let mut judges_total_on_player = ArrayTrait::new();
+
+                let mut total_score: u256 = 0;
+                let num_judges: u256 = all_evaluations_for_performer.len().try_into().unwrap();
 
                 for evaluation in all_evaluations_for_performer {
                     let (technical_score, creativity_score, presentation_score) = evaluation
                         .criteria;
-                    let technical_score_with_weight = technical_score * technical_weight;
-                    let creativity_score_with_weight = creativity_score * creativity_weight;
-                    let presentation_score_with_weight = presentation_score * presentation_weight;
-                    let total_score = technical_score_with_weight
-                        + creativity_score_with_weight
-                        + presentation_score_with_weight;
-                    judges_total_on_player.append(total_score);
+                    let weighted_score: u256 = ((technical_score * technical_weight
+                        + creativity_score * creativity_weight
+                        + presentation_score * presentation_weight)
+                        / PRECISION)
+                        .try_into()
+                        .unwrap();
+                    total_score += weighted_score;
                 }
 
-                let mut average_final_score: u256 = 0;
+                let average_final_score: u256 = total_score / num_judges;
 
-                for judge_total in judges_total_on_player.clone() {
-                    average_final_score = average_final_score + judge_total.try_into().unwrap();
-                }
-
-                average_final_score = average_final_score
-                    / judges_total_on_player.len().try_into().unwrap();
-                array_of_aggregate_scores.append(average_final_score);
+                self
+                    .audition_aggregate_scores
+                    .entry(audition_id)
+                    .push((performer, average_final_score));
+                self.performer_aggregate_score.write((audition_id, performer), average_final_score);
+                aggregate_scores.append((performer, average_final_score));
             }
-            // self.audition_aggregate_scores.
+            self.audition_calculation_completed.write(audition_id, true);
+            self
+                .emit(
+                    Event::AuditionCalculationCompleted(
+                        AuditionCalculationCompleted { audition_id },
+                    ),
+                );
+            self
+                .emit(
+                    Event::AggregateScoreCalculated(
+                        AggregateScoreCalculated {
+                            audition_id, aggregate_scores, timestamp: get_block_timestamp(),
+                        },
+                    ),
+                );
         }
 
         fn get_aggregate_score_for_performer(
@@ -1204,10 +1222,10 @@ pub mod SeasonAndAudition {
             assert(!evaluation_submission_status, 'Evaluation already submitted');
         }
 
-        fn assert_evaluation_weight_should_be_10(self: @ContractState, weight: (u8, u8, u8)) {
+        fn assert_evaluation_weight_should_be_100(self: @ContractState, weight: (u8, u8, u8)) {
             let (first_weight, second_weight, third_weight) = weight;
             let total = first_weight + second_weight + third_weight;
-            assert(total == 10, 'Total weight should be 10');
+            assert(total == 100, 'Total weight should be 100');
         }
 
         fn assert_judge_point_is_not_more_than_10(self: @ContractState, point: (u8, u8, u8)) {
