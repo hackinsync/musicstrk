@@ -224,12 +224,6 @@ pub trait ISeasonAndAudition<TContractState> {
         self: @TContractState, audition_id: felt252, performer_id: felt252,
     ) -> u256;
 
-    /// @notice gets the aggregate score for a given audition
-    /// @param audition_id the id of the audition to get the aggregate score for
-    /// @return a array of (performer_id, aggregate_score)
-    // fn get_aggregate_score(self: @TContractState, audition_id: felt252) -> Array<(felt252,
-    // u256)>;
-
     /// @notice dummy function to register a performer to an audition
     fn register_performer(ref self: TContractState, audition_id: felt252, performer_id: felt252);
     fn get_enrolled_performers(self: @TContractState, audition_id: felt252) -> Array<felt252>;
@@ -244,6 +238,11 @@ pub trait ISeasonAndAudition<TContractState> {
     fn resolve_appeal(ref self: TContractState, evaluation_id: u256, resolution_comment: felt252);
     /// @notice Gets the appeal for a specific evaluation.
     fn get_appeal(self: @TContractState, evaluation_id: u256) -> Appeal;
+
+    /// @notice gets the aggregate score for a given audition
+    /// @param audition_id the id of the audition to get the aggregate score for
+    /// @return a array of (performer_id, aggregate_score)
+    fn get_aggregate_score(self: @TContractState, audition_id: felt252) -> Array<(felt252, u256)>;
 }
 
 #[starknet::contract]
@@ -543,7 +542,14 @@ pub mod SeasonAndAudition {
         /// @param audition_id the id of the audition to get the weight for
         /// @return a tupule of the weight of each evaluation
         fn get_evaluation_weight(self: @ContractState, audition_id: felt252) -> (u8, u8, u8) {
-            self.audition_evaluation_weight.read(audition_id)
+            let (technical_weight, creativity_weight, presentation_weight) = self
+                .audition_evaluation_weight
+                .read(audition_id);
+            if technical_weight == 0 && creativity_weight == 0 && presentation_weight == 0 {
+                (40, 30, 30)
+            } else {
+                (technical_weight, creativity_weight, presentation_weight)
+            }
         }
 
         fn perform_aggregate_score_calculation(ref self: ContractState, audition_id: felt252) {
@@ -552,6 +558,7 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition has not ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+            self.assert_all_players_have_been_evaluated(audition_id);
             assert(
                 !self.audition_calculation_completed.read(audition_id), 'Audition calculation done',
             );
@@ -605,11 +612,25 @@ pub mod SeasonAndAudition {
                 );
         }
 
+        fn get_aggregate_score(
+            self: @ContractState, audition_id: felt252,
+        ) -> Array<(felt252, u256)> {
+            let mut aggregate_score_array = ArrayTrait::<(felt252, u256)>::new();
+            let storage_vec = self.audition_aggregate_scores.entry(audition_id);
+            for i in 0..storage_vec.len() {
+                let (performer_id, aggregate_score) = storage_vec.at(i).read();
+                aggregate_score_array.append((performer_id, aggregate_score));
+            }
+            aggregate_score_array
+        }
+
         fn get_aggregate_score_for_performer(
             self: @ContractState, audition_id: felt252, performer_id: felt252,
         ) -> u256 {
-            0
+            self.performer_aggregate_score.read((audition_id, performer_id))
         }
+
+
         /// @notice adds a judge to an audition
         /// @dev only the owner can add a judge to an audition
         /// @param audition_id the id of the audition to add the judge to
@@ -1300,6 +1321,17 @@ pub mod SeasonAndAudition {
             assert(first_point <= 10, 'Should be less than 10');
             assert(second_point <= 10, 'Should be less than 10');
             assert(third_point <= 10, 'Should be less than 10');
+        }
+
+        fn assert_all_players_have_been_evaluated(self: @ContractState, audition_id: felt252) {
+            let enrolled_performers: Array<felt252> = self.get_enrolled_performers(audition_id);
+            let judges_len: u32 = self.get_judges(audition_id).len();
+            for performer in enrolled_performers {
+                let performers_evaluations_len: u32 = self
+                    .get_evaluation(audition_id, performer)
+                    .len();
+                assert(performers_evaluations_len == judges_len, 'All players should be evaluated');
+            }
         }
     }
 }

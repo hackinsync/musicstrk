@@ -2879,3 +2879,632 @@ fn test_get_judges_returns_expected_judges() {
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
 }
+
+#[test]
+fn test_submit_evaluation_success() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mut judges = contract.get_judges(audition_id);
+    assert(judges.len() == 0, 'Judge should be empty');
+    let judge_address = contract_address_const::<0x123>();
+    contract.add_judge(audition_id, judge_address);
+    let judge_address2 = contract_address_const::<0x124>();
+    contract.add_judge(audition_id, judge_address2);
+    let judge_address3 = contract_address_const::<0x125>();
+    contract.add_judge(audition_id, judge_address3);
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // register a performer
+    contract.register_performer(audition_id, 'performerid');
+    contract.register_performer(audition_id, 'performerid2');
+    contract.register_performer(audition_id, 'performerid3');
+
+    // submit evaluation
+    start_cheat_caller_address(contract.contract_address, judge_address);
+    contract.submit_evaluation(audition_id, 'performerid', (1, 2, 3));
+    stop_cheat_caller_address(contract.contract_address);
+
+    // get evaluation
+    let evaluation = contract.get_evaluation(audition_id, 'performerid');
+    println!("evaluation: {:?}", evaluation.len());
+    assert(evaluation.len() == 1, 'Evaluation should be 3');
+    assert(*(evaluation.at(0)).audition_id == audition_id, 'Audition ID should match');
+    assert(*(evaluation.at(0)).performer == 'performerid', 'Performer should match');
+    assert(*(evaluation.at(0)).criteria == (1, 2, 3), 'Criteria should match');
+}
+
+
+#[test]
+fn test_multiple_judges_submit_evaluation_for_same_performer() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 42;
+    let season_id: felt252 = 7;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // Add multiple judges
+    let judge_address1 = contract_address_const::<0x111>();
+    let judge_address2 = contract_address_const::<0x112>();
+    let judge_address3 = contract_address_const::<0x113>();
+    contract.add_judge(audition_id, judge_address1);
+    contract.add_judge(audition_id, judge_address2);
+    contract.add_judge(audition_id, judge_address3);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Register a performer
+    let performer_id = 'performerX';
+    contract.register_performer(audition_id, performer_id);
+
+    // Each judge submits an evaluation for the same performer
+    start_cheat_caller_address(contract.contract_address, judge_address1);
+    contract.submit_evaluation(audition_id, performer_id, (3, 4, 5));
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, judge_address2);
+    contract.submit_evaluation(audition_id, performer_id, (6, 7, 8));
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, judge_address3);
+    contract.submit_evaluation(audition_id, performer_id, (9, 1, 2));
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Get all evaluations for the performer
+    let evaluations = contract.get_evaluation(audition_id, performer_id);
+    println!("Evaluations count: {:?}", evaluations.len());
+    assert(evaluations.len() == 3, 'There should be 3');
+
+    // Check that all criteria are present
+    let mut found_criteria_1 = false;
+    let mut found_criteria_2 = false;
+    let mut found_criteria_3 = false;
+    for i in 0..evaluations.len() {
+        let criteria = *(evaluations.at(i)).criteria;
+        if criteria == (3, 4, 5) {
+            found_criteria_1 = true;
+        } else if criteria == (6, 7, 8) {
+            found_criteria_2 = true;
+        } else if criteria == (9, 1, 2) {
+            found_criteria_3 = true;
+        }
+        assert(*(evaluations.at(i)).audition_id == audition_id, 'Audition ID should match');
+        assert(*(evaluations.at(i)).performer == performer_id, 'Performer should match');
+    }
+    assert(found_criteria_1, 'Criteria (3,4,5) not found');
+    assert(found_criteria_2, 'Criteria (6,7,8) not found');
+    assert(found_criteria_3, 'Criteria (9,1,2) not found');
+}
+
+#[test]
+fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 43;
+    let season_id: felt252 = 8;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // Add multiple judges
+    let judge_address1 = contract_address_const::<0x211>();
+    let judge_address2 = contract_address_const::<0x212>();
+    let judge_address3 = contract_address_const::<0x213>();
+    contract.add_judge(audition_id, judge_address1);
+    contract.add_judge(audition_id, judge_address2);
+    contract.add_judge(audition_id, judge_address3);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Register different performers
+    let performer_id1 = 'performerA';
+    let performer_id2 = 'performerB';
+    let performer_id3 = 'performerC';
+    contract.register_performer(audition_id, performer_id1);
+    contract.register_performer(audition_id, performer_id2);
+    contract.register_performer(audition_id, performer_id3);
+
+    // Each judge submits an evaluation for a different performer
+    start_cheat_caller_address(contract.contract_address, judge_address1);
+    contract.submit_evaluation(audition_id, performer_id1, (1, 2, 3));
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, judge_address2);
+    contract.submit_evaluation(audition_id, performer_id2, (4, 5, 6));
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, judge_address3);
+    contract.submit_evaluation(audition_id, performer_id3, (7, 8, 9));
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Get and check evaluation for performer 1
+    let evals1 = contract.get_evaluation(audition_id, performer_id1);
+    assert(evals1.len() == 1, 'evals1 count fail');
+    let criteria1 = *(evals1.at(0)).criteria;
+    assert(criteria1 == (1, 2, 3), 'criteria1 fail');
+    assert(*(evals1.at(0)).audition_id == audition_id, 'aid1 fail');
+    assert(*(evals1.at(0)).performer == performer_id1, 'pid1 fail');
+
+    // Get and check evaluation for performer 2
+    let evals2 = contract.get_evaluation(audition_id, performer_id2);
+    assert(evals2.len() == 1, 'evals2 count fail');
+    let criteria2 = *(evals2.at(0)).criteria;
+    assert(criteria2 == (4, 5, 6), 'criteria2 fail');
+    assert(*(evals2.at(0)).audition_id == audition_id, 'aid2 fail');
+    assert(*(evals2.at(0)).performer == performer_id2, 'pid2 fail');
+
+    // Get and check evaluation for performer 3
+    let evals3 = contract.get_evaluation(audition_id, performer_id3);
+    assert(evals3.len() == 1, 'evals3 count fail');
+    let criteria3 = *(evals3.at(0)).criteria;
+    assert(criteria3 == (7, 8, 9), 'criteria3 fail');
+    assert(*(evals3.at(0)).audition_id == audition_id, 'aid3 fail');
+    assert(*(evals3.at(0)).performer == performer_id3, 'pid3 fail');
+
+    // Get all evaluations for the audition and assert their correctness
+    let all_evals = contract.get_evaluations(audition_id);
+    assert(all_evals.len() == 3, 'all_evals count fail');
+
+    // Check that each evaluation matches the expected performer and criteria
+    let mut found1 = false;
+    let mut found2 = false;
+    let mut found3 = false;
+
+    for i in 0..all_evals.len() {
+        let eval = all_evals.at(i);
+        let performer = *(eval.performer);
+        let criteria = *(eval.criteria);
+
+        if performer == performer_id1 {
+            assert(criteria == (1, 2, 3), 'all_evals: criteria1 fail');
+            found1 = true;
+        } else if performer == performer_id2 {
+            assert(criteria == (4, 5, 6), 'all_evals: criteria2 fail');
+            found2 = true;
+        } else if performer == performer_id3 {
+            assert(criteria == (7, 8, 9), 'all_evals: criteria3 fail');
+            found3 = true;
+        } else {
+            assert(false, 'all_evals: unexpected performer');
+        }
+    }
+    assert(found1, 'all_evals: performer1 not found');
+    assert(found2, 'all_evals: performer2 not found');
+    assert(found3, 'all_evals: performer3 not found');
+}
+
+
+#[test]
+#[should_panic(expected: 'Judging is paused')]
+fn test_submit_evaluation_should_panic_when_judging_is_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let judge_address = contract_address_const::<0x123>();
+    contract.add_judge(audition_id, judge_address);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // register a performer
+    contract.register_performer(audition_id, 'performerid');
+
+    // pause judging
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_judging();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // submit evaluation
+    start_cheat_caller_address(contract.contract_address, judge_address);
+    contract.submit_evaluation(audition_id, 'performerid', (1, 2, 3));
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_pause_judging_success() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // pause judging
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_judging();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // check if judging is paused
+    let is_paused = contract.is_judging_paused();
+    assert(is_paused, 'Judging should be paused');
+}
+
+#[test]
+fn test_resume_judging_success() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // pause judging
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_judging();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // check if judging is paused
+    let is_paused = contract.is_judging_paused();
+    assert(is_paused, 'Judging should be paused');
+
+    // resume judging
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.resume_judging();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // check if judging is resumed
+    let is_paused = contract.is_judging_paused();
+    assert(!is_paused, 'Judging should be resumed');
+}
+
+#[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_pause_judging_should_panic_when_caller_is_not_owner() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // pause judging
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.pause_judging();
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_resume_judging_should_panic_when_caller_is_not_owner() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // pause judging
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_judging();
+    stop_cheat_caller_address(contract.contract_address);
+
+    // check if judging is paused
+    let is_paused = contract.is_judging_paused();
+    assert(is_paused, 'Judging should be paused');
+
+    // resume judging
+    start_cheat_caller_address(contract.contract_address, USER());
+    contract.resume_judging();
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_set_weight_for_audition_success() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let judge_address = contract_address_const::<0x123>();
+    contract.add_judge(audition_id, judge_address);
+
+    contract.set_evaluation_weight(audition_id, (10, 60, 30));
+    let evaluation_weight = contract.get_evaluation_weight(audition_id);
+    assert(evaluation_weight == (10, 60, 30), 'Evaluation weight should be set');
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Total weight should be 100')]
+fn test_set_weight_for_audition_should_panic_if_weight_doest_add_up_to_100() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let judge_address = contract_address_const::<0x123>();
+    contract.add_judge(audition_id, judge_address);
+
+    contract.set_evaluation_weight(audition_id, (4, 60, 30));
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+fn test_perform_aggregate_score_calculation_successful() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // then add 2 judges
+    let judge_address1 = contract_address_const::<0x123>();
+    let judge_address2 = contract_address_const::<0x124>();
+    contract.add_judge(audition_id, judge_address1);
+    contract.add_judge(audition_id, judge_address2);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // then register 2 performers
+    let performer_id1 = 'performerA';
+    let performer_id2 = 'performerB';
+    contract.register_performer(audition_id, performer_id1);
+    contract.register_performer(audition_id, performer_id2);
+
+    // then set weight
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.set_evaluation_weight(audition_id, (40, 30, 30));
+    stop_cheat_caller_address(contract.contract_address);
+
+    // then submit evaluation for each performer
+    start_cheat_caller_address(contract.contract_address, judge_address1);
+    contract.submit_evaluation(audition_id, performer_id1, (1, 2, 3));
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, judge_address2);
+    contract.submit_evaluation(audition_id, performer_id2, (4, 5, 6));
+    stop_cheat_caller_address(contract.contract_address);
+
+    // move the timestamp to the end of the audition
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp + 1000);
+
+    // then perform aggregate score calculation
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.perform_aggregate_score_calculation(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // get the aggregate score for each performer
+    let aggregate_score1 = contract.get_aggregate_score_for_performer(audition_id, performer_id1);
+    let aggregate_score2 = contract.get_aggregate_score_for_performer(audition_id, performer_id2);
+    println!("aggregate_score1: {:?}", aggregate_score1);
+    println!("aggregate_score2: {:?}", aggregate_score2);
+
+    // get the aggregate score for the audition
+    let aggregate_score = contract.get_aggregate_score(audition_id);
+    println!("aggregate_score: {:?}", aggregate_score);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+}
