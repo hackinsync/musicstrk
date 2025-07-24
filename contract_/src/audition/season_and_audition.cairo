@@ -39,7 +39,7 @@ pub struct Vote {
 pub struct Evaluation {
     pub audition_id: felt252,
     pub performer: felt252,
-    pub criteria: (u8, u8, u8),
+    pub criteria: (u256, u256, u256),
 }
 
 #[derive(Drop, Serde, starknet::Store)]
@@ -172,7 +172,10 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @param weight The weight of the evaluation (e.g., 1 for first place, 2 for second, etc.)
     /// @param criteria A tuple containing technical skills, creativity, and presentation scores.
     fn submit_evaluation(
-        ref self: TContractState, audition_id: felt252, performer: felt252, criteria: (u8, u8, u8),
+        ref self: TContractState,
+        audition_id: felt252,
+        performer: felt252,
+        criteria: (u256, u256, u256),
     );
 
     /// @notice Retrieves an evaluation for a specific performer in an audition.
@@ -205,12 +208,14 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @dev only the owner can set the weight of each evaluation
     /// @param audition_id the id of the audition to set the weight for
     /// @param weight the weight of each evaluation
-    fn set_evaluation_weight(ref self: TContractState, audition_id: felt252, weight: (u8, u8, u8));
+    fn set_evaluation_weight(
+        ref self: TContractState, audition_id: felt252, weight: (u256, u256, u256),
+    );
 
     /// @notice gets the weight of each evaluation for an audition
     /// @param audition_id the id of the audition to get the weight for
     /// @return the weight of each evaluation
-    fn get_evaluation_weight(self: @TContractState, audition_id: felt252) -> (u8, u8, u8);
+    fn get_evaluation_weight(self: @TContractState, audition_id: felt252) -> (u256, u256, u256);
 
     /// @notice performs aggregate score calculation for a given audition
     /// @dev only the owner can perform aggregate score calculation
@@ -274,7 +279,7 @@ pub mod SeasonAndAudition {
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 
     // @notice the precision for the score
-    const PRECISION: u8 = 100;
+    const PRECISION: u256 = 100;
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
@@ -333,11 +338,11 @@ pub mod SeasonAndAudition {
         /// evaluation was submitted
         evaluation_submission_status: Map<(felt252, felt252, ContractAddress), bool>,
         /// @notice maps each audition to the weight of each evaluation
-        /// @dev Map from audition_id to (u8, u8, u8) indicating the weight of each evaluation
+        /// @dev Map from audition_id to (u256, u256, u256) indicating the weight of each evaluation
         /// @dev NOTE: THE CRITERIA IS A TUPLE OF THE SCORE OF EACH EVALUATION: TECHNICAL SKILLS,
         /// CREATIVITY, AND PRESENTATION This is how it will be passed whenever it is being used in
         /// a tuple
-        audition_evaluation_weight: Map<felt252, (u8, u8, u8)>,
+        audition_evaluation_weight: Map<felt252, (u256, u256, u256)>,
         /// @notice aggregate score for each performer
         /// @dev Map audition and performer to u256 indicating the aggregate score for each
         /// performer
@@ -525,7 +530,7 @@ pub mod SeasonAndAudition {
         /// @param audition_id the id of the audition to set the weight for
         /// @param weight the weight of each evaluation
         fn set_evaluation_weight(
-            ref self: ContractState, audition_id: felt252, weight: (u8, u8, u8),
+            ref self: ContractState, audition_id: felt252, weight: (u256, u256, u256),
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -541,7 +546,7 @@ pub mod SeasonAndAudition {
         /// @dev returns the weight of each evaluation for an audition
         /// @param audition_id the id of the audition to get the weight for
         /// @return a tupule of the weight of each evaluation
-        fn get_evaluation_weight(self: @ContractState, audition_id: felt252) -> (u8, u8, u8) {
+        fn get_evaluation_weight(self: @ContractState, audition_id: felt252) -> (u256, u256, u256) {
             let (technical_weight, creativity_weight, presentation_weight) = self
                 .audition_evaluation_weight
                 .read(audition_id);
@@ -703,7 +708,7 @@ pub mod SeasonAndAudition {
             ref self: ContractState,
             audition_id: felt252,
             performer: felt252,
-            criteria: (u8, u8, u8),
+            criteria: (u256, u256, u256),
         ) {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(!self.judging_paused.read(), 'Judging is paused');
@@ -1310,13 +1315,15 @@ pub mod SeasonAndAudition {
             assert(!evaluation_submission_status, 'Evaluation already submitted');
         }
 
-        fn assert_evaluation_weight_should_be_100(self: @ContractState, weight: (u8, u8, u8)) {
+        fn assert_evaluation_weight_should_be_100(
+            self: @ContractState, weight: (u256, u256, u256),
+        ) {
             let (first_weight, second_weight, third_weight) = weight;
             let total = first_weight + second_weight + third_weight;
             assert(total == 100, 'Total weight should be 100');
         }
 
-        fn assert_judge_point_is_not_more_than_10(self: @ContractState, point: (u8, u8, u8)) {
+        fn assert_judge_point_is_not_more_than_10(self: @ContractState, point: (u256, u256, u256)) {
             let (first_point, second_point, third_point) = point;
             assert(first_point <= 10, 'Should be less than 10');
             assert(second_point <= 10, 'Should be less than 10');

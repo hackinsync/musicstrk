@@ -3482,14 +3482,16 @@ fn test_perform_aggregate_score_calculation_successful() {
 
     // then submit evaluation for each performer
     start_cheat_caller_address(contract.contract_address, judge_address1);
-    contract.submit_evaluation(audition_id, performer_id1, (1, 2, 3));
+    contract.submit_evaluation(audition_id, performer_id1, (4, 7, 3));
+    contract.submit_evaluation(audition_id, performer_id2, (6, 7, 8));
     stop_cheat_caller_address(contract.contract_address);
     start_cheat_caller_address(contract.contract_address, judge_address2);
-    contract.submit_evaluation(audition_id, performer_id2, (4, 5, 6));
+    contract.submit_evaluation(audition_id, performer_id1, (4, 9, 2));
+    contract.submit_evaluation(audition_id, performer_id2, (4, 9, 6));
     stop_cheat_caller_address(contract.contract_address);
 
     // move the timestamp to the end of the audition
-    start_cheat_block_timestamp(contract.contract_address, initial_timestamp + 1000);
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp + 2675123200);
 
     // then perform aggregate score calculation
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -3499,12 +3501,14 @@ fn test_perform_aggregate_score_calculation_successful() {
     // get the aggregate score for each performer
     let aggregate_score1 = contract.get_aggregate_score_for_performer(audition_id, performer_id1);
     let aggregate_score2 = contract.get_aggregate_score_for_performer(audition_id, performer_id2);
-    println!("aggregate_score1: {:?}", aggregate_score1);
-    println!("aggregate_score2: {:?}", aggregate_score2);
+    println!("aggregate_score1: {:?}", aggregate_score1); // aggregate_score1: 4
+    println!("aggregate_score2: {:?}", aggregate_score2); // aggregate_score2: 6
 
     // get the aggregate score for the audition
     let aggregate_score = contract.get_aggregate_score(audition_id);
-    println!("aggregate_score: {:?}", aggregate_score);
+    println!(
+        "aggregate_score: {:?}", aggregate_score,
+    ); // aggregate_score: [(530776410631550129238593, 4), (530776410631550129238594, 6)]
 
     stop_cheat_block_timestamp(contract.contract_address);
 }

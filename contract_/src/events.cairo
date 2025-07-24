@@ -325,14 +325,14 @@ pub struct EvaluationSubmitted {
     #[key]
     pub audition_id: felt252,
     pub performer: felt252,
-    pub criteria: (u8, u8, u8),
+    pub criteria: (u256, u256, u256),
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct EvaluationWeightSet {
     #[key]
     pub audition_id: felt252,
-    pub weight: (u8, u8, u8),
+    pub weight: (u256, u256, u256),
 }
 
 #[derive(Drop, starknet::Event)]
