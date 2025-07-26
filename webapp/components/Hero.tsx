@@ -1,132 +1,106 @@
-'use client'
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
-import logo from '../app/assets/images/LogoText-W.png'
-import { FeatureCarousel } from "./FeatureComponent"
 import Link from "next/link"
-import { FileText, Mail, Zap, Music, Headphones, Disc, Guitar, Mic, LucideIcon } from "lucide-react"
-import React, { useState, useEffect, useRef, } from "react"
-import { useToast } from "@/hooks/use-toast"
-import Telegram from "./icons/Telegram"
-import Github from "./icons/Github"
+import { useState, useEffect, useRef } from "react"
 import { createRoot } from "react-dom/client"
+import GitHubButton from "react-github-btn"
+import { FileText, Mail, Zap, Music, Headphones, Disc, Guitar, Mic, type LucideIcon } from "lucide-react"
 
-// Type definition for musical icon
+import { useToast } from "@/hooks/use-toast"
+import { FeatureCarousel } from "./FeatureComponent"
+import Telegram from "./icons/Telegram"
+import logo from "../app/assets/images/LogoText.png"
+
+// Type definition for musical icons
 type MusicalIconEntry = {
-    Icon: LucideIcon;
-    color: string;
+    Icon: LucideIcon
+    color: string
 }
+
 export default function HeroSection() {
-    const { toast } = useToast();
+    const { toast } = useToast()
     const [email, setEmail] = useState("")
     const [loading, setLoading] = useState(false)
     const [glitchEffect, setGlitchEffect] = useState(false)
     const particlesRef = useRef<HTMLDivElement>(null)
 
-    // Musical icons for background with colors
+    // Musical icons configuration with synthwave colors
     const musicalIcons: MusicalIconEntry[] = [
-        {
-            Icon: Music,
-            color: 'text-[#00f5d4]'
-        },
-        {
-            Icon: Headphones,
-            color: 'text-[#ff6b6b]'
-        },
-        {
-            Icon: Disc,
-            color: 'text-[#00f5d4]'
-        },
-        {
-            Icon: Guitar,
-            color: 'text-[#ff6b6b]'
-        },
-        {
-            Icon: Mic,
-            color: 'text-[#00f5d4]'
-        }
+        { Icon: Music, color: "text-[#00f5d4]" },
+        { Icon: Headphones, color: "text-[#ff6b6b]" },
+        { Icon: Disc, color: "text-[#00f5d4]" },
+        { Icon: Guitar, color: "text-[#ff6b6b]" },
+        { Icon: Mic, color: "text-[#00f5d4]" },
     ]
 
-
-    // Advanced email validation
-    const validateEmail = (email: string) => {
+    // Enhanced email validation
+    const validateEmail = (email: string): boolean => {
         const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
         return regex.test(email)
     }
 
-    // Musical icon generation effect
+    // Dynamic musical icon animation effect
     useEffect(() => {
-        // Ensure we're on the client side and ref is available
-        if (typeof window !== 'undefined' && particlesRef.current) {
-            // Create a function to generate musical icons
+        if (typeof window !== "undefined" && particlesRef.current) {
             const createMusicalIcon = () => {
-                // Create a container for the icon
-                const iconContainer = document.createElement('div')
+                const iconContainer = document.createElement("div")
+                const { Icon, color } = musicalIcons[Math.floor(Math.random() * musicalIcons.length)]
 
-                // Randomly select an icon
-                const { Icon, color } = musicalIcons[
-                    Math.floor(Math.random() * musicalIcons.length)
-                ]
-
-                // Set up the container with dynamic properties
+                // Configure icon container with dynamic properties
                 iconContainer.classList.add(
-                    'absolute', 'musical-icon',
-                    'animate-musical-fall',
-                    'opacity-50',
-                    'hover:opacity-100',
-                    'transition-opacity',
-                    color
+                    "absolute",
+                    "musical-icon",
+                    "animate-musical-fall",
+                    "opacity-50",
+                    "hover:opacity-100",
+                    "transition-opacity",
+                    "pointer-events-none",
+                    color,
                 )
 
-                // Randomize position, size, and animation
+                // Randomize position and animation
                 iconContainer.style.left = `${Math.random() * 100}%`
                 iconContainer.style.fontSize = `${Math.random() * 2 + 1}rem`
                 iconContainer.style.animationDuration = `${Math.random() * 10 + 5}s`
 
-                // Create a wrapper for the icon that allows React rendering
-                const iconWrapper = document.createElement('div')
-
-                // Use createRoot for modern React rendering
+                // Create React wrapper for icon
+                const iconWrapper = document.createElement("div")
                 const root = createRoot(iconWrapper)
                 root.render(<Icon className="w-full h-full" />)
 
-                // Append the icon wrapper to the container
                 iconContainer.appendChild(iconWrapper)
-
-                // Add to the particles container
                 particlesRef.current?.appendChild(iconContainer)
 
-                // Remove icon after animation
+                // Clean up after animation
                 setTimeout(() => {
                     iconContainer.remove()
                 }, 15000)
             }
 
-            // Generate icons at intervals
             const iconInterval = setInterval(createMusicalIcon, 1000)
-
-            // Cleanup interval on unmount
             return () => clearInterval(iconInterval)
         }
-    },)
+    }, [])
 
-    // Handle form submission
+    // Handle waitlist form submission
     const handleSubmit = async () => {
         if (!validateEmail(email)) {
-            // Trigger glitch effect on error
             setGlitchEffect(true)
             setTimeout(() => setGlitchEffect(false), 500)
 
             toast({
                 variant: "destructive",
                 title: "Invalid Transmission 🚨",
-                description: "Email coordinates not recognized. Recalibrate and retry."
+                description: "Email coordinates not recognized. Recalibrate and retry.",
             })
             return
         }
 
         setLoading(true)
+
         try {
             const response = await fetch("https://vm-71179753.truehost.dev/musicstrk-api/api/waitlist", {
                 method: "POST",
@@ -135,22 +109,22 @@ export default function HeroSection() {
                 },
                 body: JSON.stringify({ email }),
             })
-            console.log(response.json(), "Response");
+
             if (response.ok) {
                 toast({
                     title: "Warp Sequence Initiated! 🚀",
-                    description: "You've been encoded into the MusicStrk matrix."
-                });
+                    description: "You've been encoded into the MusicStrk matrix.",
+                })
                 setEmail("")
             } else {
                 throw new Error("Network response was not ok")
             }
         } catch (error) {
-            console.log(error)
+            console.error("Submission error:", error)
             toast({
                 variant: "destructive",
                 title: "Quantum Entanglement Disrupted",
-                description: "Connection lost. Check your interdimensional signal."
+                description: "Connection lost. Check your interdimensional signal.",
             })
         } finally {
             setLoading(false)
@@ -158,132 +132,171 @@ export default function HeroSection() {
     }
 
     return (
-        <div className={`min-h-screen relative bg-gradient-to-br from-[#0a0a2a] via-[#1a1a3a] to-[#2a2a4a] 
-            overflow-hidden text-white ${glitchEffect ? 'animate-glitch' : ''}`}>
-            {/* Synthwave Grid Backgrfound */}
+        <div
+            className={`
+      min-h-screen relative overflow-hidden text-white
+      bg-gradient-to-br from-[#0a0a2a] via-[#1a1a3a] to-[#2a2a4a]
+      ${glitchEffect ? "animate-glitch" : ""}
+    `}
+        >
+            {/* Background Effects */}
             <div className="absolute inset-0 bg-grid-neon opacity-20 pointer-events-none" />
+            <div className="absolute inset-0 bg-neon-gradient opacity-30 pointer-events-none" />
 
             {/* Dynamic Musical Icons Background */}
             <div ref={particlesRef} className="absolute inset-0 pointer-events-none" />
 
-            {/* Neon Glow Effects */}
-            <div className="absolute inset-0 bg-neon-gradient opacity-30 pointer-events-none" />
-
+            {/* Main Content */}
             <div className="relative container mx-auto px-4 py-20 z-10">
-                <div className="text-center max-w-3xl mx-auto space-y-8">
-                    {/* Header with Social Links */}
-                    <div className="flex items-center justify-between w-full mb-8">
+                <div className="text-center max-w-4xl mx-auto space-y-8">
+                    {/* Header with Logo and Social Links */}
+                    <header className="flex items-center justify-between w-full mb-8">
+                        <div className="flex-1" />
+
                         <Image
-                            src={logo}
-                            className="mx-auto transform hover:rotate-3 transition-transform"
+                            src={logo || "/placeholder.svg"}
+                            className="mx-auto transform hover:rotate-3 transition-transform duration-300"
                             alt="MusicStrk Logo"
                             width={250}
+                            priority
                         />
-                        <div className="flex items-center space-x-4 transform transition-transform">
+
+                        <div className="flex-1 flex items-center justify-end space-x-4">
                             <Link
                                 href="https://t.me/+2tMYFpOpU-1jYmY0"
-                                className="text-[#00f5d4] px-3 py-2 hover:text-[#ff6b6b] hover:scale-125 my-auto transition-colors"
+                                className="text-[#00f5d4] hover:text-[#ff6b6b] hover:scale-125 transition-all duration-300"
+                                target="_blank"
+                                rel="noopener noreferrer"
                             >
-                                <div className="mt-[20px]">
-
-                                    <Telegram />
-                                </div>
+                                <Telegram />
                             </Link>
-                            <div className="mt-6 flex justify-center relative group">
-                                {/* Button with ripple effect */}
-                                <Link
-                                    href="https://github.com/hackinsync/musicstrk"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="relative px-3 py-2 rounded-lg flex items-center hover:scale-110 space-x-2 
-                                     text-black bg-[#ff6b6b] transition-all
-                                    animate-pulse before:absolute before:inset-0 before:rounded-lg 
-                                     before:bg-[#ff6b6b]/30 before:scale-125 before:opacity-50 
-                                    before:animate-ripple"
-                                >
-                                    <Github />
-                                </Link>
 
-                                {/* Tooltip on hover */}
-                                <div className="absolute top-10 scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100 bg-[#1a1a3a] text-white text-sm px-3 py-1 rounded-lg transition-all">
-                                    ⭐ Support MusicStrk by starring our repo!
-                                </div>
+                            <div className="relative group">
+                                <GitHubButton
+                                    href="https://github.com/hackinsync/musicstrk"
+                                    data-color-scheme="no-preference: light; light: light; dark: dark;"
+                                    data-icon="octicon-star"
+                                    data-size="large"
+                                    aria-label="Star MusicStrk on GitHub"
+                                >
+                                    Star Us
+                                </GitHubButton>
                             </div>
                         </div>
-                    </div>
+                    </header>
 
-                    {/* Hero Headline with Synthwave Styling */}
-                    <h1 className="text-3xl md:text-4xl text-transparent bg-clip-text 
-                        bg-gradient-to-r from-[#00f5d4] to-[#ff6b6b] 
-                        drop-shadow-neon animate-pulse">
-                        We&apos;re BUIDLING a <span className="line-through">Pump.Fun</span> for musical talents on Starknet
-                        <span className="block mt-4 text-white">
-                            Join The
-                            <span className="text-[#00f5d4] ml-2 italic">Pack!</span>
-                        </span>
-                    </h1>
+                    {/* Hero Headline */}
+                    <section className="space-y-6">
+                        <h1 className="text-3xl md:text-4xl leading-tight">
+                            <div className="leading-[1.3] space-y-2">
+                                <span className="inline-block bg-[#00E5FF] text-black font-bold px-2 py-1 text-2xl md:text-3xl transition-all duration-300 hover:bg-[#00E5FF]/80 hover:shadow-[0_0_15px_rgba(0,229,255,0.5)]">
+                                    MusicStrk
+                                </span>{" "}
+                                is the foundational music tech stack for the{" "}
+                                <span className="inline-block bg-[#00E5FF] text-black font-bold px-2 py-1 text-2xl md:text-3xl transition-all duration-300 hover:bg-[#00E5FF]/80 hover:shadow-[0_0_15px_rgba(0,229,255,0.5)]">
+                                    decentralized
+                                </span>{" "}
+                                artist, connecting talent with{" "}
+                                <span className="inline-block bg-[#00E5FF] text-black font-bold px-2 py-1 text-2xl md:text-3xl transition-all duration-300 hover:bg-[#00E5FF]/80 hover:shadow-[0_0_15px_rgba(0,229,255,0.5)]">
+                                    degens
+                                </span>{" "}
+                                ready to fund and own a stake, all on the artist&apos;s{" "}
+                                <span className="inline-block bg-[#00E5FF] text-black font-bold px-2 py-1 text-2xl md:text-3xl transition-all duration-300 hover:bg-[#00E5FF]/80 hover:shadow-[0_0_15px_rgba(0,229,255,0.5)]">
+                                    terms
+                                </span>
+                                .
+                            </div>
 
-                    {/* Feature Section */}
-                    <div className="mt-16">
-                        <p className="text-[#00f5d4] mb-4 flex items-center justify-center">
-                            <Zap className="mr-2" />
-                            Sonic Features from the MusicStrk Universe
-                        </p>
+                            <div className="mt-6 text-white">
+                                <span className="text-2xl font-bold">Ready to </span>
+                                <span className="text-[#00f5d4] text-2xl font-bold bg-gradient-to-r from-[#00f5d4] to-[#ff6b6b] bg-clip-text text-transparent animate-pulse">
+                                    Revolutionize
+                                </span>
+                                <span className="text-2xl font-bold"> Music?</span>
+                            </div>
+                        </h1>
+                    </section>
+
+                    {/* Features Section */}
+                    <section className="mt-16 space-y-6">
                         <FeatureCarousel />
-                    </div>
+                    </section>
 
                     {/* Email Subscription */}
-                    <div className="mt-12 relative">
-                        <p className="text-[#00f5d4] mb-4 flex items-center justify-center">
-                            <Zap className="mr-2" />
-                            Initiate Warp Sequence 🚀
-                        </p>
-                        <div className="max-w-md mx-auto relative">
-                            <Input
-                                type="email"
-                                placeholder="Email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="bg-[#1a1a3a] border-[#00f5d4]/50 text-white h-14
-                                    focus:ring-2 focus:ring-[#ff6b6b] 
-                                    transition-all duration-300 
-                                    placeholder-[#00f5d4]/50"
-                            />
-                            <Button
-                                className="absolute right-1 my-auto top-0 bottom-0 h-11
-                                    bg-[#ff6b6b] text-black 
-                                    hover:bg-[#00f5d4] 
-                                    transition-colors"
-                                onClick={handleSubmit}
-                                disabled={loading}
-                            >
-                                {loading ? "Warping..." : "Join Waitlist"}
-                            </Button>
+                    <section className="mt-12 space-y-6">
+                        <div className="flex items-center justify-center text-[#00f5d4] mb-4">
+                            <Zap className="mr-2 w-5 h-5" />
+                            <span className="text-lg font-medium">Get Early Access</span>
                         </div>
-                    </div>
 
-                    {/* Additional Links */}
-                    <div className="mt-8 flex flex-col md:flex-row md:justify-center justify-center items-center md:items-center md:space-x-8">
-                        <Link
-                            href="https://github.com/hackinsync/musicstrk/"
-                            className="flex items-center text-[#00f5d4] 
-                                hover:text-[#ff6b6b] text-sm transition-colors"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <FileText className="w-5 h-5 mr-2" />
-                            Decode Our Litepaper
-                        </Link>
-                        <div className="flex items-center">
-                            <Mail className="w-5 h-5 mr-2 text-[#ff6b6b]" />
-                            <a
-                                href="mailto:buidl@musicstrk.fun"
-                                className="text-[#00f5d4] text-sm hover:text-[#ff6b6b] transition-colors"
-                            >
-                                buidl@musicstrk.fun
-                            </a>
+                        <div className="max-w-md mx-auto relative">
+                            <div className="flex gap-2">
+                                <Input
+                                    type="email"
+                                    placeholder="Enter your email coordinates..."
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    onKeyPress={(e) => e.key === "Enter" && handleSubmit()}
+                                    className="
+                    bg-[#1a1a3a]/80 border-[#00f5d4]/50 text-white h-12
+                    focus:ring-2 focus:ring-[#ff6b6b] focus:border-[#ff6b6b]
+                    transition-all duration-300
+                    placeholder-[#00f5d4]/50
+                    backdrop-blur-sm
+                  "
+                                    disabled={loading}
+                                />
+                                <Button
+                                    onClick={handleSubmit}
+                                    disabled={loading || !email}
+                                    className="
+                    h-12 px-6
+                    bg-gradient-to-r from-[#ff6b6b] to-[#ff8e8e]
+                    hover:from-[#00f5d4] hover:to-[#00d4aa]
+                    text-black font-semibold
+                    transition-all duration-300
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    shadow-lg hover:shadow-xl
+                  "
+                                >
+                                    {loading ? "Warping..." : "Join Waitlist"}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
+                    </section>
+
+                    {/* Footer Links */}
+                    <footer className="mt-12 space-y-4">
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
+                            <Link
+                                href="https://github.com/hackinsync/musicstrk/"
+                                className="
+                  flex items-center text-[#00f5d4] hover:text-[#ff6b6b] 
+                  text-sm transition-colors duration-300
+                  hover:underline underline-offset-4
+                "
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <FileText className="w-4 h-4 mr-2" />
+                                Decode Our Litepaper
+                            </Link>
+
+                            <div className="flex items-center">
+                                <Mail className="w-4 h-4 mr-2 text-[#ff6b6b]" />
+                                <a
+                                    href="mailto:buidl@musicstrk.fun"
+                                    className="
+                    text-[#00f5d4] text-sm hover:text-[#ff6b6b] 
+                    transition-colors duration-300
+                    hover:underline underline-offset-4
+                  "
+                                >
+                                    buidl@musicstrk.fun
+                                </a>
+                            </div>
+                        </div>
+                    </footer>
                 </div>
             </div>
         </div>
