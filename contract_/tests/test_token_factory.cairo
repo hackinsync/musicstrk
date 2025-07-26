@@ -1,9 +1,9 @@
 use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, MusicStrk};
+use contract_::events::TokenDeployedEvent;
 use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
     MusicShareTokenFactory,
 };
-use contract_::events::{TokenDeployedEvent};
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
 use core::traits::Into;
@@ -13,8 +13,8 @@ use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
     cheat_caller_address, declare, spy_events,
 };
-use starknet::{ContractAddress, get_block_timestamp};
 use starknet::class_hash::ClassHash;
+use starknet::{ContractAddress, get_block_timestamp};
 
 
 // Address constants for testing

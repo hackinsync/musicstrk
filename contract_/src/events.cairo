@@ -1,5 +1,5 @@
+use contract_::governance::types::VoteType;
 use starknet::ContractAddress;
-use contract_::governance::types::{VoteType};
 use crate::IRevenueDistribution::Category;
 
 #[derive(Drop, starknet::Event)]
@@ -304,4 +304,61 @@ pub struct TokenTransferDuringVoting {
     pub to: ContractAddress,
     pub amount: u256,
     pub affected_weight: bool,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct JudgeAdded {
+    #[key]
+    pub audition_id: felt252,
+    pub judge_address: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct JudgeRemoved {
+    #[key]
+    pub audition_id: felt252,
+    pub judge_address: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct EvaluationSubmitted {
+    #[key]
+    pub audition_id: felt252,
+    pub performer: felt252,
+    pub criteria: (u256, u256, u256),
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct EvaluationWeightSet {
+    #[key]
+    pub audition_id: felt252,
+    pub weight: (u256, u256, u256),
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AuditionCalculationCompleted {
+    #[key]
+    pub audition_id: felt252,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AggregateScoreCalculated {
+    #[key]
+    pub audition_id: felt252,
+    pub aggregate_scores: Array<(felt252, u256)>,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AppealSubmitted {
+    pub evaluation_id: u256,
+    pub appellant: ContractAddress,
+    pub reason: felt252,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AppealResolved {
+    pub evaluation_id: u256,
+    pub resolver: ContractAddress,
+    pub resolution_comment: felt252,
 }

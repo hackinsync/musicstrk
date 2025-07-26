@@ -1,14 +1,14 @@
-use core::result::ResultTrait;
 use contract_::audition::season_and_audition::{
-    Audition, Season, SeasonAndAudition, ISeasonAndAuditionDispatcher,
-    ISeasonAndAuditionDispatcherTrait,
+    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait, Season,
+    SeasonAndAudition,
 };
-use contract_::events::{ResumedAll, PausedAll};
-use starknet::{ContractAddress, get_block_timestamp};
+use contract_::events::{PausedAll, ResumedAll};
+use core::result::ResultTrait;
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare,
-    start_cheat_caller_address, stop_cheat_caller_address, spy_events,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
+    start_cheat_caller_address, stop_cheat_caller_address,
 };
+use starknet::{ContractAddress, get_block_timestamp};
 
 // Test account addresses
 fn OWNER() -> ContractAddress {
