@@ -35,8 +35,7 @@ export function FeaturedAuditionsSection() {
         </div>
       </div>
 
-      {/* Grid lines */}
-      <div className="absolute inset-0 bg-[url('/images/grid.png')] bg-repeat opacity-10"></div>
+  
 
       {/* Content overlay gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a2a] via-[#1a1a3a] to-[#2a2a4a]  pointer-events-none z-10"></div>
