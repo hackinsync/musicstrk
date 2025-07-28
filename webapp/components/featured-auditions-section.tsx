@@ -35,7 +35,8 @@ export function FeaturedAuditionsSection() {
         </div>
       </div>
 
-  
+      {/* Grid lines */}
+      <div className="absolute inset-0 bg-[url('/images/grid.png')] bg-repeat opacity-10"></div>
 
       {/* Content overlay gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a2a] via-[#1a1a3a] to-[#2a2a4a]  pointer-events-none z-10"></div>
@@ -48,7 +49,8 @@ export function FeaturedAuditionsSection() {
           </h2>
 
           <p className="text-lg md:text-xl text-gray-300 max-w-3xl mb-8">
-            On-chain. Transparent. Open to All Genres. <br />Powered by Starknet.
+            On-chain. Transparent. Open to All Genres. <br />
+            Powered by Starknet.
           </p>
 
           <Button
