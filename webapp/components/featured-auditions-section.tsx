@@ -49,7 +49,8 @@ export function FeaturedAuditionsSection() {
           </h2>
 
           <p className="text-lg md:text-xl text-gray-300 max-w-3xl mb-8">
-            On-chain. Transparent. Open to All Genres. <br />Powered by Starknet.
+            On-chain. Transparent. Open to All Genres. <br />
+            Powered by Starknet.
           </p>
 
           <Button
