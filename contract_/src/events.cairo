@@ -5,7 +5,7 @@ use crate::IRevenueDistribution::Category;
 #[derive(Drop, starknet::Event)]
 pub struct SeasonCreated {
     #[key]
-    pub season_id: felt252,
+    pub session_id: felt252,
     #[key]
     pub genre: felt252,
     pub name: felt252,
@@ -15,14 +15,14 @@ pub struct SeasonCreated {
 #[derive(Drop, starknet::Event)]
 pub struct SeasonUpdated {
     #[key]
-    pub season_id: felt252,
+    pub session_id: felt252,
     pub timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct SeasonDeleted {
     #[key]
-    pub season_id: felt252,
+    pub session_id: felt252,
     pub timestamp: u64,
 }
 
@@ -30,7 +30,7 @@ pub struct SeasonDeleted {
 pub struct AuditionCreated {
     #[key]
     pub audition_id: felt252,
-    pub season_id: felt252,
+    pub session_id: felt252,
     #[key]
     pub genre: felt252,
     pub name: felt252,

@@ -57,27 +57,23 @@ pub struct Appeal {
 pub trait ISeasonAndAudition<TContractState> {
     fn create_season(
         ref self: TContractState,
-        season_id: felt252,
         genre: felt252,
         name: felt252,
-        start_timestamp: felt252,
         end_timestamp: felt252,
-        paused: bool,
     );
-    fn read_season(self: @TContractState, season_id: felt252) -> Season;
-    fn update_season(ref self: TContractState, season_id: felt252, season: Season);
-    fn delete_season(ref self: TContractState, season_id: felt252);
+    fn read_session(self: @TContractState, session_id: felt252) -> Session;
+    fn total_sessions(self: @TContractState) -> felt252;
+    fn update_session(ref self: TContractState, session_id: felt252, session: Session);
+    fn delete_session(ref self: TContractState, session_id: felt252);
     fn create_audition(
         ref self: TContractState,
-        audition_id: felt252,
         season_id: felt252,
         genre: felt252,
         name: felt252,
-        start_timestamp: felt252,
         end_timestamp: felt252,
-        paused: bool,
     );
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
+    fn total_auditions(self: @TContractState) -> felt252;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn delete_audition(ref self: TContractState, audition_id: felt252);
     fn submit_results(
@@ -416,7 +412,7 @@ pub mod SeasonAndAudition {
 
             let current_time = get_block_timestamp();
             assert(
-                end_timestamp > current_time, 'Session ends in past',
+                end_timestamp.try_into().unwrap() > current_time, 'Session ends in past',
             );
             
             let season_id = self.total_seasons.read() + 1;
@@ -441,6 +437,14 @@ pub mod SeasonAndAudition {
 
         fn read_season(self: @ContractState, season_id: felt252) -> Season {
             self.seasons.entry(season_id).read()
+        }
+
+        fn total_sessions(self: @ContractState) -> felt252 {
+            self.total_seasons.read()
+        }
+
+        fn total_sessions(self: @ContractState) -> felt252 {
+            self.total_sessions.read()
         }
 
         fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
@@ -484,7 +488,7 @@ pub mod SeasonAndAudition {
 
             let current_time = get_block_timestamp();
             assert(
-                end_timestamp > current_time, 'Audition ends in past',
+                end_timestamp.try_into().unwrap() > current_time, 'Audition ends in past',
             );
 
             let audition_id = self.total_auditions.read() + 1;
@@ -512,6 +516,10 @@ pub mod SeasonAndAudition {
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
             self.auditions.entry(audition_id).read()
+        }
+
+        fn total_auditions(self: @ContractState) -> felt252 {
+            self.total_auditions.read()
         }
 
         fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {
