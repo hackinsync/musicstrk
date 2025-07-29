@@ -3,7 +3,7 @@ use starknet::ContractAddress;
 use crate::IRevenueDistribution::Category;
 
 #[derive(Drop, starknet::Event)]
-pub struct SeasonCreated {
+pub struct SessionCreated {
     #[key]
     pub season_id: felt252,
     #[key]
@@ -13,14 +13,14 @@ pub struct SeasonCreated {
 }
 
 #[derive(Drop, starknet::Event)]
-pub struct SeasonUpdated {
+pub struct SessionUpdated {
     #[key]
     pub season_id: felt252,
     pub timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
-pub struct SeasonDeleted {
+pub struct SessionDeleted {
     #[key]
     pub season_id: felt252,
     pub timestamp: u64,

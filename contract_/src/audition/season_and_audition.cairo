@@ -358,6 +358,9 @@ pub mod SessionAndAudition {
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
         appeals: Map<u256, Appeal>,
+        /// @notice ID counters
+        total_auditions: felt252,
+        total_sessions: felt252,
     }
 
     #[event]
@@ -403,25 +406,34 @@ pub mod SessionAndAudition {
     impl ISessionAndAuditionImpl of ISessionAndAudition<ContractState> {
         fn create_session(
             ref self: ContractState,
-            session_id: felt252,
             genre: felt252,
             name: felt252,
-            start_timestamp: felt252,
             end_timestamp: felt252,
-            paused: bool,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
+            let current_time = get_block_timestamp();
+            assert(
+                end_timestamp > current_time, 'Session ends in past',
+            );
+            
+            let session_id = self.total_sessions.read() + 1;
+            
+
+            // Store the new session
             self
                 .sessions
                 .entry(session_id)
-                .write(Session { session_id, genre, name, start_timestamp, end_timestamp, paused });
+                .write(Session { session_id, genre, name, start_timestamp: current_time, end_timestamp, paused });
+
+            // Update total sessions counter
+            self.total_sessions.write(session_id);
 
             self
                 .emit(
                     Event::SessionCreated(
-                        SessionCreated { session_id, genre, name, timestamp: get_block_timestamp() },
+                        SessionCreated { session_id, genre, name, timestamp: current_time },
                     ),
                 );
         }
