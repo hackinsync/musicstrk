@@ -56,10 +56,7 @@ pub struct Appeal {
 #[starknet::interface]
 pub trait ISessionAndAudition<TContractState> {
     fn create_session(
-        ref self: TContractState,
-        genre: felt252,
-        name: felt252,
-        end_timestamp: felt252,
+        ref self: TContractState, genre: felt252, name: felt252, end_timestamp: felt252,
     );
     fn read_session(self: @TContractState, session_id: felt252) -> Session;
     fn total_sessions(self: @TContractState) -> felt252;
@@ -401,25 +398,29 @@ pub mod SessionAndAudition {
     #[abi(embed_v0)]
     impl ISessionAndAuditionImpl of ISessionAndAudition<ContractState> {
         fn create_session(
-            ref self: ContractState,
-            genre: felt252,
-            name: felt252,
-            end_timestamp: felt252,
+            ref self: ContractState, genre: felt252, name: felt252, end_timestamp: felt252,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
             let current_time = get_block_timestamp();
-            assert(
-                end_timestamp.try_into().unwrap() > current_time, 'Session ends in past',
-            );
+            assert(end_timestamp.try_into().unwrap() > current_time, 'Session ends in past');
 
             let session_id = self.total_sessions.read() + 1;
             // Store the new session
             self
                 .sessions
                 .entry(session_id)
-                .write(Session { session_id, genre, name, start_timestamp: current_time.into(), end_timestamp, paused: false });
+                .write(
+                    Session {
+                        session_id,
+                        genre,
+                        name,
+                        start_timestamp: current_time.into(),
+                        end_timestamp,
+                        paused: false,
+                    },
+                );
 
             // Update total sessions counter
             self.total_sessions.write(session_id);
@@ -479,9 +480,7 @@ pub mod SessionAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
 
             let current_time = get_block_timestamp();
-            assert(
-                end_timestamp.try_into().unwrap() > current_time, 'Audition ends in past',
-            );
+            assert(end_timestamp.try_into().unwrap() > current_time, 'Audition ends in past');
 
             let audition_id = self.total_auditions.read() + 1;
             self
@@ -489,7 +488,13 @@ pub mod SessionAndAudition {
                 .entry(audition_id)
                 .write(
                     Audition {
-                        audition_id, session_id, genre, name, start_timestamp: current_time.into(), end_timestamp, paused: false,
+                        audition_id,
+                        session_id,
+                        genre,
+                        name,
+                        start_timestamp: current_time.into(),
+                        end_timestamp,
+                        paused: false,
                     },
                 );
 

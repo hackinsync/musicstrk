@@ -67,10 +67,9 @@ fn setup_contract_with_oracle() -> ISessionAndAuditionDispatcher {
 // Helper function to create a default audition
 fn create_test_audition(contract: ISessionAndAuditionDispatcher, audition_id: felt252) {
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract
-        .create_audition(1, // session_id
-        'Pop', 'Test Audition', 1675123200 // end_timestamp
-        );
+    contract.create_audition(1, // session_id
+    'Pop', 'Test Audition', 1675123200 // end_timestamp
+    );
     stop_cheat_caller_address(contract.contract_address);
 }
 
