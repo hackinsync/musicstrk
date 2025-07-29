@@ -57,27 +57,23 @@ pub struct Appeal {
 pub trait ISessionAndAudition<TContractState> {
     fn create_session(
         ref self: TContractState,
-        session_id: felt252,
         genre: felt252,
         name: felt252,
-        start_timestamp: felt252,
         end_timestamp: felt252,
-        paused: bool,
     );
     fn read_session(self: @TContractState, session_id: felt252) -> Session;
+    fn total_sessions(self: @TContractState) -> felt252;
     fn update_session(ref self: TContractState, session_id: felt252, session: Session);
     fn delete_session(ref self: TContractState, session_id: felt252);
     fn create_audition(
         ref self: TContractState,
-        audition_id: felt252,
         session_id: felt252,
         genre: felt252,
         name: felt252,
-        start_timestamp: felt252,
         end_timestamp: felt252,
-        paused: bool,
     );
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
+    fn total_auditions(self: @TContractState) -> felt252;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn delete_audition(ref self: TContractState, audition_id: felt252);
     fn submit_results(
@@ -415,7 +411,7 @@ pub mod SessionAndAudition {
 
             let current_time = get_block_timestamp();
             assert(
-                end_timestamp > current_time, 'Session ends in past',
+                end_timestamp.try_into().unwrap() > current_time, 'Session ends in past',
             );
 
             let session_id = self.total_sessions.read() + 1;
@@ -423,7 +419,7 @@ pub mod SessionAndAudition {
             self
                 .sessions
                 .entry(session_id)
-                .write(Session { session_id, genre, name, start_timestamp: current_time, end_timestamp, paused });
+                .write(Session { session_id, genre, name, start_timestamp: current_time.into(), end_timestamp, paused: false });
 
             // Update total sessions counter
             self.total_sessions.write(session_id);
@@ -438,6 +434,10 @@ pub mod SessionAndAudition {
 
         fn read_session(self: @ContractState, session_id: felt252) -> Session {
             self.sessions.entry(session_id).read()
+        }
+
+        fn total_sessions(self: @ContractState) -> felt252 {
+            self.total_sessions.read()
         }
 
         fn update_session(ref self: ContractState, session_id: felt252, session: Session) {
@@ -480,7 +480,7 @@ pub mod SessionAndAudition {
 
             let current_time = get_block_timestamp();
             assert(
-                end_timestamp > current_time, 'Audition ends in past',
+                end_timestamp.try_into().unwrap() > current_time, 'Audition ends in past',
             );
 
             let audition_id = self.total_auditions.read() + 1;
@@ -489,7 +489,7 @@ pub mod SessionAndAudition {
                 .entry(audition_id)
                 .write(
                     Audition {
-                        audition_id, session_id, genre, name, start_timestamp: current_time, end_timestamp, paused,
+                        audition_id, session_id, genre, name, start_timestamp: current_time.into(), end_timestamp, paused: false,
                     },
                 );
 
@@ -508,6 +508,10 @@ pub mod SessionAndAudition {
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
             self.auditions.entry(audition_id).read()
+        }
+
+        fn total_auditions(self: @ContractState) -> felt252 {
+            self.total_auditions.read()
         }
 
         fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {
