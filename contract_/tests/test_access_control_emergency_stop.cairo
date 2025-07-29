@@ -83,22 +83,14 @@ fn test_owner_access_control() {
     // Owner can create a season
     let session_id = 1;
     let test_season = create_test_season(session_id);
-    dispatcher
-        .create_session(
-            test_season.genre,
-            test_season.name,
-            test_season.end_timestamp,
-        );
+    dispatcher.create_session(test_season.genre, test_season.name, test_season.end_timestamp);
 
     // Owner can create an audition
     let audition_id = 1;
     let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
-            session_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.end_timestamp,
+            session_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
         );
 
     // Owner can add oracles
@@ -117,12 +109,7 @@ fn test_non_owner_cannot_create_season() {
 
     let session_id = 1;
     let test_season = create_test_season(session_id);
-    dispatcher
-        .create_session(
-            test_season.genre,
-            test_season.name,
-            test_season.end_timestamp,
-        );
+    dispatcher.create_session(test_season.genre, test_season.name, test_season.end_timestamp);
 
     stop_cheat_caller_address(dispatcher.contract_address);
 }
@@ -140,10 +127,7 @@ fn test_non_owner_cannot_create_audition() {
     let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
-            session_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.end_timestamp,
+            session_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
         );
 
     stop_cheat_caller_address(dispatcher.contract_address);
@@ -291,12 +275,7 @@ fn test_cannot_create_season_when_paused() {
     // Try to create a season when paused
     let session_id = 1;
     let test_season = create_test_season(session_id);
-    dispatcher
-        .create_session(
-            test_season.genre,
-            test_season.name,
-            test_season.end_timestamp,
-        );
+    dispatcher.create_session(test_season.genre, test_season.name, test_season.end_timestamp);
 
     stop_cheat_caller_address(dispatcher.contract_address);
 }
@@ -316,10 +295,7 @@ fn test_cannot_create_audition_when_paused() {
     let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
-            session_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.end_timestamp,
+            session_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
         );
 
     stop_cheat_caller_address(dispatcher.contract_address);
@@ -363,22 +339,14 @@ fn test_can_perform_operations_after_resume() {
     // Create a season after resuming
     let session_id = 1;
     let test_season = create_test_season(session_id);
-    dispatcher
-        .create_session(
-            test_season.genre,
-            test_season.name,
-            test_season.end_timestamp,
-        );
+    dispatcher.create_session(test_season.genre, test_season.name, test_season.end_timestamp);
 
     // Create an audition after resuming
     let audition_id = 1;
     let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
-            session_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.end_timestamp,
+            session_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
         );
 
     // Verify season was created

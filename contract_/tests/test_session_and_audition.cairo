@@ -5,7 +5,8 @@ use contract_::audition::session_and_audition::{
 };
 use contract_::events::{
     AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-    AuditionUpdated, PriceDeposited, PriceDistributed, SessionCreated, SessionDeleted, SessionUpdated,
+    AuditionUpdated, PriceDeposited, PriceDistributed, SessionCreated, SessionDeleted,
+    SessionUpdated,
 };
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -105,11 +106,7 @@ fn test_session_create() {
 
     // CREATE Session
     contract
-        .create_session(
-            default_session.genre,
-            default_session.name,
-            default_session.end_timestamp,
-        );
+        .create_session(default_session.genre, default_session.name, default_session.end_timestamp);
 
     // READ Session
     let read_session = contract.read_session(session_id);
@@ -164,11 +161,7 @@ fn test_update_session() {
 
     // CREATE Session
     contract
-        .create_session(
-            default_session.genre,
-            default_session.name,
-            default_session.end_timestamp,
-        );
+        .create_session(default_session.genre, default_session.name, default_session.end_timestamp);
 
     // UPDATE Session
     let updated_session = Session {
@@ -195,7 +188,8 @@ fn test_update_session() {
                     contract.contract_address,
                     SessionAndAudition::Event::SessionUpdated(
                         SessionUpdated {
-                            session_id: default_session.session_id, timestamp: get_block_timestamp(),
+                            session_id: default_session.session_id,
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -222,11 +216,7 @@ fn test_delete_session() {
 
     // CREATE Session
     contract
-        .create_session(
-            default_session.genre,
-            default_session.name,
-            default_session.end_timestamp,
-        );
+        .create_session(default_session.genre, default_session.name, default_session.end_timestamp);
 
     // DELETE Session
     contract.delete_session(session_id);
@@ -247,7 +237,8 @@ fn test_delete_session() {
                     contract.contract_address,
                     SessionAndAudition::Event::SessionDeleted(
                         SessionDeleted {
-                            session_id: default_session.session_id, timestamp: get_block_timestamp(),
+                            session_id: default_session.session_id,
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -1443,11 +1434,7 @@ fn test_all_crud_operations() {
 
     // CREATE Session
     contract
-        .create_session(
-            default_session.genre,
-            default_session.name,
-            default_session.end_timestamp,
-        );
+        .create_session(default_session.genre, default_session.name, default_session.end_timestamp);
 
     // READ Session
     let read_session = contract.read_session(session_id);

@@ -68,11 +68,8 @@ fn setup_contract_with_oracle() -> ISessionAndAuditionDispatcher {
 fn create_test_audition(contract: ISessionAndAuditionDispatcher, audition_id: felt252) {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
-        .create_audition(
-            1, // session_id
-            'Pop',
-            'Test Audition',
-            1675123200, // end_timestamp
+        .create_audition(1, // session_id
+        'Pop', 'Test Audition', 1675123200 // end_timestamp
         );
     stop_cheat_caller_address(contract.contract_address);
 }
