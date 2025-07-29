@@ -5,7 +5,7 @@ pub mod errors;
 pub mod events;
 pub mod token_factory;
 pub mod audition {
-    pub mod season_and_audition;
+    pub mod session_and_audition;
 }
 pub mod governance {
     pub mod GovernanceToken;
