@@ -477,13 +477,17 @@ pub mod SeasonAndAudition {
             season_id: felt252,
             genre: felt252,
             name: felt252,
-            start_timestamp: felt252,
             end_timestamp: felt252,
-            paused: bool,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
+            let current_time = get_block_timestamp();
+            assert(
+                end_timestamp > current_time, 'Audition ends in past',
+            );
+
+            let audition_id = self.total_auditions.read() + 1;
             self
                 .auditions
                 .entry(audition_id)
@@ -492,6 +496,9 @@ pub mod SeasonAndAudition {
                         audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused,
                     },
                 );
+
+            // Update total auditions counter
+            self.total_auditions.write(audition_id);
 
             self
                 .emit(
