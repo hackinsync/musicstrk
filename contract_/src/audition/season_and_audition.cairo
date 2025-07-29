@@ -1,8 +1,8 @@
 use starknet::ContractAddress;
 
 #[derive(Drop, Serde, Default, starknet::Store)]
-pub struct Season {
-    pub season_id: felt252,
+pub struct Session {
+    pub session_id: felt252,
     pub genre: felt252,
     pub name: felt252,
     pub start_timestamp: felt252,
@@ -13,7 +13,7 @@ pub struct Season {
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Audition {
     pub audition_id: felt252,
-    pub season_id: felt252,
+    pub session_id: felt252,
     pub genre: felt252,
     pub name: felt252,
     pub start_timestamp: felt252,
@@ -54,23 +54,23 @@ pub struct Appeal {
 
 // Define the contract interface
 #[starknet::interface]
-pub trait ISeasonAndAudition<TContractState> {
-    fn create_season(
+pub trait ISessionAndAudition<TContractState> {
+    fn create_session(
         ref self: TContractState,
-        season_id: felt252,
+        session_id: felt252,
         genre: felt252,
         name: felt252,
         start_timestamp: felt252,
         end_timestamp: felt252,
         paused: bool,
     );
-    fn read_season(self: @TContractState, season_id: felt252) -> Season;
-    fn update_season(ref self: TContractState, season_id: felt252, season: Season);
-    fn delete_season(ref self: TContractState, season_id: felt252);
+    fn read_session(self: @TContractState, session_id: felt252) -> Session;
+    fn update_session(ref self: TContractState, session_id: felt252, session: Session);
+    fn delete_session(ref self: TContractState, session_id: felt252);
     fn create_audition(
         ref self: TContractState,
         audition_id: felt252,
-        season_id: felt252,
+        session_id: felt252,
         genre: felt252,
         name: felt252,
         start_timestamp: felt252,
@@ -251,7 +251,7 @@ pub trait ISeasonAndAudition<TContractState> {
 }
 
 #[starknet::contract]
-pub mod SeasonAndAudition {
+pub mod SessionAndAudition {
     use OwnableComponent::{HasComponent, InternalTrait};
     use contract_::errors::errors;
     use core::num::traits::Zero;
@@ -271,9 +271,9 @@ pub mod SeasonAndAudition {
         AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
         AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
         OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted,
-        ResumedAll, SeasonCreated, SeasonDeleted, SeasonUpdated, VoteRecorded,
+        ResumedAll, SessionCreated, SessionDeleted, SessionUpdated, VoteRecorded,
     };
-    use super::{Appeal, Audition, Evaluation, ISeasonAndAudition, Season, Vote};
+    use super::{Appeal, Audition, Evaluation, ISessionAndAudition, Session, Vote};
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -289,7 +289,7 @@ pub mod SeasonAndAudition {
     #[storage]
     struct Storage {
         whitelisted_oracles: Map<ContractAddress, bool>,
-        seasons: Map<felt252, Season>,
+        sessions: Map<felt252, Session>,
         auditions: Map<felt252, Audition>,
         votes: Map<(felt252, felt252, felt252), Vote>,
         global_paused: bool,
@@ -363,9 +363,9 @@ pub mod SeasonAndAudition {
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
-        SeasonCreated: SeasonCreated,
-        SeasonUpdated: SeasonUpdated,
-        SeasonDeleted: SeasonDeleted,
+        SessionCreated: SessionCreated,
+        SessionUpdated: SessionUpdated,
+        SessionDeleted: SessionDeleted,
         AuditionCreated: AuditionCreated,
         AuditionUpdated: AuditionUpdated,
         AuditionDeleted: AuditionDeleted,
@@ -400,10 +400,10 @@ pub mod SeasonAndAudition {
     }
 
     #[abi(embed_v0)]
-    impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
-        fn create_season(
+    impl ISessionAndAuditionImpl of ISessionAndAudition<ContractState> {
+        fn create_session(
             ref self: ContractState,
-            season_id: felt252,
+            session_id: felt252,
             genre: felt252,
             name: felt252,
             start_timestamp: felt252,
@@ -414,46 +414,46 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
 
             self
-                .seasons
-                .entry(season_id)
-                .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
+                .sessions
+                .entry(session_id)
+                .write(Session { session_id, genre, name, start_timestamp, end_timestamp, paused });
 
             self
                 .emit(
-                    Event::SeasonCreated(
-                        SeasonCreated { season_id, genre, name, timestamp: get_block_timestamp() },
+                    Event::SessionCreated(
+                        SessionCreated { session_id, genre, name, timestamp: get_block_timestamp() },
                     ),
                 );
         }
 
-        fn read_season(self: @ContractState, season_id: felt252) -> Season {
-            self.seasons.entry(season_id).read()
+        fn read_session(self: @ContractState, session_id: felt252) -> Session {
+            self.sessions.entry(session_id).read()
         }
 
-        fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
+        fn update_session(ref self: ContractState, session_id: felt252, session: Session) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
-            self.seasons.entry(season_id).write(season);
+            self.sessions.entry(session_id).write(session);
             self
                 .emit(
-                    Event::SeasonUpdated(
-                        SeasonUpdated { season_id, timestamp: get_block_timestamp() },
+                    Event::SessionUpdated(
+                        SessionUpdated { session_id, timestamp: get_block_timestamp() },
                     ),
                 );
         }
 
-        fn delete_season(ref self: ContractState, season_id: felt252) {
+        fn delete_session(ref self: ContractState, session_id: felt252) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
-            let default_season: Season = Default::default();
+            let default_session: Session = Default::default();
 
-            self.seasons.entry(season_id).write(default_season);
+            self.sessions.entry(session_id).write(default_session);
             self
                 .emit(
-                    Event::SeasonDeleted(
-                        SeasonDeleted { season_id, timestamp: get_block_timestamp() },
+                    Event::SessionDeleted(
+                        SessionDeleted { session_id, timestamp: get_block_timestamp() },
                     ),
                 );
         }
@@ -461,7 +461,7 @@ pub mod SeasonAndAudition {
         fn create_audition(
             ref self: ContractState,
             audition_id: felt252,
-            season_id: felt252,
+            session_id: felt252,
             genre: felt252,
             name: felt252,
             start_timestamp: felt252,
@@ -476,7 +476,7 @@ pub mod SeasonAndAudition {
                 .entry(audition_id)
                 .write(
                     Audition {
-                        audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused,
+                        audition_id, session_id, genre, name, start_timestamp, end_timestamp, paused,
                     },
                 );
 
@@ -484,7 +484,7 @@ pub mod SeasonAndAudition {
                 .emit(
                     Event::AuditionCreated(
                         AuditionCreated {
-                            audition_id, season_id, genre, name, timestamp: get_block_timestamp(),
+                            audition_id, session_id, genre, name, timestamp: get_block_timestamp(),
                         },
                     ),
                 );
