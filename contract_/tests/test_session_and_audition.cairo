@@ -289,11 +289,11 @@ fn test_create_audition() {
     assert!(read_audition.genre == default_audition.genre, "Failed to read audition genre");
     assert!(read_audition.name == default_audition.name, "Failed to read audition name");
     assert!(
-        read_audition.start_timestamp == default_audition.start_timestamp,
+        read_audition.start_timestamp == get_block_timestamp().into(),
         "Failed to read audition start timestamp",
     );
     assert!(
-        read_audition.end_timestamp == get_block_timestamp().into(),
+        read_audition.end_timestamp == default_audition.end_timestamp,
         "Failed to read audition end timestamp",
     );
     assert!(!read_audition.paused, "Failed to read audition paused");
@@ -2786,7 +2786,7 @@ fn test_submit_evaluation_success() {
 fn test_multiple_judges_submit_evaluation_for_same_performer() {
     let (contract, _, _) = deploy_contract();
 
-    let audition_id: felt252 = 42;
+    let audition_id: felt252 = 1; // Unique ID starts from 1
     let session_id: felt252 = 7;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -2864,7 +2864,7 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
 fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     let (contract, _, _) = deploy_contract();
 
-    let audition_id: felt252 = 43;
+    let audition_id: felt252 = 1; // Unique audition ID starts from 1
     let session_id: felt252 = 8;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
