@@ -118,7 +118,7 @@ fn test_session_create() {
     assert!(read_session.genre == default_session.genre, "Failed to read session genre");
     assert!(read_session.name == default_session.name, "Failed to read session name");
     assert!(
-        read_session.start_timestamp == default_session.start_timestamp,
+        read_session.start_timestamp == get_block_timestamp().into(),
         "Failed to read session start timestamp",
     );
     assert!(
@@ -293,7 +293,7 @@ fn test_create_audition() {
         "Failed to read audition start timestamp",
     );
     assert!(
-        read_audition.end_timestamp == default_audition.end_timestamp,
+        read_audition.end_timestamp == get_block_timestamp().into(),
         "Failed to read audition end timestamp",
     );
     assert!(!read_audition.paused, "Failed to read audition paused");

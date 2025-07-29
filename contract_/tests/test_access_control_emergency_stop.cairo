@@ -30,7 +30,7 @@ fn NON_ORACLE() -> ContractAddress {
 // Helper function to deploy the contract
 fn deploy_contract() -> ISessionAndAuditionDispatcher {
     // declare the contract
-    let contract_class = declare("SeasonAndAudition")
+    let contract_class = declare("SessionAndAudition")
         .expect('Failed to declare contract')
         .contract_class();
 
@@ -382,8 +382,8 @@ fn test_can_perform_operations_after_resume() {
         );
 
     // Verify season was created
-    let read_season = dispatcher.read_session(session_id);
-    assert(read_season.session_id == session_id, 'Session should be created');
+    let read_session = dispatcher.read_session(session_id);
+    assert(read_session.session_id == session_id, 'Session should be created');
 
     // Verify audition was created
     let read_audition = dispatcher.read_audition(audition_id);
