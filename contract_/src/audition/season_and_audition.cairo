@@ -358,6 +358,9 @@ pub mod SeasonAndAudition {
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
         appeals: Map<u256, Appeal>,
+        /// @notice ID counters
+        total_auditions: felt252,
+        total_seasons: felt252,
     }
 
     #[event]
@@ -406,17 +409,27 @@ pub mod SeasonAndAudition {
             season_id: felt252,
             genre: felt252,
             name: felt252,
-            start_timestamp: felt252,
             end_timestamp: felt252,
-            paused: bool,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
+            let current_time = get_block_timestamp();
+            assert(
+                end_timestamp > current_time, 'Session ends in past',
+            );
+            
+            let season_id = self.total_seasons.read() + 1;
+            
+
+            // Store the new session
             self
                 .seasons
                 .entry(season_id)
                 .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
+
+            // Update total seasons counter
+            self.total_seasons.write(season_id);
 
             self
                 .emit(
