@@ -65,6 +65,7 @@ fn create_default_season(season_id: felt252) -> Season {
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: false,
+        ended: false,
     }
 }
 
@@ -184,6 +185,7 @@ fn test_update_season() {
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: true,
+        ended: false,
     };
     contract.update_season(season_id, updated_season);
 
@@ -1542,6 +1544,7 @@ fn test_all_crud_operations() {
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: true,
+        ended: false,
     };
     contract.update_season(season_id, updated_season);
     let read_updated_season = contract.read_season(season_id);
@@ -3511,4 +3514,324 @@ fn test_perform_aggregate_score_calculation_successful() {
     ); // aggregate_score: [(530776410631550129238593, 4), (530776410631550129238594, 6)]
 
     stop_cheat_block_timestamp(contract.contract_address);
+}
+
+#[test]
+fn test_pause_season_success() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+}
+
+
+#[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_pause_season_should_panic_if_paused_by_non_owner() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_pause_season_should_panic_if_season_is_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season does not exist')]
+fn test_pause_season_should_panic_if_season_doesnt_exist() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season has already ended')]
+fn test_pause_season_should_panic_if_season_is_ended() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    start_cheat_block_timestamp(contract.contract_address, default_season.end_timestamp + 1);
+    contract.pause_season(season_id);
+    stop_cheat_block_timestamp(contract.contract_address);
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+}
+
+#[test]
+fn test_resume_season_success() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(!is_paused, 'Season should be resumed');
+
+    let read_season = contract.read_season(season_id);
+    assert(!read_season.paused, 'Season should be resumed');
+}
+
+
+#[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_resume_season_should_panic_if_non_owner() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+    stop_cheat_caller_address(contract.contract_address);
+
+    contract.resume_season(season_id);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season does not exist')]
+fn test_resume_season_should_panic_if_season_doesnt_exist() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    contract.pause_season(season_id);
+
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season is not paused')]
+fn test_resume_season_should_panic_if_season_is_not_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season has already ended')]
+fn test_resume_season_should_panic_if_season_is_ended() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+    start_cheat_block_timestamp(contract.contract_address, default_season.end_timestamp + 1);
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
 }
