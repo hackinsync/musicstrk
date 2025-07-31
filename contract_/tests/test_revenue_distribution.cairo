@@ -1,14 +1,14 @@
 use contract_::IRevenueDistribution::{
     Category, IRevenueDistributionDispatcher, IRevenueDistributionDispatcherTrait,
 };
-use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
 use contract_::RevenueDistribution::RevenueDistribution;
+use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
 use contract_::events::{RevenueAddedEvent, RevenueDistributedEvent, TokenShareTransferred};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{
-    CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare, spy_events,
-    EventSpyAssertionsTrait,
+    CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
+    cheat_caller_address, declare, spy_events,
 };
 use starknet::{ContractAddress, get_block_timestamp};
 

@@ -1,4 +1,4 @@
-use contract_::governance::types::{Proposal, Comment, ProposalMetrics};
+use contract_::governance::types::{Comment, Proposal, ProposalMetrics};
 use core::array::Array;
 use core::byte_array::ByteArray;
 use starknet::ContractAddress;
@@ -53,20 +53,20 @@ pub trait IProposalSystem<TContractState> {
 
 #[starknet::contract]
 pub mod ProposalSystem {
+    use contract_::events::{
+        ArtistRegistered, CommentAdded, ProposalCreated, ProposalStatusChanged, VoteCast,
+    };
+    use contract_::governance::types::{Comment, Proposal, ProposalMetrics};
     use contract_::token_factory::{
         IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
-    };
-    use contract_::events::{
-        ProposalCreated, ProposalStatusChanged, CommentAdded, VoteCast, ArtistRegistered,
-    };
-    use contract_::governance::types::{Proposal, Comment, ProposalMetrics};
-    use starknet::{
-        ContractAddress, get_caller_address, get_block_timestamp, contract_address_const,
     };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
+    };
+    use starknet::{
+        ContractAddress, contract_address_const, get_block_timestamp, get_caller_address,
     };
     use super::*;
 
@@ -251,7 +251,7 @@ pub mod ProposalSystem {
                 }
 
                 current_id += 1;
-            };
+            }
 
             proposals
         }
@@ -273,7 +273,7 @@ pub mod ProposalSystem {
                     proposals.append(proposal);
                 }
                 current_id += 1;
-            };
+            }
 
             proposals
         }
@@ -289,7 +289,7 @@ pub mod ProposalSystem {
                     proposals.append(proposal);
                 }
                 current_id += 1;
-            };
+            }
 
             proposals
         }
@@ -307,7 +307,7 @@ pub mod ProposalSystem {
                     proposals.append(proposal);
                 }
                 current_id += 1;
-            };
+            }
 
             proposals
         }
@@ -325,7 +325,7 @@ pub mod ProposalSystem {
                     active_proposals.append(proposal.id);
                 }
                 current_id += 1;
-            };
+            }
 
             active_proposals
         }
@@ -377,7 +377,7 @@ pub mod ProposalSystem {
                 comments.append(comment);
                 added_count += 1;
                 current_index += 1;
-            };
+            }
 
             comments
         }

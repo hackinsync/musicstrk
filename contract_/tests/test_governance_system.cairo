@@ -1,19 +1,21 @@
-use contract_::governance::{
-    GovernanceToken::{
-        IERC20ExtensionDispatcher, IERC20ExtensionDispatcherTrait, IGovernanceTokenDispatcher,
-        IGovernanceTokenDispatcherTrait, GovernanceToken,
-    },
-    ProposalSystem::{IProposalSystemDispatcher, IProposalSystemDispatcherTrait, ProposalSystem},
-    VotingMechanism::{IVotingMechanismDispatcher, IVotingMechanismDispatcherTrait, VotingMechanism},
-    types::VoteType,
+use contract_::events::{
+    ArtistRegistered, CommentAdded, ProposalCreated, ProposalStatusChanged, RoleGranted,
+    TokenTransferDuringVoting, VoteCast, VoteDelegated, VotingPeriodEnded, VotingPeriodStarted,
 };
+use contract_::governance::GovernanceToken::{
+    GovernanceToken, IERC20ExtensionDispatcher, IERC20ExtensionDispatcherTrait,
+    IGovernanceTokenDispatcher, IGovernanceTokenDispatcherTrait,
+};
+use contract_::governance::ProposalSystem::{
+    IProposalSystemDispatcher, IProposalSystemDispatcherTrait, ProposalSystem,
+};
+use contract_::governance::VotingMechanism::{
+    IVotingMechanismDispatcher, IVotingMechanismDispatcherTrait, VotingMechanism,
+};
+use contract_::governance::types::VoteType;
 use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
     MusicShareTokenFactory,
-};
-use contract_::events::{
-    ProposalCreated, VoteDelegated, VoteCast, ProposalStatusChanged, CommentAdded, ArtistRegistered,
-    RoleGranted, VotingPeriodEnded, VotingPeriodStarted, TokenTransferDuringVoting,
 };
 use core::array::ArrayTrait;
 use core::result::ResultTrait;
@@ -24,7 +26,8 @@ use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
     cheat_block_timestamp, cheat_caller_address, declare, spy_events,
 };
-use starknet::{class_hash::ClassHash, ContractAddress, contract_address_const, get_block_timestamp};
+use starknet::class_hash::ClassHash;
+use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 
 // Address constants for testing
 fn ARTIST_1() -> ContractAddress {
@@ -606,7 +609,7 @@ fn test_pagination() {
     while i < 5_u64 {
         proposal_system.submit_proposal(token_address, "Proposal", "Description", 'OTHER');
         i += 1;
-    };
+    }
 
     // Test pagination
     let page0 = proposal_system.get_proposals(ZERO_ADDRESS(), 255, 'ALL', 0, 2); // First 2

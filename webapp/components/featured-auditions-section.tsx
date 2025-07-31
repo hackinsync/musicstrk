@@ -44,20 +44,13 @@ export function FeaturedAuditionsSection() {
       <div className="relative z-20 container mx-auto px-4 pt-20 pb-32">
         {/* Header content */}
         <div className="flex flex-col items-center text-center mb-12">
-          <div className="inline-block mb-4">
-            <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-[#00E5FF]/20 text-[#00E5FF] mb-4">
-              <Zap className="w-3 h-3 mr-1" />
-              MUSIC NFTs
-            </span>
-          </div>
-
-          <h2 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-[#00E5FF] to-[#FF3D71] bg-clip-text text-transparent mb-4">
+          <h2 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-[#00E5FF] to-[#FF3D71] bg-clip-text text-transparent mb-4 leading-normal">
             BUIDLing Music Auditions on Starknet
           </h2>
 
           <p className="text-lg md:text-xl text-gray-300 max-w-3xl mb-8">
-            On-chain. Transparent. Open to All Genres. Powered by STRK &
-            stablecoins.
+            On-chain. Transparent. Open to All Genres. <br />
+            Powered by Starknet.
           </p>
 
           <Button
