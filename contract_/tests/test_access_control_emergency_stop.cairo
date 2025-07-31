@@ -57,6 +57,7 @@ fn create_test_season(season_id: felt252) -> Season {
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: false,
+        ended: false,
     }
 }
 
@@ -422,3 +423,4 @@ fn test_can_perform_operations_after_resume() {
     dispatcher.submit_results(audition_id, 10, 100);
     stop_cheat_caller_address(dispatcher.contract_address);
 }
+

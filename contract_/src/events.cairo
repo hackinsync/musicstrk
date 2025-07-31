@@ -362,3 +362,24 @@ pub struct AppealResolved {
     pub resolver: ContractAddress,
     pub resolution_comment: felt252,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct SeasonPaused {
+    #[key]
+    pub season_id: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct SeasonResumed {
+    #[key]
+    pub season_id: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct SeasonEnded {
+    #[key]
+    pub season_id: felt252,
+    pub timestamp: u64,
+}
