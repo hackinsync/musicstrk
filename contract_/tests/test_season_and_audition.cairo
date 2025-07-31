@@ -3829,8 +3829,8 @@ fn test_resume_season_should_panic_if_season_is_ended() {
             default_season.paused,
         );
 
-    contract.pause_season(season_id);
     start_cheat_block_timestamp(contract.contract_address, default_season.end_timestamp + 1);
+    contract.pause_season(season_id);
     contract.resume_season(season_id);
 
     stop_cheat_caller_address(contract.contract_address);
