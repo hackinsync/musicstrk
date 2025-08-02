@@ -6,6 +6,7 @@ pub mod events;
 pub mod token_factory;
 pub mod audition {
     pub mod season_and_audition;
+    pub mod vote_staking_structs;
 }
 pub mod governance {
     pub mod GovernanceToken;
