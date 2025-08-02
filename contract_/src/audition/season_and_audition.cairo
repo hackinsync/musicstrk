@@ -1,5 +1,5 @@
-use starknet::ContractAddress;
 use contract_::audition::vote_staking_structs::*;
+use starknet::ContractAddress;
 
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
@@ -285,6 +285,7 @@ pub trait ISeasonAndAudition<TContractState> {
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use OwnableComponent::{HasComponent, InternalTrait};
+    use contract_::audition::vote_staking_structs::*;
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -306,7 +307,6 @@ pub mod SeasonAndAudition {
         ResumedAll, SeasonCreated, SeasonDeleted, SeasonUpdated, VoteRecorded,
     };
     use super::{Appeal, Audition, Evaluation, ISeasonAndAudition, Season, Vote};
-    use contract_::audition::vote_staking_structs::*;
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
