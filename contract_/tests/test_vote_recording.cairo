@@ -9,6 +9,7 @@ use snforge_std::{
     start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
+use crate::test_season_and_audition::create_default_season;
 
 // Test accounts
 fn OWNER() -> ContractAddress {
@@ -89,6 +90,20 @@ fn test_record_vote_success() {
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let weight: felt252 = 100;
+    let season_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    stop_cheat_caller_address(contract.contract_address);
 
     // Create audition first
     create_test_audition(contract, audition_id);
@@ -166,7 +181,6 @@ fn test_record_vote_unauthorized_should_fail() {
 #[test]
 fn test_record_multiple_votes_different_combinations() {
     let contract = setup_contract_with_oracle();
-
     let audition_id: felt252 = 1;
     let performer1: felt252 = 'performer1';
     let performer2: felt252 = 'performer2';
@@ -174,6 +188,20 @@ fn test_record_multiple_votes_different_combinations() {
     let voter2: felt252 = 'voter2';
     let weight: felt252 = 100;
 
+    let season_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    stop_cheat_caller_address(contract.contract_address);
     // Create audition first
     create_test_audition(contract, audition_id);
 
@@ -214,7 +242,20 @@ fn test_record_votes_different_auditions() {
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let weight: felt252 = 100;
+    let season_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    stop_cheat_caller_address(contract.contract_address);
     // Create auditions first
     create_test_audition(contract, audition_id1);
     create_test_audition(contract, audition_id2);
@@ -248,9 +289,23 @@ fn test_get_vote_nonexistent_returns_default() {
     let audition_id: felt252 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
+    let season_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
 
-    // Create audition first
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     create_test_audition(contract, audition_id);
+
+    stop_cheat_caller_address(contract.contract_address);
 
     // Try to get non-existent vote
     start_cheat_caller_address(contract.contract_address, OWNER());
