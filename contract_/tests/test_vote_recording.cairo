@@ -137,6 +137,45 @@ fn test_record_vote_success() {
         );
 }
 
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_record_vote_should_panic_if_season_paused() {
+    let contract = setup_contract_with_oracle();
+    let mut spy = spy_events();
+
+    let audition_id: felt252 = 1;
+    let performer: felt252 = 'performer1';
+    let voter: felt252 = 'voter1';
+    let weight: felt252 = 100;
+    let season_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Create audition first
+    create_test_audition(contract, audition_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Record vote as oracle
+    start_cheat_caller_address(contract.contract_address, ORACLE());
+    contract.record_vote(audition_id, performer, voter, weight);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
 #[test]
 #[should_panic(expect: ('Vote already exists',))]
 fn test_record_vote_duplicate_should_fail() {
