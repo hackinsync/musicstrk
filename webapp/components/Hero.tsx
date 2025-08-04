@@ -102,7 +102,7 @@ export default function HeroSection() {
         setLoading(true)
 
         try {
-            const response = await fetch("https://vm-71179753.truehost.dev/musicstrk-api/api/waitlist", {
+            const response = await fetch("https://apis.musicstrk.fun/api/waitlist", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
