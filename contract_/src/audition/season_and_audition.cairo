@@ -10,6 +10,13 @@ pub struct Season {
     pub paused: bool,
 }
 
+#[derive(Drop, Serde, Copy, starknet::Store)]
+pub struct ArtistRegistration {
+    pub address: ContractAddress,
+    pub audition_id: felt252,
+    pub tiktok_id: felt252,
+}
+
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Audition {
     pub audition_id: felt252,
