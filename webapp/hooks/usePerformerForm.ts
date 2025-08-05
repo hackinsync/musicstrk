@@ -5,15 +5,18 @@ import { STEPS } from "@/constants/formConstants"
 export interface FormData {
   stageName: string
   genre: string
+  email: string
   tiktokAuditionUrl: string
   tiktokProfileUrl: string
   socialX: string
   walletAddress: string
+  tiktokAuthData?: any
 }
 
 export interface FormErrors {
   stageName: string
   genre: string
+  email: string
   tiktokAuditionUrl: string
   tiktokProfileUrl: string
   socialX: string
@@ -28,16 +31,19 @@ export function usePerformerForm() {
   const [formData, setFormData] = useState<FormData>({
     stageName: "",
     genre: "",
+    email: "",
     tiktokAuditionUrl: "",
     tiktokProfileUrl: "",
     socialX: "",
     walletAddress: "",
+    tiktokAuthData: null,
   })
 
   // Form validation state
   const [errors, setErrors] = useState<FormErrors>({
     stageName: "",
     genre: "",
+    email: "",
     tiktokAuditionUrl: "",
     tiktokProfileUrl: "",
     socialX: "",
@@ -64,6 +70,15 @@ export function usePerformerForm() {
     }
   }
 
+  // Handle TikTok auth success
+  const handleTikTokAuthSuccess = (authData: any) => {
+    setFormData((prev) => ({ 
+      ...prev, 
+      tiktokAuthData: authData,
+      tiktokProfileUrl: `https://www.tiktok.com/@${authData.userInfo.username}`
+    }))
+  }
+
   // Validate current step
   const validateStep = () => {
     let isValid = true
@@ -77,6 +92,27 @@ export function usePerformerForm() {
 
       if (!formData.genre) {
         newErrors.genre = "Please select a genre"
+        isValid = false
+      }
+
+      // Email validation
+      if (!formData.email.trim()) {
+        newErrors.email = "Email is required"
+        isValid = false
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = "Please enter a valid email address"
+        isValid = false
+      }
+    }
+
+    if (currentStep === STEPS.TIKTOK_AUTH) {
+      // TikTok auth validation
+      if (!formData.tiktokAuthData) {
+        toast({
+          variant: "destructive",
+          title: "TikTok Authentication Required",
+          description: "Please authenticate with your TikTok account to continue",
+        })
         isValid = false
       }
     }
@@ -96,6 +132,15 @@ export function usePerformerForm() {
       } else if (!formData.tiktokProfileUrl.includes("tiktok.com/@")) {
         newErrors.tiktokProfileUrl = "Please enter a valid TikTok profile URL"
         isValid = false
+      }
+
+      // Verify TikTok profile matches authenticated account
+      if (formData.tiktokAuthData && formData.tiktokProfileUrl) {
+        const expectedProfileUrl = `https://www.tiktok.com/@${formData.tiktokAuthData.userInfo.username}`
+        if (formData.tiktokProfileUrl !== expectedProfileUrl) {
+          newErrors.tiktokProfileUrl = "Profile URL must match your authenticated TikTok account"
+          isValid = false
+        }
       }
 
       if (formData.socialX && !formData.socialX.includes("twitter.com/") && !formData.socialX.includes("x.com/")) {
@@ -132,16 +177,53 @@ export function usePerformerForm() {
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      // Prepare submission data
+      const submissionData = {
+        stageName: formData.stageName,
+        genre: formData.genre,
+        email: formData.email,
+        tiktokAuditionUrl: formData.tiktokAuditionUrl,
+        tiktokProfileUrl: formData.tiktokProfileUrl,
+        socialX: formData.socialX,
+        walletAddress: formData.walletAddress,
+        tiktokAuthData: formData.tiktokAuthData,
+      }
 
-    setIsSubmitting(false)
-    setCurrentStep(STEPS.SUCCESS)
+      // Get auth token (you'll need to implement this based on your auth system)
+      const token = localStorage.getItem('auth_token') || 'dummy_token_for_testing'
 
-    toast({
-      title: "Registration Complete! 🚀",
-      description: "Your audition has been submitted successfully.",
-    })
+      const response = await fetch('/api/performers/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(submissionData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed')
+      }
+
+      setCurrentStep(STEPS.SUCCESS)
+
+      toast({
+        title: "Registration Complete! 🚀",
+        description: "Your audition has been submitted successfully.",
+      })
+    } catch (error) {
+      console.error('Registration error:', error)
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: error instanceof Error ? error.message : "There was an error submitting your registration. Please try again.",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return {
@@ -153,6 +235,7 @@ export function usePerformerForm() {
     isSubmitting,
     handleChange,
     handleSelectChange,
+    handleTikTokAuthSuccess,
     handleNext,
     handlePrevious,
     handleSubmit,

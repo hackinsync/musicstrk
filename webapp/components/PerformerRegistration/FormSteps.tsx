@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormData, FormErrors } from "@/hooks/usePerformerForm"
 import { STEPS, MUSIC_GENRES } from "@/constants/formConstants"
+import { TikTokAuthStep } from "./TikTokAuthStep"
 
 interface FormStepProps {
   currentStep: number
@@ -13,6 +14,7 @@ interface FormStepProps {
   errors: FormErrors
   handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleSelectChange: (name: string, value: string) => void
+  handleTikTokAuthSuccess: (authData: any) => void 
   handleNext: () => void
   handlePrevious: () => void
   handleSubmit: () => void
@@ -27,6 +29,7 @@ export function FormStepContent({
   errors, 
   handleChange, 
   handleSelectChange,
+  handleTikTokAuthSuccess,
   handleNext,
   handlePrevious,
   handleSubmit,
@@ -42,6 +45,12 @@ export function FormStepContent({
                  errors={errors} 
                  handleChange={handleChange} 
                  handleSelectChange={handleSelectChange} 
+               />
+      case STEPS.TIKTOK_AUTH:  // Added
+        return <TikTokAuthStep 
+                 onAuthSuccess={handleTikTokAuthSuccess}
+                 onNext={handleNext}
+                 isAuthenticated={!!formData.tiktokAuthData}
                />
       case STEPS.SOCIAL_MEDIA:
         return <SocialMediaStep 
@@ -63,7 +72,7 @@ export function FormStepContent({
   }
 
   const renderFooterButtons = () => {
-    if (currentStep === STEPS.SUCCESS) return null
+    if (currentStep === STEPS.SUCCESS || currentStep === STEPS.TIKTOK_AUTH) return null
 
     return (
       <div className="flex justify-between">
@@ -149,6 +158,25 @@ function BasicInfoStep({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="email" className="text-[#00f5d4] font-semibold">
+          Email Address
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={handleChange}
+          placeholder="your.email@example.com"
+          className={`bg-[#1a1a3a] border-[#00f5d4]/50 text-white focus:ring-2 focus:ring-[#ff6b6b] transition-all duration-300 ${
+            errors.email ? "border-red-500" : ""
+          }`}
+        />
+        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+        <p className="text-xs text-white/50">We'll use this to contact you about your audition</p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="genre" className="text-[#00f5d4] font-semibold">
           Music Genre
         </Label>
@@ -215,8 +243,12 @@ function SocialMediaStep({
           className={`bg-[#1a1a3a] border-[#00f5d4]/50 text-white focus:ring-2 focus:ring-[#ff6b6b] transition-all duration-300 ${
             errors.tiktokProfileUrl ? "border-red-500" : ""
           }`}
+          readOnly={!!formData.tiktokAuthData}
         />
         {errors.tiktokProfileUrl && <p className="text-red-500 text-xs mt-1">{errors.tiktokProfileUrl}</p>}
+        {formData.tiktokAuthData && (
+          <p className="text-xs text-green-400">✓ Auto-filled from authenticated TikTok account</p>
+        )}
       </div>
 
       <div className="space-y-2">
