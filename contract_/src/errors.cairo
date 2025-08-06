@@ -26,6 +26,5 @@ pub mod errors {
 
     // Voting errors (6000-6999)
     pub const DUPLICATE_VOTE: felt252 = 'Vote already exists';
-
     // Vote Staking errors
 }
