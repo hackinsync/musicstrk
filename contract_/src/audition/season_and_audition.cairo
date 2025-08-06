@@ -5,9 +5,10 @@ pub struct Season {
     pub season_id: felt252,
     pub genre: felt252,
     pub name: felt252,
-    pub start_timestamp: felt252,
-    pub end_timestamp: felt252,
+    pub start_timestamp: u64,
+    pub end_timestamp: u64,
     pub paused: bool,
+    pub ended: bool,
 }
 
 #[derive(Drop, Serde, Default, starknet::Store)]
@@ -60,8 +61,8 @@ pub trait ISeasonAndAudition<TContractState> {
         season_id: felt252,
         genre: felt252,
         name: felt252,
-        start_timestamp: felt252,
-        end_timestamp: felt252,
+        start_timestamp: u64,
+        end_timestamp: u64,
         paused: bool,
     );
     fn read_season(self: @TContractState, season_id: felt252) -> Season;
@@ -146,6 +147,12 @@ pub trait ISeasonAndAudition<TContractState> {
     fn is_audition_ended(self: @TContractState, audition_id: felt252) -> bool;
     fn audition_exists(self: @TContractState, audition_id: felt252) -> bool;
 
+    fn pause_season(ref self: TContractState, season_id: felt252);
+    fn resume_season(ref self: TContractState, season_id: felt252);
+    fn is_season_paused(self: @TContractState, season_id: felt252) -> bool;
+    fn is_season_ended(self: @TContractState, season_id: felt252) -> bool;
+    fn season_exists(self: @TContractState, season_id: felt252) -> bool;
+    fn end_season(ref self: TContractState, season_id: felt252);
 
     /// @notice adds a judge to an audition
     /// @dev only the owner can add a judge to an audition
@@ -262,16 +269,14 @@ pub mod SeasonAndAudition {
         Map, MutableVecTrait, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
     };
-    use starknet::{
-        ContractAddress, contract_address_const, get_block_timestamp, get_caller_address,
-        get_contract_address,
-    };
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
     use crate::events::{
         AggregateScoreCalculated, AppealResolved, AppealSubmitted, AuditionCalculationCompleted,
         AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
         AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
         OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted,
-        ResumedAll, SeasonCreated, SeasonDeleted, SeasonUpdated, VoteRecorded,
+        ResumedAll, SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed,
+        SeasonUpdated, VoteRecorded,
     };
     use super::{Appeal, Audition, Evaluation, ISeasonAndAudition, Season, Vote};
 
@@ -390,6 +395,9 @@ pub mod SeasonAndAudition {
         AggregateScoreCalculated: AggregateScoreCalculated,
         AppealSubmitted: AppealSubmitted,
         AppealResolved: AppealResolved,
+        SeasonPaused: SeasonPaused,
+        SeasonResumed: SeasonResumed,
+        SeasonEnded: SeasonEnded,
     }
 
     #[constructor]
@@ -406,8 +414,8 @@ pub mod SeasonAndAudition {
             season_id: felt252,
             genre: felt252,
             name: felt252,
-            start_timestamp: felt252,
-            end_timestamp: felt252,
+            start_timestamp: u64,
+            end_timestamp: u64,
             paused: bool,
         ) {
             self.ownable.assert_only_owner();
@@ -416,7 +424,17 @@ pub mod SeasonAndAudition {
             self
                 .seasons
                 .entry(season_id)
-                .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
+                .write(
+                    Season {
+                        season_id,
+                        genre,
+                        name,
+                        start_timestamp,
+                        end_timestamp,
+                        paused,
+                        ended: false,
+                    },
+                );
 
             self
                 .emit(
@@ -432,6 +450,7 @@ pub mod SeasonAndAudition {
 
         fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
             self.ownable.assert_only_owner();
+            self.assert_valid_season(season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
 
             self.seasons.entry(season_id).write(season);
@@ -445,6 +464,7 @@ pub mod SeasonAndAudition {
 
         fn delete_season(ref self: ContractState, season_id: felt252) {
             self.ownable.assert_only_owner();
+            self.assert_valid_season(season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
 
             let default_season: Season = Default::default();
@@ -470,7 +490,7 @@ pub mod SeasonAndAudition {
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
-
+            self.assert_valid_season(season_id);
             self
                 .auditions
                 .entry(audition_id)
@@ -496,6 +516,7 @@ pub mod SeasonAndAudition {
 
         fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {
             self.ownable.assert_only_owner();
+            self.assert_valid_season(audition.season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(!self.is_audition_paused(audition_id), 'Cannot update paused audition');
             assert(!self.is_audition_ended(audition_id), 'Cannot update ended audition');
@@ -515,6 +536,8 @@ pub mod SeasonAndAudition {
             assert(!self.is_audition_ended(audition_id), 'Cannot delete ended audition');
 
             let default_audition: Audition = Default::default();
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
 
             self.auditions.entry(audition_id).write(default_audition);
             self
@@ -538,6 +561,9 @@ pub mod SeasonAndAudition {
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is paused');
             self.assert_evaluation_weight_should_be_100(weight);
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
+
             self.audition_evaluation_weight.write(audition_id, weight);
             self.emit(Event::EvaluationWeightSet(EvaluationWeightSet { audition_id, weight }));
         }
@@ -567,6 +593,8 @@ pub mod SeasonAndAudition {
             assert(
                 !self.audition_calculation_completed.read(audition_id), 'Audition calculation done',
             );
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
             let (technical_weight, creativity_weight, presentation_weight) = self
                 .get_evaluation_weight(audition_id);
 
@@ -647,6 +675,8 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
 
             self.assert_judge_not_added(audition_id, judge_address);
             assert(!judge_address.is_zero(), 'Cannot be zero');
@@ -669,6 +699,8 @@ pub mod SeasonAndAudition {
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is paused');
             self.assert_judge_found(audition_id, judge_address);
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
 
             let judges: Array<ContractAddress> = self.get_judges(audition_id);
 
@@ -719,6 +751,8 @@ pub mod SeasonAndAudition {
             self.assert_judge_found(audition_id, judge);
             self.assert_evaluation_not_submitted(audition_id, performer, judge);
             self.assert_judge_point_is_not_more_than_10(criteria);
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
 
             self.evaluation_submission_status.write((audition_id, performer, judge), true);
             let mut new_evaluation_id = self.evaluation_count.read() + 1;
@@ -846,6 +880,9 @@ pub mod SeasonAndAudition {
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
             assert(amount > 0, 'Amount must be more than zero');
             assert(!token_address.is_zero(), 'Token address cannot be zero');
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
+
             let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
             assert(
                 existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
@@ -890,6 +927,8 @@ pub mod SeasonAndAudition {
             shares: [u256; 3],
         ) {
             self.assert_distributed(audition_id, winners, shares);
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
@@ -965,6 +1004,8 @@ pub mod SeasonAndAudition {
         ) {
             self.only_oracle();
             assert(!self.global_paused.read(), 'Contract is paused');
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
 
             // Check if vote already exists (duplicate vote prevention)
             let vote_key = (audition_id, performer, voter);
@@ -1005,7 +1046,8 @@ pub mod SeasonAndAudition {
         fn pause_audition(ref self: ContractState, audition_id: felt252) -> bool {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
-
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
             assert(!self.is_audition_paused(audition_id), 'Audition is already paused');
@@ -1092,11 +1134,83 @@ pub mod SeasonAndAudition {
             audition.audition_id != 0
         }
 
+
+        fn pause_season(ref self: ContractState, season_id: felt252) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            self.assert_valid_season(season_id);
+            let mut season = self.seasons.entry(season_id).read();
+            season.paused = true;
+            self.seasons.entry(season_id).write(season);
+            self
+                .emit(
+                    Event::SeasonPaused(
+                        SeasonPaused { season_id, timestamp: get_block_timestamp() },
+                    ),
+                );
+        }
+        fn resume_season(ref self: ContractState, season_id: felt252) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.season_exists(season_id), 'Season does not exist');
+            let mut season = self.seasons.entry(season_id).read();
+            assert(season.paused, 'Season is not paused');
+            season.paused = false;
+            self.seasons.entry(season_id).write(season);
+            self
+                .emit(
+                    Event::SeasonResumed(
+                        SeasonResumed { season_id, timestamp: get_block_timestamp() },
+                    ),
+                );
+        }
+
+        fn is_season_paused(self: @ContractState, season_id: felt252) -> bool {
+            let mut season = self.seasons.entry(season_id).read();
+            season.paused
+        }
+
+        fn is_season_ended(self: @ContractState, season_id: felt252) -> bool {
+            let mut season = self.seasons.entry(season_id).read();
+            let current_time = get_block_timestamp();
+            if season.end_timestamp != 0 {
+                let end_time_u64: u64 = season.end_timestamp;
+                let current_time_u64: u64 = current_time;
+
+                current_time_u64 >= end_time_u64
+            } else {
+                false
+            }
+        }
+
+        fn season_exists(self: @ContractState, season_id: felt252) -> bool {
+            let season = self.seasons.entry(season_id).read();
+            season.season_id != 0
+        }
+
+        fn end_season(ref self: ContractState, season_id: felt252) {
+            self.ownable.assert_only_owner();
+            assert(!self.global_paused.read(), 'Contract is paused');
+            assert(self.season_exists(season_id), 'Season does not exist');
+            assert(self.is_season_ended(season_id), 'Season has not ended');
+            let mut season = self.seasons.entry(season_id).read();
+            season.ended = true;
+            season.paused = false;
+            self.seasons.entry(season_id).write(season);
+            self
+                .emit(
+                    Event::SeasonEnded(SeasonEnded { season_id, timestamp: get_block_timestamp() }),
+                );
+        }
+
+
         // dummy implementation to register a performer to an audition
         fn register_performer(
             ref self: ContractState, audition_id: felt252, performer_id: felt252,
         ) {
             self.enrolled_performers.entry(audition_id).push(performer_id);
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
         }
 
@@ -1116,6 +1230,9 @@ pub mod SeasonAndAudition {
             let _ = self.evaluations.entry(evaluation_id).read();
             let existing_appeal = self.appeals.entry(evaluation_id).read();
             assert(existing_appeal.evaluation_id == 0, 'Appeal already exists');
+            let evaulation: Evaluation = self.evaluations.entry(evaluation_id).read();
+            let audition = self.auditions.entry(evaulation.audition_id).read();
+            self.assert_valid_season(audition.season_id);
             let appeal = Appeal {
                 evaluation_id, appellant, reason, resolved: false, resolution_comment: 0,
             };
@@ -1141,6 +1258,8 @@ pub mod SeasonAndAudition {
             let mut appeal = self.appeals.entry(evaluation_id).read();
             assert(appeal.evaluation_id != 0, 'Appeal does not exist');
             assert(!appeal.resolved, 'Appeal already resolved');
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
             appeal.resolved = true;
             appeal.resolution_comment = resolution_comment;
             self.appeals.write(evaluation_id, appeal);
@@ -1339,6 +1458,18 @@ pub mod SeasonAndAudition {
                     .len();
                 assert(performers_evaluations_len == judges_len, 'All players should be evaluated');
             }
+        }
+
+        /// @dev Asserts that the season exists, is not paused, and has not ended.
+        /// @param season_id The ID of the season to check.
+        /// @custom:reverts If the season does not exist.
+        /// @custom:reverts If the season is paused.
+        /// @custom:reverts If the season has already ended.
+        /// @custom:reverts If the contract is paused.
+        fn assert_valid_season(self: @ContractState, season_id: felt252) {
+            assert(self.season_exists(season_id), 'Season does not exist');
+            assert(!self.is_season_paused(season_id), 'Season is paused');
+            assert(!self.is_season_ended(season_id), 'Season has already ended');
         }
     }
 }

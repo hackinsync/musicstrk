@@ -57,7 +57,7 @@ fn deploy_contract() -> (
 }
 
 // Helper function to create a default Season struct
-fn create_default_season(season_id: felt252) -> Season {
+pub fn create_default_season(season_id: felt252) -> Season {
     Season {
         season_id,
         genre: 'Pop',
@@ -65,6 +65,7 @@ fn create_default_season(season_id: felt252) -> Season {
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: false,
+        ended: false,
     }
 }
 
@@ -184,6 +185,7 @@ fn test_update_season() {
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: true,
+        ended: false,
     };
     contract.update_season(season_id, updated_season);
 
@@ -208,6 +210,51 @@ fn test_update_season() {
             ],
         );
 
+    // Stop prank
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_update_season_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    // PAUSE Season
+    contract.pause_season(season_id);
+
+    // UPDATE Season
+    let updated_season = Season {
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Hits',
+        start_timestamp: 1672531200,
+        end_timestamp: 1675123200,
+        paused: true,
+        ended: false,
+    };
+    contract.update_season(season_id, updated_season);
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
 }
@@ -267,6 +314,42 @@ fn test_delete_season() {
     stop_cheat_caller_address(contract.contract_address);
 }
 
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_delete_season_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    // PAUSE Season
+    contract.pause_season(season_id);
+
+    // DELETE Season
+    contract.delete_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
 #[test]
 fn test_create_audition() {
     let (contract, _, _) = deploy_contract();
@@ -281,7 +364,18 @@ fn test_create_audition() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -334,6 +428,48 @@ fn test_create_audition() {
 
 
 #[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_create_audition_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    // PAUSE Season
+    contract.pause_season(season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+}
+
+#[test]
 fn test_audition_deposit_price_successful() {
     let (contract, _, _) = deploy_contract();
     let mut spy = spy_events();
@@ -341,6 +477,18 @@ fn test_audition_deposit_price_successful() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -388,6 +536,53 @@ fn test_audition_deposit_price_successful() {
 
 
 #[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_audition_deposit_price_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+    // deposit the price into a prize pool of an audition
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
 #[should_panic(expected: 'Amount must be more than zero')]
 fn test_audition_deposit_price_should_panic_if_amount_is_zero() {
     let (contract, _, _) = deploy_contract();
@@ -395,6 +590,17 @@ fn test_audition_deposit_price_should_panic_if_amount_is_zero() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -429,6 +635,18 @@ fn test_audition_deposit_price_should_panic_if_token_is_zero_address() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -459,6 +677,17 @@ fn test_audition_deposit_price_should_panic_if_already_deposited() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -494,6 +723,17 @@ fn test_audition_deposit_price_should_panic_if_insufficient_allowance() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -528,6 +768,17 @@ fn test_audition_deposit_price_should_panic_if_insufficient_balance() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -574,7 +825,28 @@ fn test_audition_deposit_price_should_panic_if_audition_ended_already() {
     //  Add timestamp cheat
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -639,6 +911,17 @@ fn test_audition_deposit_price_should_panic_if_called_by_non_owner() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -670,6 +953,17 @@ fn test_audition_deposit_price_should_panic_if_contract_is_paused() {
     let season_id: felt252 = 1;
     let default_audition = create_default_audition(audition_id, season_id);
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -708,7 +1002,17 @@ fn test_audition_distribute_prize_successful() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -857,6 +1161,92 @@ fn test_audition_distribute_prize_successful() {
     stop_cheat_caller_address(contract.contract_address);
 }
 
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_audition_distribute_prize_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mock_token_dispatcher = deploy_mock_erc20_contract();
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Approve contract to spend tokens
+    start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
+    mock_token_dispatcher.approve(contract.contract_address, 10);
+    stop_cheat_caller_address(mock_token_dispatcher.contract_address);
+
+    // Check contract balance before deposit
+    let contract_balance_before = mock_token_dispatcher.balance_of(contract.contract_address);
+
+    // Deposit the prize into the prize pool of an audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Check contract balance after deposit
+    let contract_balance_after = mock_token_dispatcher.balance_of(contract.contract_address);
+    assert!(
+        contract_balance_after == contract_balance_before + 10,
+        "Contract balance did not increase after deposit",
+    );
+
+    // Prepare for distribution
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // UPDATE Audition with future end time
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1672617600, // Future time (24 hours later)
+        paused: false,
+    };
+    contract.update_audition(audition_id, updated_audition);
+    contract.end_audition(audition_id);
+
+    let winner1 = contract_address_const::<1111>();
+    let winner2 = contract_address_const::<2222>();
+    let winner3 = contract_address_const::<3333>();
+
+    contract.pause_season(season_id);
+    // Distribute the prize
+    contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
 #[test]
 #[should_panic(expected: 'Caller is not the owner')]
 fn test_audition_distribute_prize_should_panic_if_not_owner() {
@@ -866,6 +1256,18 @@ fn test_audition_distribute_prize_should_panic_if_not_owner() {
     let default_audition = create_default_audition(audition_id, season_id);
 
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -907,7 +1309,18 @@ fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -975,7 +1388,17 @@ fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // Create a valid audition
     contract
         .create_audition(
@@ -1027,7 +1450,18 @@ fn test_distribute_prize_should_panic_if_audition_not_ended() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1079,7 +1513,18 @@ fn test_distribute_prize_should_panic_if_no_prize_deposited() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -1127,7 +1572,18 @@ fn test_distribute_prize_should_panic_if_already_distributed() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -1194,7 +1650,18 @@ fn test_distribute_prize_should_panic_if_winner_is_zero_address() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -1257,7 +1724,18 @@ fn test_distribute_prize_should_panic_if_total_shares_not_100() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -1321,7 +1799,18 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     contract
         .create_audition(
             audition_id,
@@ -1398,7 +1887,17 @@ fn test_update_audition() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1446,6 +1945,62 @@ fn test_update_audition() {
     stop_cheat_caller_address(contract.contract_address);
 }
 
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_update_audition_should_panic_if_season_is_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // UPDATE Audition
+    let updated_audition = Audition {
+        audition_id,
+        season_id,
+        genre: 'Rock',
+        name: 'Summer Audition',
+        start_timestamp: 1672531200,
+        end_timestamp: 1675123200,
+        paused: true,
+    };
+
+    contract.pause_season(season_id);
+
+    contract.update_audition(audition_id, updated_audition);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
 #[test]
 fn test_delete_audition() {
     let (contract, _, _) = deploy_contract();
@@ -1461,6 +2016,17 @@ fn test_delete_audition() {
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
 
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1500,6 +2066,54 @@ fn test_delete_audition() {
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
 }
+
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_delete_audition_should_panic_if_season_is_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define audition ID and season ID
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    // Create default audition
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    contract.pause_season(season_id);
+
+    contract.delete_audition(audition_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
 
 #[test]
 fn test_all_crud_operations() {
@@ -1541,20 +2155,14 @@ fn test_all_crud_operations() {
         name: 'Summer Hits',
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
-        paused: true,
+        paused: false,
+        ended: false,
     };
     contract.update_season(season_id, updated_season);
     let read_updated_season = contract.read_season(season_id);
 
     assert!(read_updated_season.genre == 'Rock', "Failed to update season");
     assert!(read_updated_season.name == 'Summer Hits', "Failed to update season name");
-    assert!(read_updated_season.paused, "Failed to update season paused");
-
-    // DELETE Season
-    contract.delete_season(season_id);
-    let deleted_season = contract.read_season(season_id);
-
-    assert!(deleted_season.name == 0, "Failed to delete season");
 
     // CREATE Audition
     contract
@@ -1629,7 +2237,17 @@ fn test_pause_audition() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1682,7 +2300,18 @@ fn test_emission_of_event_for_pause_audition() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1747,7 +2376,18 @@ fn test_pause_audition_as_non_owner() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1799,7 +2439,18 @@ fn test_pause_audition_twice_should_fail() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1856,7 +2507,17 @@ fn test_function_should_fail_after_pause_audition() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1913,7 +2574,17 @@ fn test_resume_audition() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -1968,6 +2639,20 @@ fn test_attempt_resume_audition_as_non_owner() {
     let audition_id: felt252 = 1;
     let season_id: felt252 = 1;
 
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
     // Create default audition
     let default_audition = create_default_audition(audition_id, season_id);
 
@@ -2018,6 +2703,7 @@ fn test_attempt_resume_audition_as_non_owner() {
     stop_cheat_caller_address(contract.contract_address);
 }
 
+
 #[test]
 fn test_emission_of_event_for_resume_audition() {
     let (contract, _, _) = deploy_contract();
@@ -2033,7 +2719,18 @@ fn test_emission_of_event_for_resume_audition() {
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -2105,7 +2802,17 @@ fn test_end_audition() {
     //  Add timestamp cheat
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -2221,7 +2928,18 @@ fn test_emission_of_event_for_end_audition() {
     // Add timestamp cheat
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -2299,7 +3017,17 @@ fn test_end_audition_functionality() {
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
 
     let default_audition = create_default_audition(audition_id, season_id);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -2366,6 +3094,18 @@ fn test_add_judge() {
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
 
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -2393,6 +3133,53 @@ fn test_add_judge() {
     stop_cheat_caller_address(contract.contract_address);
 }
 
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_add_judge_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    contract.pause_season(season_id);
+    // Add judge
+    let judge_address = contract_address_const::<0x123>();
+    contract.add_judge(audition_id, judge_address);
+}
+
 #[test]
 fn test_add_multiple_judge() {
     let (contract, _, _) = deploy_contract();
@@ -2405,7 +3192,17 @@ fn test_add_multiple_judge() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -2461,6 +3258,17 @@ fn test_add_judges_should_panic_if_non_owner() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
@@ -2489,6 +3297,17 @@ fn test_add_judges_should_panic_if_contract_paused() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
@@ -2528,6 +3347,17 @@ fn test_add_judges_should_panic_if_audition_has_ended() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
@@ -2560,6 +3390,18 @@ fn test_add_judges_should_panic_if_judge_already_added() {
     let season_id: felt252 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
+
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
 
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
@@ -2604,6 +3446,18 @@ fn test_remove_judge() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
@@ -2641,6 +3495,63 @@ fn test_remove_judge() {
     stop_cheat_caller_address(contract.contract_address);
 }
 
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_remove_judge_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    let default_audition = create_default_audition(audition_id, season_id);
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+    let judge_address = contract_address_const::<0x1777723>();
+    contract.add_judge(audition_id, judge_address);
+    let judges = contract.get_judges(audition_id);
+    assert(judges.len() == 1, 'Judge should be added');
+    assert(*judges.at(0) == judge_address, 'Judge should be added');
+
+    let judge_address2 = contract_address_const::<0x1777724>();
+    contract.add_judge(audition_id, judge_address2);
+    let judges = contract.get_judges(audition_id);
+    assert(judges.len() == 2, 'Second judge should be added');
+    assert(*judges.at(1) == judge_address2, 'judge address dont match');
+
+    // print the judges
+    println!("judges: {:?}", judges);
+
+    contract.pause_season(season_id);
+    contract.remove_judge(audition_id, judge_address);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
 #[test]
 fn test_judge_remove_can_remove_and_add_multiple_judges() {
     let (contract, _, _) = deploy_contract();
@@ -2650,6 +3561,18 @@ fn test_judge_remove_can_remove_and_add_multiple_judges() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
@@ -2727,7 +3650,17 @@ fn test_judge_remove_should_panic_if_contract_paused() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // Create audition
     let default_audition = create_default_audition(audition_id, season_id);
     contract
@@ -2777,7 +3710,17 @@ fn test_remove_judge_should_panic_if_audition_has_ended() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // Create audition
     let default_audition = create_default_audition(audition_id, season_id);
     contract
@@ -2817,7 +3760,17 @@ fn test_remove_judge_should_panic_if_judge_not_found() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // Create audition
     let default_audition = create_default_audition(audition_id, season_id);
     contract
@@ -2847,7 +3800,17 @@ fn test_get_judges_returns_expected_judges() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // Create audition
     let default_audition = create_default_audition(audition_id, season_id);
     contract
@@ -2892,7 +3855,17 @@ fn test_submit_evaluation_success() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -2939,6 +3912,68 @@ fn test_submit_evaluation_success() {
 
 
 #[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_submit_evaluation_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let mut judges = contract.get_judges(audition_id);
+    assert(judges.len() == 0, 'Judge should be empty');
+    let judge_address = contract_address_const::<0x123>();
+    contract.add_judge(audition_id, judge_address);
+    let judge_address2 = contract_address_const::<0x124>();
+    contract.add_judge(audition_id, judge_address2);
+    let judge_address3 = contract_address_const::<0x125>();
+    contract.add_judge(audition_id, judge_address3);
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // register a performer
+    contract.register_performer(audition_id, 'performerid');
+    contract.register_performer(audition_id, 'performerid2');
+    contract.register_performer(audition_id, 'performerid3');
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+    // submit evaluation
+    start_cheat_caller_address(contract.contract_address, judge_address);
+    contract.submit_evaluation(audition_id, 'performerid', (1, 2, 3));
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
 fn test_multiple_judges_submit_evaluation_for_same_performer() {
     let (contract, _, _) = deploy_contract();
 
@@ -2952,7 +3987,18 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
 
     let default_audition = create_default_audition(audition_id, season_id);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -3031,7 +4077,17 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -3148,7 +4204,17 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -3197,7 +4263,18 @@ fn test_pause_judging_success() {
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
 
     let default_audition = create_default_audition(audition_id, season_id);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -3235,7 +4312,17 @@ fn test_resume_judging_success() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -3287,7 +4374,18 @@ fn test_pause_judging_should_panic_when_caller_is_not_owner() {
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
 
     let default_audition = create_default_audition(audition_id, season_id);
+    let default_season = create_default_season(season_id);
 
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // CREATE Audition
     contract
         .create_audition(
@@ -3323,7 +4421,17 @@ fn test_resume_judging_should_panic_when_caller_is_not_owner() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -3368,7 +4476,17 @@ fn test_set_weight_for_audition_success() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -3396,6 +4514,53 @@ fn test_set_weight_for_audition_success() {
 
 
 #[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_set_weight_for_audition_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    let judge_address = contract_address_const::<0x123>();
+    contract.add_judge(audition_id, judge_address);
+
+    contract.pause_season(season_id);
+    contract.set_evaluation_weight(audition_id, (10, 60, 30));
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
 #[should_panic(expected: 'Total weight should be 100')]
 fn test_set_weight_for_audition_should_panic_if_weight_doest_add_up_to_100() {
     let (contract, _, _) = deploy_contract();
@@ -3404,7 +4569,17 @@ fn test_set_weight_for_audition_should_panic_if_weight_doest_add_up_to_100() {
     let season_id: felt252 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -3445,7 +4620,17 @@ fn test_perform_aggregate_score_calculation_successful() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
 
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            16725312000,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
 
     // CREATE Audition
@@ -3511,4 +4696,408 @@ fn test_perform_aggregate_score_calculation_successful() {
     ); // aggregate_score: [(530776410631550129238593, 4), (530776410631550129238594, 6)]
 
     stop_cheat_block_timestamp(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_perform_aggregate_score_calculation_should_panic_if_season_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // Set timestamp
+    let initial_timestamp: u64 = 1672531200;
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
+    let default_season = create_default_season(season_id);
+
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            16725312000,
+            default_season.paused,
+        );
+    let default_audition = create_default_audition(audition_id, season_id);
+
+    // CREATE Audition
+    contract
+        .create_audition(
+            audition_id,
+            season_id,
+            default_audition.genre,
+            default_audition.name,
+            default_audition.start_timestamp,
+            default_audition.end_timestamp,
+            default_audition.paused,
+        );
+
+    // then add 2 judges
+    let judge_address1 = contract_address_const::<0x123>();
+    let judge_address2 = contract_address_const::<0x124>();
+    contract.add_judge(audition_id, judge_address1);
+    contract.add_judge(audition_id, judge_address2);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // then register 2 performers
+    let performer_id1 = 'performerA';
+    let performer_id2 = 'performerB';
+    contract.register_performer(audition_id, performer_id1);
+    contract.register_performer(audition_id, performer_id2);
+
+    // then set weight
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.set_evaluation_weight(audition_id, (40, 30, 30));
+    stop_cheat_caller_address(contract.contract_address);
+
+    // then submit evaluation for each performer
+    start_cheat_caller_address(contract.contract_address, judge_address1);
+    contract.submit_evaluation(audition_id, performer_id1, (4, 7, 3));
+    contract.submit_evaluation(audition_id, performer_id2, (6, 7, 8));
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, judge_address2);
+    contract.submit_evaluation(audition_id, performer_id1, (4, 9, 2));
+    contract.submit_evaluation(audition_id, performer_id2, (4, 9, 6));
+    stop_cheat_caller_address(contract.contract_address);
+
+    // move the timestamp to the end of the audition
+    start_cheat_block_timestamp(contract.contract_address, initial_timestamp + 2675123200);
+
+    // puase the seasson
+
+    // then perform aggregate score calculation
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+    contract.perform_aggregate_score_calculation(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    stop_cheat_block_timestamp(contract.contract_address);
+}
+
+
+#[test]
+fn test_pause_season_success() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+}
+
+
+#[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_pause_season_should_panic_if_paused_by_non_owner() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_pause_season_should_panic_if_season_is_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season does not exist')]
+fn test_pause_season_should_panic_if_season_doesnt_exist() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season has already ended')]
+fn test_pause_season_should_panic_if_season_is_ended() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    start_cheat_block_timestamp(contract.contract_address, default_season.end_timestamp + 1);
+    contract.pause_season(season_id);
+    stop_cheat_block_timestamp(contract.contract_address);
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+}
+
+#[test]
+fn test_resume_season_success() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(!is_paused, 'Season should be resumed');
+
+    let read_season = contract.read_season(season_id);
+    assert(!read_season.paused, 'Season should be resumed');
+}
+
+
+#[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_resume_season_should_panic_if_non_owner() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.pause_season(season_id);
+
+    let is_paused = contract.is_season_paused(season_id);
+    assert(is_paused, 'Season should be paused');
+
+    let read_season = contract.read_season(season_id);
+    assert(read_season.paused, 'Season should be paused');
+    stop_cheat_caller_address(contract.contract_address);
+
+    contract.resume_season(season_id);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season does not exist')]
+fn test_resume_season_should_panic_if_season_doesnt_exist() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    contract.pause_season(season_id);
+
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season is not paused')]
+fn test_resume_season_should_panic_if_season_is_not_paused() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season has already ended')]
+fn test_resume_season_should_panic_if_season_is_ended() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    // Define season ID
+    let season_id: felt252 = 1;
+
+    // Create default season
+    let default_season = create_default_season(season_id);
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Season
+    contract
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
+
+    start_cheat_block_timestamp(contract.contract_address, default_season.end_timestamp + 1);
+    contract.pause_season(season_id);
+    contract.resume_season(season_id);
+
+    stop_cheat_caller_address(contract.contract_address);
 }
