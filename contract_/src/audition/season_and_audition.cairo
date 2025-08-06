@@ -256,43 +256,11 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @param audition_id the id of the audition to get the aggregate score for
     /// @return a array of (performer_id, aggregate_score)
     fn get_aggregate_score(self: @TContractState, audition_id: felt252) -> Array<(felt252, u256)>;
-
-    /// @notice Sets the staking configuration for an audition.
-    /// @dev Only the owner can call this.
-    /// @param audition_id The ID of the audition.
-    /// @param required_stake_amount The exact amount required for staking.
-    /// @param stake_token The contract address of the token to be used for staking (e.g., USDC).
-    /// @param withdrawal_delay_after_results The time delay for withdrawal after results are final.
-    fn set_staking_config(
-        ref self: TContractState,
-        audition_id: felt252,
-        required_stake_amount: u256,
-        stake_token: ContractAddress,
-        withdrawal_delay_after_results: u64,
-    );
-
-    /// @notice Allows a user to stake tokens to become an eligible voter for an audition.
-    /// @dev The user must send the exact required amount of tokens.
-    /// @param audition_id The ID of the audition to stake for.
-    fn stake_to_vote(ref self: TContractState, audition_id: felt252);
-
-    /// @notice Allows a staker to withdraw their stake after the voting results are finalized.
-    /// @param audition_id The ID of the audition from which to withdraw the stake.
-    fn withdraw_stake_after_results(ref self: TContractState, audition_id: felt252);
-
-    /// @notice Checks if a wallet is eligible to vote for a specific audition.
-    /// @param audition_id The ID of the audition.
-    /// @param voter_address The address of the voter to check.
-    /// @return bool True if the voter is eligible, false otherwise.
-    fn is_eligible_voter(
-        self: @TContractState, audition_id: felt252, voter_address: ContractAddress,
-    ) -> bool;
 }
 
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use OwnableComponent::{HasComponent, InternalTrait};
-    use contract_::audition::vote_staking_structs::*;
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -333,12 +301,6 @@ pub mod SeasonAndAudition {
         global_paused: bool,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
-        /// @notice Maps an audition ID to its staking configuration.
-        staking_configs: Map<felt252, StakingConfig>,
-        /// @notice Maps (audition_id, staker_address) to the staker's information.
-        stakers: Map<(felt252, ContractAddress), StakerInfo>,
-        /// @notice Tracks which wallets are eligible to vote for a specific audition.
-        eligible_voters: Map<(felt252, ContractAddress), bool>,
         // @notice this storage is a mapping of the audition rpices deposited by the audition
         // owners, Map<audition_id, (token contract address  , amount of the token set as the
         // price)>
@@ -435,6 +397,7 @@ pub mod SeasonAndAudition {
         AppealSubmitted: AppealSubmitted,
         AppealResolved: AppealResolved,
 <<<<<<< HEAD
+<<<<<<< HEAD
         SeasonPaused: SeasonPaused,
         SeasonResumed: SeasonResumed,
         SeasonEnded: SeasonEnded,
@@ -443,6 +406,8 @@ pub mod SeasonAndAudition {
         StakePlaced: StakePlaced,
         StakeWithdrawn: StakeWithdrawn,
 >>>>>>> cfeaa8c (feat: implemented fixed-amount staking in contract for voter eligibility)
+=======
+>>>>>>> a6313c8 (seperated staked voting into a seperate contract)
     }
 
     #[constructor]
@@ -1318,101 +1283,6 @@ pub mod SeasonAndAudition {
         fn get_appeal(self: @ContractState, evaluation_id: u256) -> Appeal {
             self.appeals.entry(evaluation_id).read()
         }
-
-        fn set_staking_config(
-            ref self: ContractState,
-            audition_id: felt252,
-            required_stake_amount: u256,
-            stake_token: ContractAddress,
-            withdrawal_delay_after_results: u64,
-        ) {
-            self.ownable.assert_only_owner();
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
-            assert(!stake_token.is_zero(), 'Stake token cannot be zero');
-            assert(required_stake_amount > 0, 'Stake amount must be > 0');
-
-            let config = StakingConfig {
-                required_stake_amount, stake_token, withdrawal_delay_after_results,
-            };
-            self.staking_configs.write(audition_id, config);
-            self
-                .emit(
-                    Event::StakingConfigSet(
-                        StakingConfigSet { audition_id, required_stake_amount, stake_token },
-                    ),
-                );
-        }
-
-        fn stake_to_vote(ref self: ContractState, audition_id: felt252) {
-            let caller = get_caller_address();
-            let config = self.staking_configs.read(audition_id);
-            let required_amount = config.required_stake_amount;
-
-            assert(required_amount > 0, 'Staking not enabled');
-            assert(!self.is_audition_ended(audition_id), 'Audition has ended');
-            assert(!self.stakers.read((audition_id, caller)).is_eligible_voter, 'Already staked');
-
-            // This internal function handles the token transfer and checks allowance/balance
-            self._process_payment(required_amount, config.stake_token);
-
-            let staker_info = StakerInfo {
-                address: caller,
-                audition_id,
-                staked_amount: required_amount,
-                stake_timestamp: get_block_timestamp(),
-                is_eligible_voter: true,
-                has_voted: false,
-            };
-
-            self.stakers.write((audition_id, caller), staker_info);
-            self.eligible_voters.write((audition_id, caller), true);
-
-            self
-                .emit(
-                    Event::StakePlaced(
-                        StakePlaced { audition_id, staker: caller, amount: required_amount },
-                    ),
-                );
-        }
-
-        fn withdraw_stake_after_results(ref self: ContractState, audition_id: felt252) {
-            let caller = get_caller_address();
-            let staker_info = self.stakers.read((audition_id, caller));
-            let config = self.staking_configs.read(audition_id);
-
-            assert(staker_info.is_eligible_voter, 'No stake to withdraw');
-            assert(self.is_audition_ended(audition_id), 'Audition not yet ended');
-
-            // Optional: Check withdrawal delay
-            let audition = self.auditions.read(audition_id);
-            let end_time: u64 = audition.end_timestamp.try_into().unwrap();
-            assert(
-                get_block_timestamp() >= end_time + config.withdrawal_delay_after_results,
-                'Withdrawal delay active',
-            );
-
-            // Transfer stake back to caller
-            self._send_tokens(caller, staker_info.staked_amount, config.stake_token);
-
-            // Clear staker data
-            self.stakers.entry((audition_id, caller)).write(Default::default());
-            self.eligible_voters.write((audition_id, caller), false);
-
-            self
-                .emit(
-                    Event::StakeWithdrawn(
-                        StakeWithdrawn {
-                            audition_id, staker: caller, amount: staker_info.staked_amount,
-                        },
-                    ),
-                );
-        }
-
-        fn is_eligible_voter(
-            self: @ContractState, audition_id: felt252, voter_address: ContractAddress,
-        ) -> bool {
-            self.eligible_voters.entry((audition_id, voter_address)).read()
-        }
     }
 
     #[generate_trait]
@@ -1426,6 +1296,7 @@ pub mod SeasonAndAudition {
             let payment_token = IERC20Dispatcher { contract_address: token_address };
             let caller = get_caller_address();
             let contract_address = get_contract_address();
+
             self._check_token_allowance(caller, amount, token_address);
             self._check_token_balance(caller, amount, token_address);
             payment_token.transfer_from(caller, contract_address, amount);

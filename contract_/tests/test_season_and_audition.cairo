@@ -90,37 +90,6 @@ fn create_default_audition(audition_id: felt252, season_id: felt252) -> Audition
     }
 }
 
-// Helper function to set up a standard environment for staking tests
-fn setup_staking_audition() -> (ISeasonAndAuditionDispatcher, IERC20Dispatcher, felt252) {
-    let (contract, _, _) = deploy_contract();
-    let mock_token = deploy_mock_erc20_contract();
-    let audition_id: felt252 = 1;
-    let season_id: felt252 = 1;
-
-    // Create a new audition as the owner
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    let default_audition = create_default_audition(audition_id, season_id);
-    contract
-        .create_audition(
-            audition_id,
-            season_id,
-            default_audition.genre,
-            default_audition.name,
-            default_audition.start_timestamp,
-            // A future end timestamp to ensure it's not ended
-            get_block_timestamp().into() + 1000,
-            default_audition.paused,
-        );
-    stop_cheat_caller_address(contract.contract_address);
-
-    start_cheat_caller_address(mock_token.contract_address, OWNER());
-    // Mint some tokens to user for testing,
-    mock_token.transfer(USER(), 1000000);
-    stop_cheat_caller_address(mock_token.contract_address);
-
-    (contract, mock_token, audition_id)
-}
-
 #[test]
 fn test_season_create() {
     let (contract, _, _) = deploy_contract();
@@ -4728,6 +4697,7 @@ fn test_perform_aggregate_score_calculation_successful() {
 
     stop_cheat_block_timestamp(contract.contract_address);
 }
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 
@@ -5311,3 +5281,5 @@ fn test_failed_withdrawal_if_not_staked() {
 >>>>>>> cfeaa8c (feat: implemented fixed-amount staking in contract for voter eligibility)
     stop_cheat_caller_address(contract.contract_address);
 }
+=======
+>>>>>>> a6313c8 (seperated staked voting into a seperate contract)
