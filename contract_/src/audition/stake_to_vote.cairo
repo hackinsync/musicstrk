@@ -6,7 +6,6 @@ pub mod StakeToVote {
         Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
     use contract_::audition::types::*;
-    use contract_::audition::vote_staking_structs::*;
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
