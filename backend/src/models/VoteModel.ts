@@ -15,6 +15,9 @@ const VoteSchema = new Schema<Vote>({
   score: { type: Number, min: 1, max: 10 },
   personalityScale: { type: PersonalityScaleSchema, required: true },
   createdAt: { type: Date, default: Date.now },
+  comment: { type: String }, 
+  voterRole: { type: String, enum: ["judge", "fan", "influencer"] }, 
+  criteria: { type: Schema.Types.Mixed }, 
 })
 
 // Create a compound index to ensure uniqueness of walletAddress per performerId and auditionId
