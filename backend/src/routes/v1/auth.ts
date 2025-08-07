@@ -1,5 +1,6 @@
 import { Router, Request } from "express";
 import { BigNumberish, constants, ec, Provider } from "starknet";
+import TikTokAuthRoutes from "./auth/tiktok";
 
 import UserModel, { createUser, findUserByaddress } from "models/UserModel";
 import { AUTHENTICATION_SNIP12_MESSAGE } from "constants/index";
@@ -23,6 +24,8 @@ type ReqBody_Authenticate = {
   walletAddress: BigNumberish;
   signature: string[];
 };
+
+AuthRoutes.use("/tiktok", TikTokAuthRoutes)
 
 AuthRoutes.post(
   "/authenticate",
