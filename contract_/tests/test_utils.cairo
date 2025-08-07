@@ -5,6 +5,7 @@ use contract_::audition::season_and_audition_interface::{
 use contract_::audition::season_and_audition_types::{
     Appeal, Audition, Evaluation, Genre, Season, Vote,
 };
+use core::array::ArrayTrait;
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{ContractClassTrait, DeclareResultTrait, declare};
@@ -22,6 +23,39 @@ pub fn USER() -> ContractAddress {
 
 pub fn NON_OWNER() -> ContractAddress {
     'NON_OWNER'.try_into().unwrap()
+}
+
+pub fn ORACLE() -> ContractAddress {
+    'ORACLE'.try_into().unwrap()
+}
+
+pub fn NON_ORACLE() -> ContractAddress {
+    'NON_ORACLE'.try_into().unwrap()
+}
+
+
+pub fn zero() -> ContractAddress {
+    0.try_into().unwrap()
+}
+
+pub fn kim() -> ContractAddress {
+    'kim'.try_into().unwrap()
+}
+
+pub fn thurston() -> ContractAddress {
+    'thurston'.try_into().unwrap()
+}
+
+pub fn lee() -> ContractAddress {
+    'lee'.try_into().unwrap()
+}
+
+pub fn VOTER1() -> ContractAddress {
+    'VOTER1'.try_into().unwrap()
+}
+
+pub fn VOTER2() -> ContractAddress {
+    'VOTER2'.try_into().unwrap()
 }
 
 // Helper function to deploy the contract
@@ -80,6 +114,14 @@ pub fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
     IERC20Dispatcher { contract_address: erc20_address }
 }
 
+pub fn deploy_music_share_token() -> ContractAddress {
+    let owner = OWNER();
+    let contract_class = declare("MusicStrk").unwrap().contract_class();
+    let mut calldata = array![];
+    owner.serialize(ref calldata);
+    let (contract_address, _) = contract_class.deploy(@calldata).unwrap();
+    contract_address
+}
 // Helper function to create a default Audition struct
 pub fn create_default_audition(audition_id: felt252, season_id: u256) -> Audition {
     Audition {

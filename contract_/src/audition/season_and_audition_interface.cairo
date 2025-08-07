@@ -18,6 +18,8 @@ pub trait ISeasonAndAudition<TContractState> {
         end_time: Option<u64>,
     );
 
+    fn get_active_season(self: @TContractState) -> Option<u256>;
+
     fn create_audition(
         ref self: TContractState,
         audition_id: felt252,

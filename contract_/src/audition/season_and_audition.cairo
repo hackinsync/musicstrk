@@ -226,6 +226,9 @@ pub mod SeasonAndAudition {
                 );
         }
 
+        fn get_active_season(self: @ContractState) -> Option<u256> {
+            self.active_season.read()
+        }
 
         fn create_audition(
             ref self: ContractState,
@@ -343,7 +346,8 @@ pub mod SeasonAndAudition {
                 !self.audition_calculation_completed.read(audition_id), 'Audition calculation done',
             );
             let audition = self.auditions.entry(audition_id).read();
-            self.assert_valid_season(audition.season_id);
+            assert(self.season_exists(audition.season_id), 'Season does not exist');
+            assert(!self.is_season_paused(audition.season_id), 'Season is paused');
             let (technical_weight, creativity_weight, presentation_weight) = self
                 .get_evaluation_weight(audition_id);
 
@@ -1229,7 +1233,7 @@ pub mod SeasonAndAudition {
 
         fn assert_all_seasons_closed(self: @ContractState) {
             let active_season = self.active_season.read();
-            assert(active_season.is_none(), 'Season is active');
+            assert(active_season.is_none(), 'A Season is active');
         }
 
         fn assert_valid_time(self: @ContractState, start_time: u64, end_time: u64) {
