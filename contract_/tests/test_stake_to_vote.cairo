@@ -1,3 +1,6 @@
+use contract_::audition::interfaces::istake_to_vote::{
+    IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
+};
 use contract_::audition::season_and_audition::{
     Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait, Season,
@@ -7,14 +10,13 @@ use contract_::events::{
     AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
     AuditionUpdated, PriceDeposited, PriceDistributed, SeasonCreated, SeasonDeleted, SeasonUpdated,
 };
-use contract_::stake_to_vote::interface::{IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
     start_cheat_block_timestamp, start_cheat_caller_address, stop_cheat_block_timestamp,
     stop_cheat_caller_address,
 };
-use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
+use starknet::{ContractAddress, get_block_timestamp};
 
 // Test account -> Owner
 fn OWNER() -> ContractAddress {

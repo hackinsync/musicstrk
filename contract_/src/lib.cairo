@@ -6,11 +6,11 @@ pub mod events;
 pub mod token_factory;
 pub mod audition {
     pub mod season_and_audition;
-}
-pub mod stake_to_vote {
-    pub mod interface;
     pub mod stake_to_vote;
-    pub mod structs;
+    pub mod types;
+    pub mod interfaces {
+        pub mod istake_to_vote;
+    }
 }
 pub mod governance {
     pub mod GovernanceToken;

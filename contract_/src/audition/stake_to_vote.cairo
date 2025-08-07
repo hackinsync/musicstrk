@@ -1,13 +1,13 @@
 #[starknet::contract]
 pub mod StakeToVote {
     use OwnableComponent::InternalTrait;
+    use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
     use contract_::audition::season_and_audition::{
         Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
+    use contract_::audition::types::*;
     use contract_::audition::vote_staking_structs::*;
     use contract_::errors::errors;
-    use contract_::stake_to_vote::interface::IStakeToVote;
-    use contract_::stake_to_vote::structs::*;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -77,10 +77,10 @@ pub mod StakeToVote {
 
             assert(
                 season_and_audition_dispatcher.audition_exists(audition_id),
-                'Audition does not exist',
+                errors::AUDITION_DOES_NOT_EXIST,
             );
-            assert(!stake_token.is_zero(), 'Stake token cannot be zero');
-            assert(required_stake_amount > 0, 'Stake amount must be > 0');
+            assert(!stake_token.is_zero(), errors::STAKE_TOKEN_CANNOT_BE_ZERO);
+            assert(required_stake_amount > 0, errors::STAKE_AMOUNT_MUST_BE_GRAETER_THAN_ZERO);
 
             let config = StakingConfig {
                 required_stake_amount, stake_token, withdrawal_delay_after_results,
@@ -102,12 +102,14 @@ pub mod StakeToVote {
                 contract_address: self.season_and_audition_contract_address.read(),
             };
 
-            assert(required_amount > 0, 'Staking not enabled');
+            assert(required_amount > 0, errors::STAKING_NOT_ENABLED);
             assert(
                 !season_and_audition_dispatcher.is_audition_ended(audition_id),
-                'Audition has ended',
+                errors::AUDITION_HAS_ENDED,
             );
-            assert(!self.stakers.read((audition_id, caller)).is_eligible_voter, 'Already staked');
+            assert(
+                !self.stakers.read((audition_id, caller)).is_eligible_voter, errors::ALREADY_STAKED,
+            );
 
             // This internal function handles the token transfer and checks allowance/balance
             self._process_payment(required_amount, config.stake_token);
@@ -140,10 +142,10 @@ pub mod StakeToVote {
                 contract_address: self.season_and_audition_contract_address.read(),
             };
 
-            assert(staker_info.is_eligible_voter, 'No stake to withdraw');
+            assert(staker_info.is_eligible_voter, errors::NO_STAKE_TO_WITHDRAW);
             assert(
                 season_and_audition_dispatcher.is_audition_ended(audition_id),
-                'Audition not yet ended',
+                errors::AUDITION_NOT_YET_ENDED,
             );
 
             // Check withdrawal delay
@@ -151,7 +153,7 @@ pub mod StakeToVote {
             let end_time: u64 = audition.end_timestamp.try_into().unwrap();
             assert(
                 get_block_timestamp() >= end_time + config.withdrawal_delay_after_results,
-                'Withdrawal delay active',
+                errors::WITHDRAWAL_DELAY_ACTIVE,
             );
 
             // Transfer stake back to caller
@@ -200,7 +202,7 @@ pub mod StakeToVote {
             self._check_token_balance(caller, amount, token_address);
             let transferred = payment_token.transfer_from(caller, contract_address, amount);
 
-            assert(transferred, 'transfer failed');
+            assert(transferred, errors::TRANSFER_FAILED);
         }
 
         /// @notice Checks if the caller has sufficient token allowance.
