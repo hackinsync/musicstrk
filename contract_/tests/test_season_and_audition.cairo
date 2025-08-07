@@ -1,7 +1,9 @@
-use contract_::audition::season_and_audition::{
-    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
-    ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait, Season,
-    SeasonAndAudition,
+use contract_::audition::season_and_audition_interface::{
+    ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+    ISeasonAndAuditionSafeDispatcher,
+};
+use contract_::audition::season_and_audition_types::{
+    Appeal, Audition, Evaluation, Genre, Season, Vote,
 };
 use contract_::events::{
     AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
@@ -15,81 +17,6 @@ use snforge_std::{
     stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
-
-// Test account -> Owner
-fn OWNER() -> ContractAddress {
-    'OWNER'.try_into().unwrap()
-}
-
-// Test account -> User
-fn USER() -> ContractAddress {
-    'USER'.try_into().unwrap()
-}
-
-fn NON_OWNER() -> ContractAddress {
-    'NON_OWNER'.try_into().unwrap()
-}
-
-// Helper function to deploy the contract
-fn deploy_contract() -> (
-    ISeasonAndAuditionDispatcher, IOwnableDispatcher, ISeasonAndAuditionSafeDispatcher,
-) {
-    // declare the contract
-    let contract_class = declare("SeasonAndAudition")
-        .expect('Failed to declare counter')
-        .contract_class();
-
-    // serialize constructor
-    let mut calldata: Array<felt252> = array![];
-
-    OWNER().serialize(ref calldata);
-
-    // deploy the contract
-    let (contract_address, _) = contract_class
-        .deploy(@calldata)
-        .expect('Failed to deploy contract');
-
-    let contract = ISeasonAndAuditionDispatcher { contract_address };
-    let ownable = IOwnableDispatcher { contract_address };
-    let safe_dispatcher = ISeasonAndAuditionSafeDispatcher { contract_address };
-
-    (contract, ownable, safe_dispatcher)
-}
-
-// Helper function to create a default Season struct
-pub fn create_default_season(season_id: felt252) -> Season {
-    Season {
-        season_id,
-        genre: 'Pop',
-        name: 'Summer Hits',
-        start_timestamp: 1672531200,
-        end_timestamp: 1675123200,
-        last_updated_timestamp: 1672531200,
-        paused: false,
-        ended: false,
-    }
-}
-
-fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
-    let erc20_class = declare("mock_erc20").unwrap().contract_class();
-    let mut calldata = array![OWNER().into(), OWNER().into(), 6];
-    let (erc20_address, _) = erc20_class.deploy(@calldata).unwrap();
-
-    IERC20Dispatcher { contract_address: erc20_address }
-}
-
-// Helper function to create a default Audition struct
-fn create_default_audition(audition_id: felt252, season_id: felt252) -> Audition {
-    Audition {
-        audition_id,
-        season_id,
-        genre: 'Pop',
-        name: 'Live Audition',
-        start_timestamp: 1672531200,
-        end_timestamp: 1675123200,
-        paused: false,
-    }
-}
 
 #[test]
 fn test_season_create() {
