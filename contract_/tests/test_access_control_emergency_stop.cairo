@@ -56,6 +56,7 @@ fn create_test_season(season_id: felt252) -> Season {
         name: 'Summer Hits',
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
+        last_updated_timestamp: 1672531200,
         paused: false,
         ended: false,
     }
