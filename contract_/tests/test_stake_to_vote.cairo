@@ -54,6 +54,14 @@ fn deploy_season_and_audition_contract() -> ISeasonAndAuditionDispatcher {
     contract
 }
 
+fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
+    let erc20_class = declare("mock_erc20").unwrap().contract_class();
+    let mut calldata = array![OWNER().into(), OWNER().into(), 6];
+    let (erc20_address, _) = erc20_class.deploy(@calldata).unwrap();
+
+    IERC20Dispatcher { contract_address: erc20_address }
+}
+
 // Helper function to create a default Season struct
 fn create_default_season(season_id: felt252) -> Season {
     Season {
@@ -63,15 +71,8 @@ fn create_default_season(season_id: felt252) -> Season {
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: false,
+        ended: false,
     }
-}
-
-fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
-    let erc20_class = declare("mock_erc20").unwrap().contract_class();
-    let mut calldata = array![OWNER().into(), OWNER().into(), 6];
-    let (erc20_address, _) = erc20_class.deploy(@calldata).unwrap();
-
-    IERC20Dispatcher { contract_address: erc20_address }
 }
 
 // Helper function to create a default Audition struct
@@ -123,6 +124,16 @@ fn setup_staking_audition() -> (
 
     // Create a new audition as the owner
     start_cheat_caller_address(season_and_audition.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+    season_and_audition
+        .create_season(
+            season_id,
+            default_season.genre,
+            default_season.name,
+            default_season.start_timestamp,
+            default_season.end_timestamp,
+            default_season.paused,
+        );
     let default_audition = create_default_audition(audition_id, season_id);
     season_and_audition
         .create_audition(

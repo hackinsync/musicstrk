@@ -1,4 +1,3 @@
-use contract_::audition::vote_staking_structs::*;
 use starknet::ContractAddress;
 
 #[derive(Drop, Serde, Default, starknet::Store)]
@@ -396,18 +395,9 @@ pub mod SeasonAndAudition {
         AggregateScoreCalculated: AggregateScoreCalculated,
         AppealSubmitted: AppealSubmitted,
         AppealResolved: AppealResolved,
-<<<<<<< HEAD
-<<<<<<< HEAD
         SeasonPaused: SeasonPaused,
         SeasonResumed: SeasonResumed,
         SeasonEnded: SeasonEnded,
-=======
-        StakingConfigSet: StakingConfigSet,
-        StakePlaced: StakePlaced,
-        StakeWithdrawn: StakeWithdrawn,
->>>>>>> cfeaa8c (feat: implemented fixed-amount staking in contract for voter eligibility)
-=======
->>>>>>> a6313c8 (seperated staked voting into a seperate contract)
     }
 
     #[constructor]
@@ -1296,7 +1286,6 @@ pub mod SeasonAndAudition {
             let payment_token = IERC20Dispatcher { contract_address: token_address };
             let caller = get_caller_address();
             let contract_address = get_contract_address();
-
             self._check_token_allowance(caller, amount, token_address);
             self._check_token_balance(caller, amount, token_address);
             payment_token.transfer_from(caller, contract_address, amount);
