@@ -1,4 +1,5 @@
 use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, MusicStrk};
+use contract_::events::TokenDeployedEvent;
 use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
     MusicShareTokenFactory,
@@ -8,32 +9,33 @@ use core::result::ResultTrait;
 use core::traits::Into;
 use openzeppelin::token::erc20::interface::{IERC20MixinDispatcher, IERC20MixinDispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
-use starknet::{class_hash::ClassHash, ContractAddress, contract_address_const};
 use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
     cheat_caller_address, declare, spy_events,
 };
+use starknet::class_hash::ClassHash;
+use starknet::{ContractAddress, get_block_timestamp};
 
 
 // Address constants for testing
-fn ARTIST_1() -> ContractAddress {
-    contract_address_const::<'artist_1'>()
+fn artist_1() -> ContractAddress {
+    'artist_1'.try_into().unwrap()
 }
 
-fn ARTIST_2() -> ContractAddress {
-    contract_address_const::<'artist_2'>()
+fn artist_2() -> ContractAddress {
+    'artist_2'.try_into().unwrap()
 }
 
-fn NON_AUTH() -> ContractAddress {
-    contract_address_const::<'non-auth'>()
+fn non_auth() -> ContractAddress {
+    'non-auth'.try_into().unwrap()
 }
 
-fn OWNER() -> ContractAddress {
-    contract_address_const::<'owner'>()
+fn owner() -> ContractAddress {
+    'owner'.try_into().unwrap()
 }
 
-fn ZERO_ADDRESS() -> ContractAddress {
-    contract_address_const::<0>()
+fn zero() -> ContractAddress {
+    0.try_into().unwrap()
 }
 
 // Constants
@@ -91,8 +93,8 @@ fn deploy_music_share_token_factory(
 #[test]
 fn test_successful_music_share_token_deployment() {
     // Setup test accounts from address constants
-    let artist_1 = ARTIST_1();
-    let owner = OWNER();
+    let artist_1 = artist_1();
+    let owner = owner();
 
     // Deploy music share token factory as owner
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -133,8 +135,8 @@ fn test_successful_music_share_token_deployment() {
 #[test]
 fn test_deploy_music_share_token_event() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let artist_1 = ARTIST_1();
+    let owner = owner();
+    let artist_1 = artist_1();
 
     // Deploy music share token factory as owner
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -162,12 +164,13 @@ fn test_deploy_music_share_token_event() {
                 (
                     factory_address,
                     MusicShareTokenFactory::Event::TokenDeployedEvent(
-                        MusicShareTokenFactory::TokenDeployedEvent {
+                        TokenDeployedEvent {
                             deployer: artist_1,
                             token_address,
                             name: name.into(),
                             symbol: symbol.into(),
                             metadata_uri: metadata_uri.into(),
+                            timestamp: get_block_timestamp(),
                         },
                     ),
                 ),
@@ -178,8 +181,8 @@ fn test_deploy_music_share_token_event() {
 #[test]
 fn test_multiple_tokens_per_artist() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let artist_1 = ARTIST_1();
+    let owner = owner();
+    let artist_1 = artist_1();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -224,9 +227,9 @@ fn test_multiple_tokens_per_artist() {
 #[test]
 fn test_multiple_artists() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let artist_1 = ARTIST_1();
-    let artist_2 = ARTIST_2();
+    let owner = owner();
+    let artist_1 = artist_1();
+    let artist_2 = artist_2();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -272,9 +275,9 @@ fn test_multiple_artists() {
 #[test]
 fn test_token_functionality() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let artist_1 = ARTIST_1();
-    let artist_2 = ARTIST_2();
+    let owner = owner();
+    let artist_1 = artist_1();
+    let artist_2 = artist_2();
 
     // Deploy music share token factory as owner
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -318,10 +321,10 @@ fn test_token_functionality() {
 }
 
 #[test]
-#[should_panic(expected: 'Index out of bounds;')]
+#[should_panic(expect: 'Index out of bounds;')]
 fn test_no_deploy_invalid_token_index() {
     // Setup test accounts from address constants
-    let owner = OWNER();
+    let owner = owner();
 
     // Deploy music share token factory as owner
     let (_, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -331,11 +334,11 @@ fn test_no_deploy_invalid_token_index() {
 }
 
 #[test]
-#[should_panic(expected: 'Not owner or authorized artist')]
+#[should_panic(expect: 'Not owner or authorized artist')]
 fn test_unauthorized_user_deploy_failure() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let unauthorized_user = NON_AUTH();
+    let owner = owner();
+    let unauthorized_user = non_auth();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -354,8 +357,8 @@ fn test_unauthorized_user_deploy_failure() {
 #[test]
 fn test_artist_role_management() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let artist = ARTIST_1();
+    let owner = owner();
+    let artist = artist_1();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -389,12 +392,12 @@ fn test_artist_role_management() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_grant_artist_role_unauthorized() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let unauthorized = NON_AUTH();
-    let artist = ARTIST_1();
+    let owner = owner();
+    let unauthorized = non_auth();
+    let artist = artist_1();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -409,7 +412,7 @@ fn test_grant_artist_role_unauthorized() {
 #[test]
 fn test_update_token_class_hash() {
     // Setup test accounts from address constants
-    let owner = OWNER();
+    let owner = owner();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -429,11 +432,11 @@ fn test_update_token_class_hash() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_update_token_class_hash_unauthorized() {
     // Setup test accounts from address constants
-    let owner = OWNER();
-    let unauthorized = NON_AUTH();
+    let owner = owner();
+    let unauthorized = non_auth();
 
     // Deploy music share token factory
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
@@ -446,18 +449,18 @@ fn test_update_token_class_hash_unauthorized() {
 }
 
 #[test]
-#[should_panic(expected: 'Result::unwrap failed.')]
+#[should_panic(expect: 'Result::unwrap failed.')]
 fn test_deploy_factory_with_zero_owner() {
     // For this test, we need to modify the deploy function to handle zero address directly
     // Get the token class hash
-    let (_, music_token_class_hash) = deploy_music_share_token(OWNER());
+    let (_, music_token_class_hash) = deploy_music_share_token(owner());
 
     // Set up factory constructor calldata with zero address as owner
     let factory_class = declare("MusicShareTokenFactory").unwrap().contract_class();
     let mut calldata = array![];
 
     // Use zero address as owner
-    calldata.append(ZERO_ADDRESS().into());
+    calldata.append(zero().into());
     calldata.append(music_token_class_hash.into());
 
     // Attempt to deploy with zero address owner - should fail

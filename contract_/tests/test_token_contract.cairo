@@ -2,30 +2,30 @@ use contract_::erc20::{
     IBurnableDispatcher, IBurnableDispatcherTrait, IMusicShareTokenDispatcher,
     IMusicShareTokenDispatcherTrait,
 };
-use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
+use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
-use starknet::{ContractAddress, contract_address_const};
+use starknet::ContractAddress;
 
 fn owner() -> ContractAddress {
-    contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 fn zero() -> ContractAddress {
-    contract_address_const::<0>()
+    0.try_into().unwrap()
 }
 
 fn kim() -> ContractAddress {
-    contract_address_const::<'kim'>()
+    'kim'.try_into().unwrap()
 }
 
 fn thurston() -> ContractAddress {
-    contract_address_const::<'thurston'>()
+    'thurston'.try_into().unwrap()
 }
 
 fn lee() -> ContractAddress {
-    contract_address_const::<'lee'>()
+    'lee'.try_into().unwrap()
 }
 
 // Helper function to deploy the music share token contract
@@ -312,7 +312,7 @@ fn test_decimal_configuration() {
 }
 
 #[test]
-#[should_panic(expected: 'Token already initialized')]
+#[should_panic(expect: 'Token already initialized')]
 fn test_double_initialization() {
     // Setup
     let recipient = kim();
@@ -416,7 +416,7 @@ fn test_6_decimal_precision() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is not the owner')]
 fn test_authorization_failure() {
     // Setup - deploy the contract but don't initialize yet
     let contract_address = deploy_music_share_token();

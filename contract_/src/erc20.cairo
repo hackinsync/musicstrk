@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts for Cairo ^1.0.0
-use starknet::ContractAddress;
 use core::byte_array::ByteArray;
+use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IMusicShareToken<ContractState> {
@@ -24,18 +24,16 @@ pub trait IBurnable<ContractState> {
 
 #[starknet::contract]
 pub mod MusicStrk {
-    // use openzeppelin_token::erc20::interface::IERC20Mixin;
     use contract_::errors::errors;
+    use core::byte_array::ByteArray;
+    use core::clone::Clone;
+    use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
-    use openzeppelin::upgrades::interface::IUpgradeable;
     use openzeppelin::upgrades::UpgradeableComponent;
+    use openzeppelin::upgrades::interface::IUpgradeable;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress, get_caller_address};
-    use core::num::traits::Zero;
-    use core::byte_array::ByteArray;
-    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use core::clone::Clone;
-
     use super::{IBurnable, IMusicShareToken};
 
     // Token hard cap - exactly 100 tokens per contract

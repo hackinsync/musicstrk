@@ -1,19 +1,17 @@
 #[starknet::contract]
 pub mod RevenueDistribution {
-    use starknet::{ContractAddress, get_block_timestamp};
+    use alexandria_storage::{List, ListTrait};
+    use contract_::IRevenueDistribution::{Category, IRevenueDistribution};
+    use contract_::erc20::MusicStrk::TOTAL_SHARES;
+    use contract_::events::{RevenueAddedEvent, RevenueDistributedEvent, TokenShareTransferred};
     use core::num::traits::Zero;
-
-    use starknet::storage::{
-        StoragePointerReadAccess, StoragePointerWriteAccess, Map, StorageMapReadAccess,
-        StorageMapWriteAccess,
-    };
-    use contract_::IRevenueDistribution::{
-        IRevenueDistribution, Category, RevenueAddedEvent, RevenueDistributedEvent,
-    };
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use contract_::erc20::MusicStrk::TOTAL_SHARES;
-    use alexandria_storage::{ListTrait, List};
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
+    };
+    use starknet::{ContractAddress, get_block_timestamp};
 
     const DECIMALS: u256 = 1_000_000;
 
@@ -47,6 +45,7 @@ pub mod RevenueDistribution {
         OwnableEvent: OwnableComponent::Event,
         RevenueAddedEvent: RevenueAddedEvent,
         RevenueDistributedEvent: RevenueDistributedEvent,
+        TokenShareTransferred: TokenShareTransferred,
     }
 
 
@@ -71,6 +70,7 @@ pub mod RevenueDistribution {
             let mut holders = self.token_holders.read(token_contract);
             let _index = holders.append(to);
             self.token_holders.write(token_contract, holders);
+            self.emit(TokenShareTransferred { new_holder: to, amount });
         }
 
         fn add_revenue(ref self: ContractState, category: Category, amount: u256) {
@@ -118,7 +118,7 @@ pub mod RevenueDistribution {
                 self.distribution_history.write(history);
 
                 i += 1;
-            };
+            }
 
             self.total_revenue.write(0);
             self
@@ -162,7 +162,7 @@ pub mod RevenueDistribution {
                 artist_array.append(id);
 
                 i += 1;
-            };
+            }
 
             artist_array
         }
@@ -183,7 +183,7 @@ pub mod RevenueDistribution {
                 history_array.append(id);
 
                 i += 1;
-            };
+            }
 
             history_array
         }
