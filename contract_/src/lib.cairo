@@ -8,6 +8,12 @@ pub mod audition {
     pub mod season_and_audition;
     pub mod season_and_audition_interface;
     pub mod season_and_audition_types;
+
+    pub mod stake_to_vote;
+    pub mod types;
+    pub mod interfaces {
+        pub mod istake_to_vote;
+    }
 }
 pub mod governance {
     pub mod GovernanceToken;
