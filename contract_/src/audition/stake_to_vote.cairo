@@ -207,17 +207,17 @@ pub mod StakeToVote {
         /// @notice Checks if the caller has sufficient token allowance.
         /// @dev Asserts that the caller has enough allowance to transfer the specified amount.
         /// @param self The contract state reference.
-        /// @param spender The address of the spender (usually the contract itself).
+        /// @param owner The address of the owner.
         /// @param amount The amount of tokens to check allowance for.
         /// @require The caller must have sufficient token allowance.
         fn _check_token_allowance(
             ref self: ContractState,
-            spender: ContractAddress,
+            owner: ContractAddress,
             amount: u256,
             token_address: ContractAddress,
         ) {
             let token = IERC20Dispatcher { contract_address: token_address };
-            let allowance = token.allowance(spender, starknet::get_contract_address());
+            let allowance = token.allowance(owner, starknet::get_contract_address());
             assert(allowance >= amount, errors::INSUFFICIENT_ALLOWANCE);
         }
 
