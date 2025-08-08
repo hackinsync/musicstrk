@@ -155,12 +155,12 @@ pub mod StakeToVote {
                 errors::WITHDRAWAL_DELAY_ACTIVE,
             );
 
-            // Transfer stake back to caller
-            self._send_tokens(caller, staker_info.staked_amount, config.stake_token);
-
             // Clear staker data
             self.stakers.entry((audition_id, caller)).write(Default::default());
             self.eligible_voters.write((audition_id, caller), false);
+
+            // Transfer stake back to caller
+            self._send_tokens(caller, staker_info.staked_amount, config.stake_token);
 
             self
                 .emit(
