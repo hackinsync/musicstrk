@@ -61,10 +61,10 @@ pub trait ISeasonAndAudition<TContractState> {
         name: felt252,
         end_timestamp: felt252,
     );
-    fn read_session(self: @TContractState, session_id: felt252) -> Session;
-    fn total_sessions(self: @TContractState) -> felt252;
-    fn update_session(ref self: TContractState, session_id: felt252, session: Session);
-    fn delete_session(ref self: TContractState, session_id: felt252);
+    fn read_season(self: @TContractState, season_id: felt252) -> Season;
+    fn total_seasons(self: @TContractState) -> felt252;
+    fn update_season(ref self: TContractState, season_id: felt252, season: Season);
+    fn delete_season(ref self: TContractState, season_id: felt252);
     fn create_audition(
         ref self: TContractState,
         season_id: felt252,
@@ -402,7 +402,6 @@ pub mod SeasonAndAudition {
     impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
         fn create_season(
             ref self: ContractState,
-            season_id: felt252,
             genre: felt252,
             name: felt252,
             end_timestamp: felt252,
@@ -422,7 +421,7 @@ pub mod SeasonAndAudition {
             self
                 .seasons
                 .entry(season_id)
-                .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused });
+                .write(Season { season_id, genre, name, start_timestamp: current_time.into(), end_timestamp, paused: false });
 
             // Update total seasons counter
             self.total_seasons.write(season_id);
@@ -439,12 +438,8 @@ pub mod SeasonAndAudition {
             self.seasons.entry(season_id).read()
         }
 
-        fn total_sessions(self: @ContractState) -> felt252 {
+        fn total_seasons(self: @ContractState) -> felt252 {
             self.total_seasons.read()
-        }
-
-        fn total_sessions(self: @ContractState) -> felt252 {
-            self.total_sessions.read()
         }
 
         fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
@@ -477,7 +472,6 @@ pub mod SeasonAndAudition {
 
         fn create_audition(
             ref self: ContractState,
-            audition_id: felt252,
             season_id: felt252,
             genre: felt252,
             name: felt252,
@@ -497,7 +491,7 @@ pub mod SeasonAndAudition {
                 .entry(audition_id)
                 .write(
                     Audition {
-                        audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused,
+                        audition_id, season_id, genre, name, start_timestamp: current_time.into(), end_timestamp, paused: false,
                     },
                 );
 
