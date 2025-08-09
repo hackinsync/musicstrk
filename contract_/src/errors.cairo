@@ -26,4 +26,16 @@ pub mod errors {
 
     // Voting errors (6000-6999)
     pub const DUPLICATE_VOTE: felt252 = 'Vote already exists';
+
+    // Vote Staking errors
+    pub const AUDITION_DOES_NOT_EXIST: felt252 = 'Audition does not exist';
+    pub const AUDITION_HAS_ENDED: felt252 = 'Audition has ended';
+    pub const AUDITION_NOT_YET_ENDED: felt252 = 'Audition not yet ended';
+    pub const STAKE_TOKEN_CANNOT_BE_ZERO: felt252 = 'Stake token cannot be zero';
+    pub const STAKE_AMOUNT_MUST_BE_GRAETER_THAN_ZERO: felt252 = 'Stake amount must be > 0';
+    pub const STAKING_NOT_ENABLED: felt252 = 'Staking not enabled';
+    pub const ALREADY_STAKED: felt252 = 'Already staked';
+    pub const NO_STAKE_TO_WITHDRAW: felt252 = 'No stake to withdraw';
+    pub const WITHDRAWAL_DELAY_ACTIVE: felt252 = 'Withdrawal delay active';
+    pub const TRANSFER_FAILED: felt252 = 'transfer failed';
 }
