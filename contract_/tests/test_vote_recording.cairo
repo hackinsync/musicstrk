@@ -68,16 +68,11 @@ fn setup_contract_with_oracle() -> ISeasonAndAuditionDispatcher {
 // Helper function to create a default audition
 fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: felt252) {
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract
-        .create_audition(
-            audition_id,
-            1, // season_id
-            'Pop',
-            'Test Audition',
-            1672531200, // start_timestamp
-            1675123200, // end_timestamp
-            false // paused
-        );
+    contract.create_audition(1, // season_id
+    'Pop', 'Test Audition', // 1672531200, // start_timestamp
+    1675123200 // end_timestamp
+    // false // paused
+    );
     stop_cheat_caller_address(contract.contract_address);
 }
 
@@ -96,12 +91,9 @@ fn test_record_vote_success() {
 
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
     stop_cheat_caller_address(contract.contract_address);
 
@@ -154,12 +146,9 @@ fn test_record_vote_should_panic_if_season_paused() {
 
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
     stop_cheat_caller_address(contract.contract_address);
 
@@ -233,12 +222,9 @@ fn test_record_multiple_votes_different_combinations() {
 
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
     stop_cheat_caller_address(contract.contract_address);
     // Create audition first
@@ -287,12 +273,9 @@ fn test_record_votes_different_auditions() {
 
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
     stop_cheat_caller_address(contract.contract_address);
     // Create auditions first
@@ -335,12 +318,9 @@ fn test_get_vote_nonexistent_returns_default() {
 
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
     create_test_audition(contract, audition_id);
 

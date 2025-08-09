@@ -57,28 +57,21 @@ pub struct Appeal {
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
     fn create_season(
-        ref self: TContractState,
-        season_id: felt252,
-        genre: felt252,
-        name: felt252,
-        start_timestamp: u64,
-        end_timestamp: u64,
-        paused: bool,
+        ref self: TContractState, genre: felt252, name: felt252, end_timestamp: u64,
     );
     fn read_season(self: @TContractState, season_id: felt252) -> Season;
+    fn total_seasons(self: @TContractState) -> felt252;
     fn update_season(ref self: TContractState, season_id: felt252, season: Season);
     fn delete_season(ref self: TContractState, season_id: felt252);
     fn create_audition(
         ref self: TContractState,
-        audition_id: felt252,
         season_id: felt252,
         genre: felt252,
         name: felt252,
-        start_timestamp: felt252,
         end_timestamp: felt252,
-        paused: bool,
     );
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
+    fn total_auditions(self: @TContractState) -> felt252;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn delete_audition(ref self: TContractState, audition_id: felt252);
     fn submit_results(
@@ -363,6 +356,9 @@ pub mod SeasonAndAudition {
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
         appeals: Map<u256, Appeal>,
+        /// @notice ID counters
+        total_auditions: felt252,
+        total_seasons: felt252,
     }
 
     #[event]
@@ -411,16 +407,19 @@ pub mod SeasonAndAudition {
     impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
         fn create_season(
             ref self: ContractState,
-            season_id: felt252,
             genre: felt252,
             name: felt252,
-            start_timestamp: u64,
             end_timestamp: u64,
-            paused: bool,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
 
+            let current_time = get_block_timestamp();
+            assert(end_timestamp > current_time, 'Session ends in past');
+
+            let season_id = self.total_seasons.read() + 1;
+
+            // Store the new session
             self
                 .seasons
                 .entry(season_id)
@@ -429,9 +428,9 @@ pub mod SeasonAndAudition {
                         season_id,
                         genre,
                         name,
-                        start_timestamp,
+                        start_timestamp: current_time,
                         end_timestamp,
-                        paused,
+                        paused: false,
                         ended: false,
                     },
                 );
@@ -446,6 +445,10 @@ pub mod SeasonAndAudition {
 
         fn read_season(self: @ContractState, season_id: felt252) -> Season {
             self.seasons.entry(season_id).read()
+        }
+
+        fn total_seasons(self: @ContractState) -> felt252 {
+            self.total_seasons.read()
         }
 
         fn update_season(ref self: ContractState, season_id: felt252, season: Season) {
@@ -480,25 +483,35 @@ pub mod SeasonAndAudition {
 
         fn create_audition(
             ref self: ContractState,
-            audition_id: felt252,
             season_id: felt252,
             genre: felt252,
             name: felt252,
-            start_timestamp: felt252,
             end_timestamp: felt252,
-            paused: bool,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
             self.assert_valid_season(season_id);
+            let current_time = get_block_timestamp();
+            assert(end_timestamp.try_into().unwrap() > current_time, 'Audition ends in past');
+
+            let audition_id = self.total_auditions.read() + 1;
             self
                 .auditions
                 .entry(audition_id)
                 .write(
                     Audition {
-                        audition_id, season_id, genre, name, start_timestamp, end_timestamp, paused,
+                        audition_id,
+                        season_id,
+                        genre,
+                        name,
+                        start_timestamp: current_time.into(),
+                        end_timestamp,
+                        paused: false,
                     },
                 );
+
+            // Update total auditions counter
+            self.total_auditions.write(audition_id);
 
             self
                 .emit(
@@ -512,6 +525,10 @@ pub mod SeasonAndAudition {
 
         fn read_audition(self: @ContractState, audition_id: felt252) -> Audition {
             self.auditions.entry(audition_id).read()
+        }
+
+        fn total_auditions(self: @ContractState) -> felt252 {
+            self.total_auditions.read()
         }
 
         fn update_audition(ref self: ContractState, audition_id: felt252, audition: Audition) {

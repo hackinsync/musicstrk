@@ -127,24 +127,18 @@ fn setup_staking_audition() -> (
     let default_season = create_default_season(season_id);
     season_and_audition
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
     let default_audition = create_default_audition(audition_id, season_id);
     season_and_audition
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             // A future end timestamp to ensure it's not ended
             get_block_timestamp().into() + 1000,
-            default_audition.paused,
         );
     stop_cheat_caller_address(season_and_audition.contract_address);
 
