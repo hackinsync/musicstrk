@@ -69,13 +69,12 @@ fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: fel
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             1, // season_id
             'Pop',
             'Test Audition',
-            1672531200, // start_timestamp
+            // 1672531200, // start_timestamp
             1675123200, // end_timestamp
-            false // paused
+            // false // paused
         );
     stop_cheat_caller_address(contract.contract_address);
 }

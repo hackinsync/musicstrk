@@ -106,12 +106,9 @@ fn test_season_create() {
     // CREATE Season
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
 
     // READ Season
@@ -121,7 +118,7 @@ fn test_season_create() {
     assert!(read_season.genre == default_season.genre, "Failed to read season genre");
     assert!(read_season.name == default_season.name, "Failed to read season name");
     assert!(
-        read_season.start_timestamp == default_season.start_timestamp,
+        read_season.start_timestamp == get_block_timestamp().into(),
         "Failed to read season start timestamp",
     );
     assert!(
@@ -168,12 +165,9 @@ fn test_update_season() {
     // CREATE Season
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
 
     // UPDATE Season
@@ -229,12 +223,9 @@ fn test_delete_season() {
     // CREATE Season
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
 
     // DELETE Season
@@ -285,13 +276,10 @@ fn test_create_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // READ Audition
@@ -301,7 +289,7 @@ fn test_create_audition() {
     assert!(read_audition.genre == default_audition.genre, "Failed to read audition genre");
     assert!(read_audition.name == default_audition.name, "Failed to read audition name");
     assert!(
-        read_audition.start_timestamp == default_audition.start_timestamp,
+        read_audition.start_timestamp == get_block_timestamp().into(),
         "Failed to read audition start timestamp",
     );
     assert!(
@@ -343,13 +331,10 @@ fn test_audition_deposit_price_successful() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -397,13 +382,10 @@ fn test_audition_deposit_price_should_panic_if_amount_is_zero() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -431,13 +413,10 @@ fn test_audition_deposit_price_should_panic_if_token_is_zero_address() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     stop_cheat_caller_address(contract.contract_address);
@@ -461,13 +440,10 @@ fn test_audition_deposit_price_should_panic_if_already_deposited() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -496,13 +472,10 @@ fn test_audition_deposit_price_should_panic_if_insufficient_allowance() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -530,13 +503,10 @@ fn test_audition_deposit_price_should_panic_if_insufficient_balance() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -580,13 +550,10 @@ fn test_audition_deposit_price_should_panic_if_audition_ended_already() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition with future end time
@@ -641,13 +608,10 @@ fn test_audition_deposit_price_should_panic_if_called_by_non_owner() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -672,13 +636,10 @@ fn test_audition_deposit_price_should_panic_if_contract_is_paused() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -711,13 +672,10 @@ fn test_audition_distribute_prize_successful() {
 
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -868,13 +826,10 @@ fn test_audition_distribute_prize_should_panic_if_not_owner() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
     let mock_token_dispatcher = deploy_mock_erc20_contract();
     stop_cheat_caller_address(contract.contract_address);
@@ -910,13 +865,10 @@ fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
 
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -979,13 +931,10 @@ fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
     // Create a valid audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -1031,13 +980,10 @@ fn test_distribute_prize_should_panic_if_audition_not_ended() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -1082,13 +1028,10 @@ fn test_distribute_prize_should_panic_if_no_prize_deposited() {
 
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // End audition
@@ -1130,13 +1073,10 @@ fn test_distribute_prize_should_panic_if_already_distributed() {
 
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -1197,13 +1137,10 @@ fn test_distribute_prize_should_panic_if_winner_is_zero_address() {
 
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -1260,13 +1197,10 @@ fn test_distribute_prize_should_panic_if_total_shares_not_100() {
 
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -1324,13 +1258,10 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
 
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mock_token_dispatcher = deploy_mock_erc20_contract();
@@ -1402,13 +1333,10 @@ fn test_update_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -1464,13 +1392,10 @@ fn test_delete_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // DELETE Audition
@@ -1519,12 +1444,9 @@ fn test_all_crud_operations() {
     // CREATE Season
     contract
         .create_season(
-            season_id,
             default_season.genre,
             default_season.name,
-            default_season.start_timestamp,
             default_season.end_timestamp,
-            default_season.paused,
         );
 
     // READ Season
@@ -1554,18 +1476,15 @@ fn test_all_crud_operations() {
     contract.delete_season(season_id);
     let deleted_season = contract.read_season(season_id);
 
-    assert!(deleted_season.name == 0, "Failed to delete season");
+    assert!(deleted_season.name == '', "Failed to delete season");
 
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // READ Audition
@@ -1594,7 +1513,7 @@ fn test_all_crud_operations() {
     contract.delete_audition(audition_id);
     let deleted_audition = contract.read_audition(audition_id);
 
-    assert!(deleted_audition.name == 0, "Failed to delete audition");
+    assert!(deleted_audition.name == '', "Failed to delete audition");
 
     // Stop prank
     stop_cheat_caller_address(contract.contract_address);
@@ -1609,7 +1528,7 @@ fn test_safe_painc_only_owner_can_call_functions() {
     start_cheat_caller_address(safe_dispatcher.contract_address, USER());
 
     // Attempt to create a season
-    match safe_dispatcher.create_season(1, 'Pop', 100, 1672531200, 1675123200, false) {
+    match safe_dispatcher.create_season('Pop', 100, 1675123200) {
         Result::Ok(_) => panic!("Expected panic, but got success"),
         Result::Err(e) => assert(*e.at(0) == 'Caller is not the owner', *e.at(0)),
     }
@@ -1633,13 +1552,10 @@ fn test_pause_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -1686,13 +1602,10 @@ fn test_emission_of_event_for_pause_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -1751,13 +1664,10 @@ fn test_pause_audition_as_non_owner() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -1803,13 +1713,10 @@ fn test_pause_audition_twice_should_fail() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -1860,13 +1767,10 @@ fn test_function_should_fail_after_pause_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -1917,13 +1821,10 @@ fn test_resume_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -1977,13 +1878,10 @@ fn test_attempt_resume_audition_as_non_owner() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -2037,13 +1935,10 @@ fn test_emission_of_event_for_resume_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -2111,13 +2006,10 @@ fn test_end_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition with future end time
@@ -2179,13 +2071,10 @@ fn test_end_audition_as_non_owner() {
     // CREATE Audition as owner
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition as owner
@@ -2227,13 +2116,10 @@ fn test_emission_of_event_for_end_audition() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE Audition
@@ -2303,13 +2189,10 @@ fn test_end_audition_functionality() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // UPDATE with future end time
@@ -2371,13 +2254,10 @@ fn test_add_judge() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // Add judge
@@ -2411,13 +2291,10 @@ fn test_add_multiple_judge() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mut judges = contract.get_judges(audition_id);
@@ -2464,13 +2341,10 @@ fn test_add_judges_should_panic_if_non_owner() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
     stop_cheat_block_timestamp(contract.contract_address);
 
@@ -2492,13 +2366,10 @@ fn test_add_judges_should_panic_if_contract_paused() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     contract.pause_all();
@@ -2531,13 +2402,10 @@ fn test_add_judges_should_panic_if_audition_has_ended() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
     stop_cheat_block_timestamp(contract.contract_address);
     start_cheat_block_timestamp(
@@ -2570,13 +2438,10 @@ fn test_add_judges_should_panic_if_judge_already_added() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mut judges = contract.get_judges(audition_id);
@@ -2607,13 +2472,10 @@ fn test_remove_judge() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
     let judge_address = contract_address_const::<0x1777723>();
     contract.add_judge(audition_id, judge_address);
@@ -2653,13 +2515,10 @@ fn test_judge_remove_can_remove_and_add_multiple_judges() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
     let judge_address = contract_address_const::<0x1777723>();
     contract.add_judge(audition_id, judge_address);
@@ -2732,13 +2591,10 @@ fn test_judge_remove_should_panic_if_contract_paused() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // Add a judge
@@ -2782,13 +2638,10 @@ fn test_remove_judge_should_panic_if_audition_has_ended() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // Add a judge
@@ -2822,13 +2675,10 @@ fn test_remove_judge_should_panic_if_judge_not_found() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // Try to remove a judge that was never added (should panic)
@@ -2852,13 +2702,10 @@ fn test_get_judges_returns_expected_judges() {
     let default_audition = create_default_audition(audition_id, season_id);
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // Add judges
@@ -2898,13 +2745,10 @@ fn test_submit_evaluation_success() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let mut judges = contract.get_judges(audition_id);
@@ -2942,7 +2786,7 @@ fn test_submit_evaluation_success() {
 fn test_multiple_judges_submit_evaluation_for_same_performer() {
     let (contract, _, _) = deploy_contract();
 
-    let audition_id: felt252 = 42;
+    let audition_id: felt252 = 1;
     let season_id: felt252 = 7;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -2956,13 +2800,10 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // Add multiple judges
@@ -3023,7 +2864,7 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
 fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     let (contract, _, _) = deploy_contract();
 
-    let audition_id: felt252 = 43;
+    let audition_id: felt252 = 1;
     let season_id: felt252 = 8;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -3037,13 +2878,10 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // Add multiple judges
@@ -3154,13 +2992,10 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let judge_address = contract_address_const::<0x123>();
@@ -3201,13 +3036,10 @@ fn test_pause_judging_success() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     stop_cheat_block_timestamp(contract.contract_address);
@@ -3241,13 +3073,10 @@ fn test_resume_judging_success() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     stop_cheat_block_timestamp(contract.contract_address);
@@ -3291,13 +3120,10 @@ fn test_pause_judging_should_panic_when_caller_is_not_owner() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     stop_cheat_block_timestamp(contract.contract_address);
@@ -3329,13 +3155,10 @@ fn test_resume_judging_should_panic_when_caller_is_not_owner() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     stop_cheat_block_timestamp(contract.contract_address);
@@ -3374,13 +3197,10 @@ fn test_set_weight_for_audition_success() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let judge_address = contract_address_const::<0x123>();
@@ -3414,13 +3234,10 @@ fn test_set_weight_for_audition_should_panic_if_weight_doest_add_up_to_100() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     let judge_address = contract_address_const::<0x123>();
@@ -3451,13 +3268,10 @@ fn test_perform_aggregate_score_calculation_successful() {
     // CREATE Audition
     contract
         .create_audition(
-            audition_id,
             season_id,
             default_audition.genre,
             default_audition.name,
-            default_audition.start_timestamp,
             default_audition.end_timestamp,
-            default_audition.paused,
         );
 
     // then add 2 judges
