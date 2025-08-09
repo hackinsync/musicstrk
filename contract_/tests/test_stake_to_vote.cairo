@@ -126,11 +126,7 @@ fn setup_staking_audition() -> (
     start_cheat_caller_address(season_and_audition.contract_address, OWNER());
     let default_season = create_default_season(season_id);
     season_and_audition
-        .create_season(
-            default_season.genre,
-            default_season.name,
-            default_season.end_timestamp,
-        );
+        .create_season(default_season.genre, default_season.name, default_season.end_timestamp);
     let default_audition = create_default_audition(audition_id, season_id);
     season_and_audition
         .create_audition(

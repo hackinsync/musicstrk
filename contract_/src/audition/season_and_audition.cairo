@@ -56,9 +56,7 @@ pub struct Appeal {
 // Define the contract interface
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
-    fn create_season(
-        ref self: TContractState, genre: felt252, name: felt252, end_timestamp: u64,
-    );
+    fn create_season(ref self: TContractState, genre: felt252, name: felt252, end_timestamp: u64);
     fn read_season(self: @TContractState, season_id: felt252) -> Season;
     fn total_seasons(self: @TContractState) -> felt252;
     fn update_season(ref self: TContractState, season_id: felt252, season: Season);
@@ -406,10 +404,7 @@ pub mod SeasonAndAudition {
     #[abi(embed_v0)]
     impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
         fn create_season(
-            ref self: ContractState,
-            genre: felt252,
-            name: felt252,
-            end_timestamp: u64,
+            ref self: ContractState, genre: felt252, name: felt252, end_timestamp: u64,
         ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
