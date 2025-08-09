@@ -57,11 +57,7 @@ pub struct Appeal {
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
     fn create_season(
-        ref self: TContractState,
-        genre: felt252,
-        name: felt252,
-        end_timestamp: u64,
-        paused: bool,
+        ref self: TContractState, genre: felt252, name: felt252, end_timestamp: u64, paused: bool,
     );
     fn read_season(self: @TContractState, season_id: felt252) -> Season;
     fn total_seasons(self: @TContractState) -> felt252;
@@ -420,18 +416,25 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
 
             let current_time = get_block_timestamp();
-            assert(
-                end_timestamp.try_into().unwrap() > current_time, 'Session ends in past',
-            );
-            
+            assert(end_timestamp.try_into().unwrap() > current_time, 'Session ends in past');
+
             let season_id = self.total_seasons.read() + 1;
-            
 
             // Store the new session
             self
                 .seasons
                 .entry(season_id)
-                .write(Season { season_id, genre, name, start_timestamp, end_timestamp, paused: false, ended: false });
+                .write(
+                    Season {
+                        season_id,
+                        genre,
+                        name,
+                        start_timestamp,
+                        end_timestamp,
+                        paused: false,
+                        ended: false,
+                    },
+                );
 
             self
                 .emit(
@@ -490,9 +493,7 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             self.assert_valid_season(season_id);
             let current_time = get_block_timestamp();
-            assert(
-                end_timestamp > current_time, 'Audition ends in past',
-            );
+            assert(end_timestamp > current_time, 'Audition ends in past');
 
             let audition_id = self.total_auditions.read() + 1;
             self
@@ -500,7 +501,13 @@ pub mod SeasonAndAudition {
                 .entry(audition_id)
                 .write(
                     Audition {
-                        audition_id, season_id, genre, name, start_timestamp: current_time.into(), end_timestamp, paused: false,
+                        audition_id,
+                        season_id,
+                        genre,
+                        name,
+                        start_timestamp: current_time.into(),
+                        end_timestamp,
+                        paused: false,
                     },
                 );
 

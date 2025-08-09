@@ -68,15 +68,11 @@ fn setup_contract_with_oracle() -> ISeasonAndAuditionDispatcher {
 // Helper function to create a default audition
 fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: felt252) {
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract
-        .create_audition(
-            1, // season_id
-            'Pop',
-            'Test Audition',
-            // 1672531200, // start_timestamp
-            1675123200, // end_timestamp
-            // false // paused
-        );
+    contract.create_audition(1, // season_id
+    'Pop', 'Test Audition', // 1672531200, // start_timestamp
+    1675123200 // end_timestamp
+    // false // paused
+    );
     stop_cheat_caller_address(contract.contract_address);
 }
 
