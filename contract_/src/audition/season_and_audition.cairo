@@ -11,6 +11,26 @@ pub struct Season {
     pub ended: bool,
 }
 
+#[derive(Drop, Serde, Copy, starknet::Store)]
+pub struct ArtistRegistration {
+    pub wallet_address: ContractAddress,
+    pub audition_id: u256,
+    pub tiktok_id: felt252,
+    pub tiktok_username: felt252, // Pre-verified off-chain
+    pub email_hash: felt252, // Privacy hash
+    pub registration_fee_paid: u256,
+    pub registration_timestamp: u64,
+    pub is_active: bool,
+}
+
+#[derive(Drop, Serde, Copy, starknet::Store)]
+pub struct RegistrationConfig {
+    pub fee_amount: u256, // Owner adjustable
+    pub fee_token: ContractAddress, // STRK/USDC
+    pub registration_open: bool,
+    pub max_participants: u32,
+}
+
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Audition {
     pub audition_id: felt252,
