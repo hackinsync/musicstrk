@@ -1,6 +1,6 @@
-use contract_::audition::season_and_audition::{
-    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait, Season,
-    SeasonAndAudition,
+use contract_::audition::session_and_audition::{
+    Audition, ISessionAndAuditionDispatcher, ISessionAndAuditionDispatcherTrait, Session,
+    SessionAndAudition,
 };
 use contract_::events::{PausedAll, ResumedAll};
 use core::result::ResultTrait;
@@ -28,9 +28,9 @@ fn NON_ORACLE() -> ContractAddress {
 }
 
 // Helper function to deploy the contract
-fn deploy_contract() -> ISeasonAndAuditionDispatcher {
+fn deploy_contract() -> ISessionAndAuditionDispatcher {
     // declare the contract
-    let contract_class = declare("SeasonAndAudition")
+    let contract_class = declare("SessionAndAudition")
         .expect('Failed to declare contract')
         .contract_class();
 
@@ -43,15 +43,15 @@ fn deploy_contract() -> ISeasonAndAuditionDispatcher {
         .deploy(@calldata)
         .expect('Failed to deploy contract');
 
-    let contract_dispatcher = ISeasonAndAuditionDispatcher { contract_address };
+    let contract_dispatcher = ISessionAndAuditionDispatcher { contract_address };
 
     contract_dispatcher
 }
 
 // Helper function to create test season data
-fn create_test_season(season_id: felt252) -> Season {
-    Season {
-        season_id,
+fn create_test_season(session_id: felt252) -> Session {
+    Session {
+        session_id,
         genre: 'Pop',
         name: 'Summer Hits',
         start_timestamp: 1672531200,
@@ -62,10 +62,10 @@ fn create_test_season(season_id: felt252) -> Season {
 }
 
 // Helper function to create test audition data
-fn create_test_audition(audition_id: felt252, season_id: felt252) -> Audition {
+fn create_test_audition(audition_id: felt252, session_id: felt252) -> Audition {
     Audition {
         audition_id,
-        season_id,
+        session_id,
         genre: 'Afro House',
         name: 'Deep Cuts',
         start_timestamp: 1672531200,
@@ -88,7 +88,7 @@ fn test_owner_access_control() {
 
     // Owner can create an audition
     let audition_id = 1;
-    let test_audition = create_test_audition(audition_id, season_id);
+    let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
             season_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
@@ -124,8 +124,8 @@ fn test_non_owner_cannot_create_audition() {
     start_cheat_caller_address(dispatcher.contract_address, USER());
 
     let audition_id = 1;
-    let season_id = 1;
-    let test_audition = create_test_audition(audition_id, season_id);
+    let session_id = 1;
+    let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
             season_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
@@ -202,7 +202,7 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::PausedAll(
+                    SessionAndAudition::Event::PausedAll(
                         PausedAll { timestamp: get_block_timestamp() },
                     ),
                 ),
@@ -221,7 +221,7 @@ fn test_emergency_stop() {
             @array![
                 (
                     dispatcher.contract_address,
-                    SeasonAndAudition::Event::ResumedAll(
+                    SessionAndAudition::Event::ResumedAll(
                         ResumedAll { timestamp: get_block_timestamp() },
                     ),
                 ),
@@ -292,8 +292,8 @@ fn test_cannot_create_audition_when_paused() {
 
     // Try to create an audition when paused
     let audition_id = 1;
-    let season_id = 1;
-    let test_audition = create_test_audition(audition_id, season_id);
+    let session_id = 1;
+    let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
             season_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
@@ -344,15 +344,15 @@ fn test_can_perform_operations_after_resume() {
 
     // Create an audition after resuming
     let audition_id = 1;
-    let test_audition = create_test_audition(audition_id, season_id);
+    let test_audition = create_test_audition(audition_id, session_id);
     dispatcher
         .create_audition(
             season_id, test_audition.genre, test_audition.name, test_audition.end_timestamp,
         );
 
     // Verify season was created
-    let read_season = dispatcher.read_season(season_id);
-    assert(read_season.season_id == season_id, 'Season should be created');
+    let read_session = dispatcher.read_session(session_id);
+    assert(read_session.session_id == session_id, 'Session should be created');
 
     // Verify audition was created
     let read_audition = dispatcher.read_audition(audition_id);
