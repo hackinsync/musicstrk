@@ -2,9 +2,10 @@
 pub mod StakeToVote {
     use OwnableComponent::InternalTrait;
     use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
-    use contract_::audition::season_and_audition::{
-        Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+    use contract_::audition::season_and_audition_interface::{
+        ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
+    use contract_::audition::season_and_audition_types::Audition;
     use contract_::audition::types::*;
     use contract_::errors::errors;
     use core::num::traits::Zero;
