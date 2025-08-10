@@ -3,7 +3,7 @@ pub mod SeasonAndAudition {
     use OwnableComponent::{HasComponent, InternalTrait};
     use contract_::audition::season_and_audition_interface::ISeasonAndAudition;
     use contract_::audition::season_and_audition_types::{
-        Appeal, Audition, Evaluation, Genre, Season, Vote,
+        Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
     };
     use contract_::errors::errors;
     use core::num::traits::Zero;
@@ -19,9 +19,9 @@ pub mod SeasonAndAudition {
         AggregateScoreCalculated, AppealResolved, AppealSubmitted, AuditionCalculationCompleted,
         AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
         AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
-        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted,
-        ResumedAll, SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed,
-        SeasonUpdated, VoteRecorded,
+        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed,
+        RegistrationConfigSet, ResultsSubmitted, ResumedAll, SeasonCreated, SeasonDeleted,
+        SeasonEnded, SeasonPaused, SeasonResumed, SeasonUpdated, VoteRecorded,
     };
 
     // Integrates OpenZeppelin ownership component
@@ -108,6 +108,7 @@ pub mod SeasonAndAudition {
         /// so that the aggregate score calculation can be tested
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
+        registration_config: Map<felt252, RegistrationConfig>,
         appeals: Map<u256, Appeal>,
     }
 
@@ -144,6 +145,7 @@ pub mod SeasonAndAudition {
         SeasonPaused: SeasonPaused,
         SeasonResumed: SeasonResumed,
         SeasonEnded: SeasonEnded,
+        RegistrationConfigSet: RegistrationConfigSet,
     }
 
     #[constructor]
@@ -279,6 +281,25 @@ pub mod SeasonAndAudition {
                         AuditionUpdated { audition_id, timestamp: get_block_timestamp() },
                     ),
                 );
+        }
+
+        fn update_registration_config(
+            ref self: ContractState, audition_id: felt252, config: RegistrationConfig,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition already ended');
+
+            self.registration_config.entry(audition_id).write(config);
+            let event = RegistrationConfigSet {
+                audition_id,
+                fee_amount: config.fee_amount,
+                fee_token: config.fee_token,
+                registration_open: config.registration_open,
+                max_participants: config.max_participants,
+            };
+
+            self.emit(event);
         }
 
         fn delete_audition(ref self: ContractState, audition_id: felt252) {
@@ -967,6 +988,12 @@ pub mod SeasonAndAudition {
         fn register_performer(
             ref self: ContractState, audition_id: felt252, performer_id: felt252,
         ) {
+            let has_registered = self
+                .performer_enrollment_status
+                .entry((audition_id, performer_id))
+                .read();
+            assert(!has_registered, 'Performer has registered');
+
             self.enrolled_performers.entry(audition_id).push(performer_id);
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);

@@ -1,5 +1,7 @@
 use starknet::ContractAddress;
-use super::season_and_audition_types::{Appeal, Audition, Evaluation, Genre, Season, Vote};
+use super::season_and_audition_types::{
+    Appeal, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
+};
 
 // Define the contract interface
 #[starknet::interface]
@@ -32,6 +34,9 @@ pub trait ISeasonAndAudition<TContractState> {
     );
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
+    fn update_registration_config(
+        ref self: TContractState, audition_id: felt252, config: RegistrationConfig,
+    );
     fn delete_audition(ref self: TContractState, audition_id: felt252);
     fn submit_results(
         ref self: TContractState, audition_id: felt252, top_performers: felt252, shares: felt252,

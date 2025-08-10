@@ -386,3 +386,13 @@ pub struct SeasonEnded {
     pub season_id: u256,
     pub last_updated_timestamp: u64,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct RegistrationConfigSet {
+    #[key]
+    pub audition_id: felt252,
+    pub fee_amount: u256, // Owner adjustable
+    pub fee_token: ContractAddress, // STRK/USDC
+    pub registration_open: bool,
+    pub max_participants: u32,
+}
