@@ -183,6 +183,14 @@ pub mod StakeToVote {
 
             config.required_stake_amount
         }
+        
+        fn get_staker_info(self: @ContractState, staker: ContractAddress, audition_id: felt252) -> StakerInfo {
+            self.stakers.read((audition_id, staker))
+        }
+        
+        fn get_staking_config(self: @ContractState, audition_id: felt252) -> StakingConfig {
+            self.staking_configs.read(audition_id)
+        }
     }
 
     #[generate_trait]

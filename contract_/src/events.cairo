@@ -383,3 +383,68 @@ pub struct SeasonEnded {
     pub season_id: felt252,
     pub timestamp: u64,
 }
+
+// Stake withdrawal events
+#[derive(Drop, starknet::Event)]
+pub struct StakeWithdrawn {
+    #[key]
+    pub staker: ContractAddress,
+    #[key]
+    pub audition_id: u256,
+    pub amount: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct BatchStakeWithdrawn {
+    #[key]
+    pub staker: ContractAddress,
+    pub audition_ids: Array<u256>,
+    pub total_amount: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct EmergencyStakeWithdrawn {
+    #[key]
+    pub staker: ContractAddress,
+    #[key]
+    pub audition_id: u256,
+    pub amount: u256,
+    pub admin: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct StakerInfoCleared {
+    #[key]
+    pub staker: ContractAddress,
+    #[key]
+    pub audition_id: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalFailed {
+    #[key]
+    pub staker: ContractAddress,
+    #[key]
+    pub audition_id: u256,
+    pub reason: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ResultsFinalized {
+    #[key]
+    pub audition_id: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct StakingConfigUpdated {
+    #[key]
+    pub audition_id: u256,
+    pub config: contract_::audition::types::StakingConfig,
+    pub timestamp: u64,
+}
