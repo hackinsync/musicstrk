@@ -108,7 +108,7 @@ pub mod SeasonAndAudition {
         /// so that the aggregate score calculation can be tested
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
-        registration_config: Map<felt252, RegistrationConfig>,
+        registration_config: Map<felt252, Option<RegistrationConfig>>,
         appeals: Map<u256, Appeal>,
     }
 
@@ -290,7 +290,7 @@ pub mod SeasonAndAudition {
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition already ended');
 
-            self.registration_config.entry(audition_id).write(config);
+            self.registration_config.entry(audition_id).write(Option::Some(config));
             let event = RegistrationConfigSet {
                 audition_id,
                 fee_amount: config.fee_amount,
@@ -300,6 +300,22 @@ pub mod SeasonAndAudition {
             };
 
             self.emit(event);
+        }
+
+        fn get_registration_config(
+            ref self: ContractState, audition_id: felt252,
+        ) -> Option<RegistrationConfig> {
+            let config = self.registration_config.entry(audition_id).read();
+            if self.audition_exists(audition_id) {
+                return if config.is_some() {
+                    config
+                } else {
+                    let config: Option<RegistrationConfig> = Option::Some(Default::default());
+                    self.registration_config.entry(audition_id).write(config);
+                    config
+                };
+            }
+            Option::None
         }
 
         fn delete_audition(ref self: ContractState, audition_id: felt252) {

@@ -37,6 +37,9 @@ pub trait ISeasonAndAudition<TContractState> {
     fn update_registration_config(
         ref self: TContractState, audition_id: felt252, config: RegistrationConfig,
     );
+    fn get_registration_config(
+        ref self: TContractState, audition_id: felt252,
+    ) -> Option<RegistrationConfig>;
     fn delete_audition(ref self: TContractState, audition_id: felt252);
     fn submit_results(
         ref self: TContractState, audition_id: felt252, top_performers: felt252, shares: felt252,

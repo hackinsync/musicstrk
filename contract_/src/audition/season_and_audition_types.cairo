@@ -1,3 +1,4 @@
+use core::num::traits::Zero;
 use starknet::ContractAddress;
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
@@ -28,6 +29,24 @@ pub struct RegistrationConfig {
     pub fee_token: ContractAddress,
     pub registration_open: bool,
     pub max_participants: u32,
+}
+
+impl RegistrationConfigDefault of Default<RegistrationConfig> {
+    /// @notice update default if necessary. Initializes with default
+    /// values and first checks if RegistrationConfig is none
+    /// This allows for additional flexibility.
+    #[inline(always)]
+    fn default() -> RegistrationConfig {
+        RegistrationConfig {
+            fee_amount: 100_000_000, // 100 usdc to it's 6 decimals
+            // usdc on starknet mainnet.
+            fee_token: 0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8
+                .try_into()
+                .unwrap(),
+            registration_open: true,
+            max_participants: 25,
+        }
+    }
 }
 
 #[derive(Drop, Serde, Copy, starknet::Store)]
