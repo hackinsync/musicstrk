@@ -34,8 +34,12 @@ pub trait IStakeToVote<TContractState> {
     ) -> bool;
 
     fn required_stake_amount(self: @TContractState, audition_id: felt252) -> u256;
-    
+
     // Additional functions needed for withdrawal integration
-    fn get_staker_info(self: @TContractState, staker: ContractAddress, audition_id: felt252) -> contract_::audition::types::StakerInfo;
-    fn get_staking_config(self: @TContractState, audition_id: felt252) -> contract_::audition::types::StakingConfig;
+    fn get_staker_info(
+        self: @TContractState, staker: ContractAddress, audition_id: felt252,
+    ) -> contract_::audition::types::StakerInfo;
+    fn get_staking_config(
+        self: @TContractState, audition_id: felt252,
+    ) -> contract_::audition::types::StakingConfig;
 }
