@@ -33,9 +33,22 @@ pub trait ISeasonAndAudition<TContractState> {
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn delete_audition(ref self: TContractState, audition_id: felt252);
-    fn submit_results(
-        ref self: TContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
+
+    /// @notice Performer submits the result of an audition.
+    /// @dev Only the performer can submit the result.
+    /// @param audition_id The ID of the audition the user wants to submit the result for.
+    /// @param result_uri The URI of the result.
+    fn submit_result(
+        ref self: TContractState, audition_id: felt252, result_uri: ByteArray, performer: felt252,
     );
+    /// @notice Gets the result of a performer for an audition.
+
+    fn get_result(self: @TContractState, audition_id: felt252, performer: felt252) -> ByteArray;
+    /// @notice Gets the results of an audition.
+    fn get_results(self: @TContractState, audition_id: felt252) -> Array<ByteArray>;
+    /// @notice Gets the results of a performer for an audition.
+    fn get_performer_results(self: @TContractState, performer: felt252) -> Array<ByteArray>;
+
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);

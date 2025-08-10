@@ -19,9 +19,9 @@ pub mod SeasonAndAudition {
         AggregateScoreCalculated, AppealResolved, AppealSubmitted, AuditionCalculationCompleted,
         AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
         AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
-        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultsSubmitted,
-        ResumedAll, SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed,
-        SeasonUpdated, VoteRecorded,
+        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultSubmitted,
+        ResultsSubmitted, ResumedAll, SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused,
+        SeasonResumed, SeasonUpdated, VoteRecorded,
     };
 
     // Integrates OpenZeppelin ownership component
@@ -109,6 +109,19 @@ pub mod SeasonAndAudition {
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
         appeals: Map<u256, Appeal>,
+        /// @notice maps each audition and performer to a bool indicating if the performer has
+        /// submitted the result @dev Map from (audition_id, performer_id) to bool indicating if the
+        /// performer has submitted the result
+        performer_result_submission_status: Map<(felt252, felt252), bool>,
+        /// @notice maps each audition and performer to a result uri
+        /// @dev Map from (audition_id, performer_id) to result uri
+        performer_result: Map<(felt252, felt252), ByteArray>,
+        /// @notice list of submitted results for an audition
+        /// @dev List of (audition_id, result_uri)
+        submitted_results: Map<felt252, Vec<ByteArray>>,
+        /// notice list of all results for a perfomer
+        /// @dev List of (performer_id, result_uri)
+        performer_results: Map<felt252, Vec<ByteArray>>,
     }
 
     #[event]
@@ -144,6 +157,7 @@ pub mod SeasonAndAudition {
         SeasonPaused: SeasonPaused,
         SeasonResumed: SeasonResumed,
         SeasonEnded: SeasonEnded,
+        ResultSubmitted: ResultSubmitted,
     }
 
     #[constructor]
@@ -578,21 +592,58 @@ pub mod SeasonAndAudition {
         }
 
 
-        fn submit_results(
-            ref self: ContractState, audition_id: felt252, top_performers: felt252, shares: felt252,
+        fn submit_result(
+            ref self: ContractState,
+            audition_id: felt252,
+            result_uri: ByteArray,
+            performer: felt252,
         ) {
-            self.only_oracle();
+            self.ownable.assert_only_owner();
+            let audition = self.auditions.entry(audition_id).read();
+            self.assert_valid_season(audition.season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
-
+            let is_performer_enrolled = self
+                .performer_enrollment_status
+                .entry((audition_id, performer))
+                .read();
+            assert(is_performer_enrolled, 'Performer is not enrolled');
+            let is_performer_result_submitted = self
+                .performer_result_submission_status
+                .entry((audition_id, performer))
+                .read();
+            assert(!is_performer_result_submitted, 'Performer already submitted');
+            self.performer_result_submission_status.write((audition_id, performer), true);
+            self.performer_result.write((audition_id, performer), result_uri.clone());
+            self.submitted_results.entry(audition_id).push(result_uri.clone());
+            self.performer_results.entry(performer).push(result_uri.clone());
             self
                 .emit(
-                    Event::ResultsSubmitted(
-                        ResultsSubmitted {
-                            audition_id, top_performers, shares, timestamp: get_block_timestamp(),
-                        },
-                    ),
+                    Event::ResultSubmitted(ResultSubmitted { audition_id, result_uri, performer }),
                 );
         }
+
+        fn get_result(self: @ContractState, audition_id: felt252, performer: felt252) -> ByteArray {
+            self.performer_result.read((audition_id, performer))
+        }
+        /// @notice Gets the results of an audition.
+        fn get_results(self: @ContractState, audition_id: felt252) -> Array<ByteArray> {
+            let mut results = ArrayTrait::new();
+            for i in 0..self.submitted_results.entry(audition_id).len() {
+                let result = self.submitted_results.entry(audition_id).at(i).read();
+                results.append(result);
+            }
+            results
+        }
+        /// @notice Gets the results of a performer for an audition.
+        fn get_performer_results(self: @ContractState, performer: felt252) -> Array<ByteArray> {
+            let mut results = ArrayTrait::new();
+            for i in 0..self.performer_results.entry(performer).len() {
+                let result = self.performer_results.entry(performer).at(i).read();
+                results.append(result);
+            }
+            results
+        }
+
 
         fn only_oracle(ref self: ContractState) {
             let caller = get_caller_address();
