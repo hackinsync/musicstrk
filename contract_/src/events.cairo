@@ -1,22 +1,25 @@
 use contract_::governance::types::VoteType;
 use starknet::ContractAddress;
 use crate::IRevenueDistribution::Category;
+use crate::audition::season_and_audition_types::Genre;
 
 #[derive(Drop, starknet::Event)]
 pub struct SeasonCreated {
     #[key]
-    pub season_id: felt252,
+    pub season_id: u256,
     #[key]
-    pub genre: felt252,
+    pub genre: Genre,
     pub name: felt252,
-    pub timestamp: u64,
+    pub start_timestamp: u64,
+    pub end_timestamp: u64,
+    pub last_updated_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct SeasonUpdated {
     #[key]
-    pub season_id: felt252,
-    pub timestamp: u64,
+    pub season_id: u256,
+    pub last_updated_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -30,9 +33,9 @@ pub struct SeasonDeleted {
 pub struct AuditionCreated {
     #[key]
     pub audition_id: felt252,
-    pub season_id: felt252,
+    pub season_id: u256,
     #[key]
-    pub genre: felt252,
+    pub genre: Genre,
     pub name: felt252,
     pub timestamp: u64,
 }
@@ -361,4 +364,25 @@ pub struct AppealResolved {
     pub evaluation_id: u256,
     pub resolver: ContractAddress,
     pub resolution_comment: felt252,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct SeasonPaused {
+    #[key]
+    pub season_id: u256,
+    pub last_updated_timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct SeasonResumed {
+    #[key]
+    pub season_id: u256,
+    pub last_updated_timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct SeasonEnded {
+    #[key]
+    pub season_id: u256,
+    pub last_updated_timestamp: u64,
 }
