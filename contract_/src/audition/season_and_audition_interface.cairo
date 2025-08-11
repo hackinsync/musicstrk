@@ -197,7 +197,13 @@ pub trait ISeasonAndAudition<TContractState> {
     ) -> u256;
 
     /// @notice dummy function to register a performer to an audition
-    fn register_performer(ref self: TContractState, audition_id: felt252, performer_id: felt252);
+    fn register_performer(
+        ref self: TContractState,
+        audition_id: felt252,
+        tiktok_id: felt252,
+        tiktok_username: felt252,
+        email_hash: felt252,
+    ) -> felt252;
     fn get_enrolled_performers(self: @TContractState, audition_id: felt252) -> Array<felt252>;
 
     /// @notice Submits an appeal for a specific evaluation.

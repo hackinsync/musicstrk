@@ -43,7 +43,7 @@ impl RegistrationConfigDefault of Default<RegistrationConfig> {
             fee_token: 0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8
                 .try_into()
                 .unwrap(),
-            registration_open: true,
+            registration_open: false,
             max_participants: 25,
         }
     }
@@ -52,7 +52,7 @@ impl RegistrationConfigDefault of Default<RegistrationConfig> {
 #[derive(Drop, Serde, Copy, starknet::Store)]
 pub struct ArtistRegistration {
     pub wallet_address: ContractAddress,
-    pub audition_id: u256,
+    pub audition_id: felt252,
     pub tiktok_id: felt252,
     pub tiktok_username: felt252, // Pre-verified off-chain
     pub email_hash: felt252, // Privacy hash

@@ -109,6 +109,14 @@ pub mod SeasonAndAudition {
         enrolled_performers: Map<felt252, Vec<felt252>>,
         performer_enrollment_status: Map<(felt252, felt252), bool>,
         registration_config: Map<felt252, Option<RegistrationConfig>>,
+        /// @notice a Map of audition id to a bool of whether the registration has started or not.
+        /// once started, updating a config of this audition fails.
+        registration_started: Map<felt252, bool>,
+        /// @notice a Map of a (Performer's address, audition_id) to the performer id, use for ease
+        /// of reading the id. Thus if the id is zero, the performer has not registered.
+        performer_has_registered: Map<(ContractAddress, felt252), felt252>,
+        /// @notice performer count per audition id.
+        performer_count: Map<felt252, felt252>,
         appeals: Map<u256, Appeal>,
     }
 
@@ -289,16 +297,38 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition already ended');
-
-            self.registration_config.entry(audition_id).write(Option::Some(config));
-            let event = RegistrationConfigSet {
-                audition_id,
-                fee_amount: config.fee_amount,
-                fee_token: config.fee_token,
-                registration_open: config.registration_open,
-                max_participants: config.max_participants,
+            assert(!self.registration_started.entry(audition_id).read(), 'Registration Started');
+            let prev = self.registration_config.entry(audition_id).read();
+            let mut new = if prev.is_some() {
+                prev.unwrap()
+            } else {
+                Default::default()
             };
 
+            let RegistrationConfig {
+                fee_amount, fee_token, registration_open, max_participants,
+            } = config;
+            if fee_token.is_non_zero() {
+                new.fee_token = fee_token;
+                if fee_amount.is_non_zero() {
+                    new.fee_amount = fee_amount;
+                } else {
+                    new.fee_amount = 0;
+                }
+            }
+            new.registration_open = registration_open;
+            new.max_participants = max_participants;
+
+            self.registration_config.entry(audition_id).write(Option::Some(new));
+            let event = RegistrationConfigSet {
+                audition_id,
+                fee_amount,
+                fee_token: new.fee_token,
+                registration_open,
+                max_participants,
+            };
+
+            self.registration_started.entry(audition_id).write(true);
             self.emit(event);
         }
 
@@ -1000,20 +1030,60 @@ pub mod SeasonAndAudition {
         }
 
 
-        // dummy implementation to register a performer to an audition
+        /// @notice Registers a performer only if the registration is open and the caller
+        /// is not yet registered
         fn register_performer(
-            ref self: ContractState, audition_id: felt252, performer_id: felt252,
-        ) {
-            let has_registered = self
-                .performer_enrollment_status
-                .entry((audition_id, performer_id))
-                .read();
-            assert(!has_registered, 'Performer has registered');
+            ref self: ContractState,
+            audition_id: felt252,
+            tiktok_id: felt252,
+            tiktok_username: felt252,
+            email_hash: felt252,
+        ) -> felt252 {
+            let caller = get_caller_address();
 
-            self.enrolled_performers.entry(audition_id).push(performer_id);
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
+
+            let not_registered = self
+                .performer_has_registered
+                .entry((caller, audition_id))
+                .read() == 0;
+            assert(not_registered, 'Performer already registered');
+
+            let config_opt = self.registration_config.entry(audition_id).read();
+            let config = match config_opt {
+                Option::Some(val) => val,
+                _ => Default::default(),
+            };
+
+            assert(config.registration_open, 'Registration not open');
+            let count: felt252 = self.performer_count.entry(audition_id).read();
+            assert(count.try_into().unwrap() < config.max_participants, 'Max participants reached');
+            // test this
+            let amount = config.fee_amount;
+            if amount > 0 {
+                self._process_payment(amount, config.fee_token);
+            }
+
+            let artist = ArtistRegistration {
+                wallet_address: caller,
+                audition_id,
+                tiktok_id,
+                tiktok_username,
+                email_hash,
+                registration_fee_paid: amount,
+                registration_timestamp: get_block_timestamp(),
+                is_active: true,
+            };
+            let performer_id: felt252 = count.into() + 1;
+            self.performer_count.entry(audition_id).write(performer_id);
+            self.performer_has_registered.entry((caller, audition_id)).write(performer_id);
+
+            // StoragePointerWriteAccess
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
+            self.enrolled_performers.entry(audition_id).push(performer_id);
+
+            performer_id
         }
 
         // dummy implementation to get the enrolled performers for an audition
