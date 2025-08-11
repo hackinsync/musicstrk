@@ -25,10 +25,11 @@ export const MUSIC_GENRES = [
   ]
   
   export const STEPS = {
-    BASIC_INFO: 0,
-    SOCIAL_MEDIA: 1,
-    WALLET_CONNECTION: 2,
-    SUCCESS: 3,
+    BASIC_INFO: 1,
+    TIKTOK_AUTH: 2,
+    SOCIAL_MEDIA: 3,
+    WALLET_CONNECTION: 4,
+    SUCCESS: 5,
   }
   
   export const STEP_CONFIGS = {
@@ -37,6 +38,12 @@ export const MUSIC_GENRES = [
       description: "Tell us about yourself and your music",
       icon: "Mic",
       iconColor: "#00f5d4",
+    },
+    [STEPS.TIKTOK_AUTH]: {
+      title: "TikTok Verification",
+      description: "Verify your TikTok identity to prevent impersonation",
+      icon: "Music",
+      iconColor: "#ff6b6b",
     },
     [STEPS.SOCIAL_MEDIA]: {
       title: "Social Media Links",
