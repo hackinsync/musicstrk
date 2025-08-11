@@ -1,7 +1,7 @@
 use core::num::traits::Zero;
 use starknet::ContractAddress;
 
-#[derive(Drop, Serde, starknet::Store)]
+#[derive(Drop, Serde, Copy, starknet::Store)]
 pub struct StakingConfig {
     pub required_stake_amount: u256,
     pub stake_token: ContractAddress,
