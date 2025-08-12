@@ -23,7 +23,7 @@ pub struct Audition {
     pub paused: bool,
 }
 
-#[derive(Drop, Serde, Copy, starknet::Store)]
+#[derive(Drop, Serde, Copy, PartialEq, starknet::Store)]
 pub struct RegistrationConfig {
     pub fee_amount: u256,
     pub fee_token: ContractAddress,

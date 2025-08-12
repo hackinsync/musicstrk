@@ -196,7 +196,7 @@ pub trait ISeasonAndAudition<TContractState> {
         self: @TContractState, audition_id: felt252, performer_id: felt252,
     ) -> u256;
 
-    /// @notice dummy function to register a performer to an audition
+    /// @notice Registers a performer for an audition successfully
     fn register_performer(
         ref self: TContractState,
         audition_id: felt252,

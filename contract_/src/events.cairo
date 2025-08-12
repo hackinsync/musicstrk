@@ -233,13 +233,6 @@ pub struct RevenueDistributedEvent { //added
 }
 
 #[derive(Drop, starknet::Event)]
-pub struct ArtistRegistered {
-    #[key]
-    pub artist: ContractAddress,
-    pub token: ContractAddress,
-}
-
-#[derive(Drop, starknet::Event)]
 pub struct TokenShareTransferred {
     #[key]
     pub new_holder: ContractAddress,
@@ -391,8 +384,16 @@ pub struct SeasonEnded {
 pub struct RegistrationConfigSet {
     #[key]
     pub audition_id: felt252,
-    pub fee_amount: u256, // Owner adjustable
-    pub fee_token: ContractAddress, // STRK/USDC
+    pub fee_amount: u256,
+    pub fee_token: ContractAddress,
     pub registration_open: bool,
     pub max_participants: u32,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ArtistRegistered {
+    #[key]
+    pub artist_address: ContractAddress,
+    pub audition_id: felt252,
+    pub registration_timestamp: u64,
 }

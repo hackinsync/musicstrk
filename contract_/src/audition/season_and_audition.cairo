@@ -16,12 +16,12 @@ pub mod SeasonAndAudition {
     };
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
     use crate::events::{
-        AggregateScoreCalculated, AppealResolved, AppealSubmitted, AuditionCalculationCompleted,
-        AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-        AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
-        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed,
-        RegistrationConfigSet, ResultsSubmitted, ResumedAll, SeasonCreated, SeasonDeleted,
-        SeasonEnded, SeasonPaused, SeasonResumed, SeasonUpdated, VoteRecorded,
+        AggregateScoreCalculated, AppealResolved, AppealSubmitted, ArtistRegistered,
+        AuditionCalculationCompleted, AuditionCreated, AuditionDeleted, AuditionEnded,
+        AuditionPaused, AuditionResumed, AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet,
+        JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll, PriceDeposited,
+        PriceDistributed, RegistrationConfigSet, ResultsSubmitted, ResumedAll, SeasonCreated,
+        SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed, SeasonUpdated, VoteRecorded,
     };
 
     // Integrates OpenZeppelin ownership component
@@ -117,6 +117,7 @@ pub mod SeasonAndAudition {
         performer_has_registered: Map<(ContractAddress, felt252), felt252>,
         /// @notice performer count per audition id.
         performer_count: Map<felt252, felt252>,
+        registered_artists: Map<(ContractAddress, felt252), ArtistRegistration>,
         appeals: Map<u256, Appeal>,
     }
 
@@ -154,6 +155,7 @@ pub mod SeasonAndAudition {
         SeasonResumed: SeasonResumed,
         SeasonEnded: SeasonEnded,
         RegistrationConfigSet: RegistrationConfigSet,
+        ArtistRegistered: ArtistRegistered,
     }
 
     #[constructor]
@@ -1059,11 +1061,13 @@ pub mod SeasonAndAudition {
             assert(config.registration_open, 'Registration not open');
             let count: felt252 = self.performer_count.entry(audition_id).read();
             assert(count.try_into().unwrap() < config.max_participants, 'Max participants reached');
-            // test this
+            // test this...
             let amount = config.fee_amount;
             if amount > 0 {
                 self._process_payment(amount, config.fee_token);
             }
+
+            let registration_timestamp = get_block_timestamp();
 
             let artist = ArtistRegistration {
                 wallet_address: caller,
@@ -1072,16 +1076,22 @@ pub mod SeasonAndAudition {
                 tiktok_username,
                 email_hash,
                 registration_fee_paid: amount,
-                registration_timestamp: get_block_timestamp(),
+                registration_timestamp,
                 is_active: true,
             };
+
+            self.registered_artists.entry((caller, audition_id)).write(artist);
             let performer_id: felt252 = count.into() + 1;
             self.performer_count.entry(audition_id).write(performer_id);
             self.performer_has_registered.entry((caller, audition_id)).write(performer_id);
 
-            // StoragePointerWriteAccess
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
             self.enrolled_performers.entry(audition_id).push(performer_id);
+
+            let event = ArtistRegistered {
+                artist_address: caller, audition_id, registration_timestamp,
+            };
+            self.emit(event);
 
             performer_id
         }
