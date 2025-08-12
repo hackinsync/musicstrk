@@ -31,7 +31,7 @@ export default function AnalyticsPage() {
         <header className="mb-8">
           <h1 className="text-2xl font-bold text-white">Audition Analytics</h1>
           <p className="mt-2 text-lg text-slate-300">
-            Detailed voting analysis for audition #[auditionId]
+            Detailed voting analysis for audition #{auditionId}
           </p>
         </header>
 
