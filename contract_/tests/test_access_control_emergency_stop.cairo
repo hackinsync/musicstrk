@@ -27,16 +27,7 @@ fn test_owner_access_control() {
     // Owner can create an audition
     let audition_id = 1;
     let test_audition = create_default_audition(audition_id, season_id);
-    dispatcher
-        .create_audition(
-            audition_id,
-            season_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.start_timestamp,
-            test_audition.end_timestamp,
-            test_audition.paused,
-        );
+    dispatcher.create_audition('Summer Hits', 1675123200);
 
     // Owner can add oracles
     dispatcher.add_oracle(ORACLE());
@@ -69,16 +60,7 @@ fn test_non_owner_cannot_create_audition() {
     let audition_id = 1;
     let season_id = 1;
     let test_audition = create_default_audition(audition_id, season_id);
-    dispatcher
-        .create_audition(
-            audition_id,
-            season_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.start_timestamp,
-            test_audition.end_timestamp,
-            test_audition.paused,
-        );
+    dispatcher.create_audition('Summer Hits', 1675123200);
 
     stop_cheat_caller_address(dispatcher.contract_address);
 }
@@ -210,16 +192,7 @@ fn test_cannot_create_audition_when_paused() {
     let audition_id = 1;
     let season_id = 1;
     let test_audition = create_default_audition(audition_id, season_id);
-    dispatcher
-        .create_audition(
-            audition_id,
-            season_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.start_timestamp,
-            test_audition.end_timestamp,
-            test_audition.paused,
-        );
+    dispatcher.create_audition('Summer Hits', 1675123200);
 
     stop_cheat_caller_address(dispatcher.contract_address);
 }

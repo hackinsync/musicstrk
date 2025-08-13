@@ -50,7 +50,7 @@ fn deploy_contracts() -> (ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher) 
 
 // Helper function to set up a standard environment for staking tests
 fn setup_staking_audition() -> (
-    ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher, IERC20Dispatcher, felt252,
+    ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher, IERC20Dispatcher, u256,
 ) {
     let (season_and_audition, stake_to_vote) = deploy_contracts();
     let mock_token = deploy_mock_erc20_contract();
@@ -68,17 +68,7 @@ fn setup_staking_audition() -> (
             default_season.end_timestamp,
         );
     let default_audition = create_default_audition(audition_id, season_id);
-    season_and_audition
-        .create_audition(
-            audition_id,
-            season_id,
-            default_audition.genre,
-            default_audition.name,
-            default_audition.start_timestamp,
-            // A future end timestamp to ensure it's not ended
-            get_block_timestamp().into() + 1000,
-            default_audition.paused,
-        );
+    season_and_audition.create_audition('Summer Hits', 1675123200);
     stop_cheat_caller_address(season_and_audition.contract_address);
 
     start_cheat_caller_address(mock_token.contract_address, OWNER());

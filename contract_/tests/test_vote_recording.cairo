@@ -29,16 +29,7 @@ fn setup_contract_with_oracle() -> ISeasonAndAuditionDispatcher {
 // Helper function to create a default audition
 fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: u256) {
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract
-        .create_audition(
-            audition_id,
-            1, // season_id
-            Genre::Pop,
-            'Test Audition',
-            1672531200, // start_timestamp
-            1675123200, // end_timestamp
-            false // paused
-        );
+    contract.create_audition('Summer Hits', 1675123200);
     stop_cheat_caller_address(contract.contract_address);
 }
 
@@ -207,8 +198,8 @@ fn test_record_multiple_votes_different_combinations() {
 fn test_record_votes_different_auditions() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id1: felt252 = 1;
-    let audition_id2: felt252 = 2;
+    let audition_id1: u256 = 1;
+    let audition_id2: u256 = 2;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let weight: felt252 = 100;

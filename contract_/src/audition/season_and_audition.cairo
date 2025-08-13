@@ -820,9 +820,8 @@ pub mod SeasonAndAudition {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
             let audition = self.auditions.entry(audition_id).read();
-            self.assert_valid_audition(audition_id);
             self.assert_valid_season(audition.season_id);
-            assert(!self.is_audition_paused(audition_id), 'Audition is already paused');
+            self.assert_valid_audition(audition_id);
 
             let mut audition = self.auditions.entry(audition_id).read();
             audition.paused = true;
@@ -840,7 +839,8 @@ pub mod SeasonAndAudition {
         fn resume_audition(ref self: ContractState, audition_id: u256) -> bool {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
-            self.assert_valid_audition(audition_id);
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.is_audition_paused(audition_id), 'Audition is not paused');
             let mut audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
             audition.paused = false;
@@ -865,7 +865,6 @@ pub mod SeasonAndAudition {
             let mut audition = self.auditions.entry(audition_id).read();
             let current_time = get_block_timestamp();
 
-            // Set end_timestamp to current time to end audition immediately
             audition.end_timestamp = current_time.into();
             self.auditions.entry(audition_id).write(audition);
 
