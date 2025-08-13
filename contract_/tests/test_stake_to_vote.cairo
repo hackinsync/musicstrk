@@ -54,7 +54,7 @@ fn setup_staking_audition() -> (
 ) {
     let (season_and_audition, stake_to_vote) = deploy_contracts();
     let mock_token = deploy_mock_erc20_contract();
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let season_id: u256 = 1;
 
     // Create a new audition as the owner

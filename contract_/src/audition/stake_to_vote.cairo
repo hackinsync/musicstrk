@@ -31,11 +31,11 @@ pub mod StakeToVote {
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
         /// @notice Maps an audition ID to its staking configuration.
-        staking_configs: Map<felt252, StakingConfig>,
+        staking_configs: Map<u256, StakingConfig>,
         /// @notice Maps (audition_id, staker_address) to the staker's information.
-        stakers: Map<(felt252, ContractAddress), StakerInfo>,
+        stakers: Map<(u256, ContractAddress), StakerInfo>,
         /// @notice Tracks which wallets are eligible to vote for a specific audition.
-        eligible_voters: Map<(felt252, ContractAddress), bool>,
+        eligible_voters: Map<(u256, ContractAddress), bool>,
         /// @notice Holds the season and audition contract address, to be initialized in the
         /// constructor
         season_and_audition_contract_address: ContractAddress,
@@ -65,7 +65,7 @@ pub mod StakeToVote {
     impl StakeToVoteImpl of IStakeToVote<ContractState> {
         fn set_staking_config(
             ref self: ContractState,
-            audition_id: felt252,
+            audition_id: u256,
             required_stake_amount: u256,
             stake_token: ContractAddress,
             withdrawal_delay_after_results: u64,
@@ -94,7 +94,7 @@ pub mod StakeToVote {
                 );
         }
 
-        fn stake_to_vote(ref self: ContractState, audition_id: felt252) {
+        fn stake_to_vote(ref self: ContractState, audition_id: u256) {
             let caller = get_caller_address();
             let config = self.staking_configs.read(audition_id);
             let required_amount = config.required_stake_amount;
@@ -134,7 +134,7 @@ pub mod StakeToVote {
                 );
         }
 
-        fn withdraw_stake_after_results(ref self: ContractState, audition_id: felt252) {
+        fn withdraw_stake_after_results(ref self: ContractState, audition_id: u256) {
             let caller = get_caller_address();
             let staker_info = self.stakers.read((audition_id, caller));
             let config = self.staking_configs.read(audition_id);
@@ -174,12 +174,12 @@ pub mod StakeToVote {
         }
 
         fn is_eligible_voter(
-            self: @ContractState, audition_id: felt252, voter_address: ContractAddress,
+            self: @ContractState, audition_id: u256, voter_address: ContractAddress,
         ) -> bool {
             self.eligible_voters.entry((audition_id, voter_address)).read()
         }
 
-        fn required_stake_amount(self: @ContractState, audition_id: felt252) -> u256 {
+        fn required_stake_amount(self: @ContractState, audition_id: u256) -> u256 {
             let config = self.staking_configs.read(audition_id);
 
             config.required_stake_amount

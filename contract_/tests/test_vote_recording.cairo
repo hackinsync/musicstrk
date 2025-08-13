@@ -27,7 +27,7 @@ fn setup_contract_with_oracle() -> ISeasonAndAuditionDispatcher {
 }
 
 // Helper function to create a default audition
-fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: felt252) {
+fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: u256) {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract
         .create_audition(
@@ -47,7 +47,7 @@ fn test_record_vote_success() {
     let contract = setup_contract_with_oracle();
     let mut spy = spy_events();
 
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let weight: felt252 = 100;
@@ -95,7 +95,7 @@ fn test_record_vote_should_panic_if_season_paused() {
     let contract = setup_contract_with_oracle();
     let mut spy = spy_events();
 
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let weight: felt252 = 100;
@@ -122,7 +122,7 @@ fn test_record_vote_should_panic_if_season_paused() {
 fn test_record_vote_duplicate_should_fail() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let weight: felt252 = 100;
@@ -144,7 +144,7 @@ fn test_record_vote_duplicate_should_fail() {
 fn test_record_vote_unauthorized_should_fail() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let weight: felt252 = 100;
@@ -161,7 +161,7 @@ fn test_record_vote_unauthorized_should_fail() {
 #[test]
 fn test_record_multiple_votes_different_combinations() {
     let contract = setup_contract_with_oracle();
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let performer1: felt252 = 'performer1';
     let performer2: felt252 = 'performer2';
     let voter1: felt252 = 'voter1';
@@ -246,7 +246,7 @@ fn test_record_votes_different_auditions() {
 fn test_get_vote_nonexistent_returns_default() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let performer: felt252 = 'performer1';
     let voter: felt252 = 'voter1';
     let season_id: u256 = 1;
