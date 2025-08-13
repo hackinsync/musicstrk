@@ -1,5 +1,7 @@
 use starknet::ContractAddress;
-use super::season_and_audition_types::{Appeal, Audition, Evaluation, Genre, Season, Vote};
+use super::season_and_audition_types::{
+    Appeal, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
+};
 
 // Define the contract interface
 #[starknet::interface]
@@ -32,6 +34,12 @@ pub trait ISeasonAndAudition<TContractState> {
     );
     fn read_audition(self: @TContractState, audition_id: felt252) -> Audition;
     fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
+    fn update_registration_config(
+        ref self: TContractState, audition_id: felt252, config: RegistrationConfig,
+    );
+    fn get_registration_config(
+        ref self: TContractState, audition_id: felt252,
+    ) -> Option<RegistrationConfig>;
     fn delete_audition(ref self: TContractState, audition_id: felt252);
 
     /// @notice Performer submits the result of an audition.
@@ -201,8 +209,14 @@ pub trait ISeasonAndAudition<TContractState> {
         self: @TContractState, audition_id: felt252, performer_id: felt252,
     ) -> u256;
 
-    /// @notice dummy function to register a performer to an audition
-    fn register_performer(ref self: TContractState, audition_id: felt252, performer_id: felt252);
+    /// @notice Registers a performer for an audition successfully
+    fn register_performer(
+        ref self: TContractState,
+        audition_id: felt252,
+        tiktok_id: felt252,
+        tiktok_username: felt252,
+        email_hash: felt252,
+    ) -> felt252;
     fn get_enrolled_performers(self: @TContractState, audition_id: felt252) -> Array<felt252>;
 
     /// @notice Submits an appeal for a specific evaluation.
