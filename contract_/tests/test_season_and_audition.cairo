@@ -8,7 +8,8 @@ use contract_::audition::season_and_audition_types::{
 };
 use contract_::events::{
     AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-    AuditionUpdated, PriceDeposited, PriceDistributed, SeasonCreated, SeasonDeleted, SeasonUpdated,
+    AuditionUpdated, PriceDeposited, PriceDistributed, ResultSubmitted, SeasonCreated,
+    SeasonDeleted, SeasonUpdated,
 };
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -4103,4 +4104,221 @@ fn test_resume_season_should_panic_if_season_is_ended() {
     contract.resume_season(season_id);
 
     stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_submit_result_success() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_submit_result_should_panic_if_non_owner() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    contract.submit_result(audition_id, "result_uri", performer_id);
+}
+
+
+#[test]
+#[should_panic(expected: 'Contract is paused')]
+fn test_submit_result_should_panic_if_contract_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    contract.pause_all();
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season does not exist')]
+fn test_submit_result_should_panic_if_season_doesnt_exist() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_submit_result_should_panic_if_season_is_paused() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    contract.pause_season(season_id);
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expected: 'Season has already ended')]
+fn test_submit_result_should_panic_if_season_is_ended() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    start_cheat_block_timestamp(contract.contract_address, 1675123200 + 1);
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_block_timestamp(contract.contract_address);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Performer is not enrolled')]
+fn test_submit_result_should_panic_if_performer_not_enrolled() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+#[should_panic(expected: 'Performer already submitted')]
+fn test_submit_result_should_panic_if_performer_already_submitted() {
+    let (contract, _, _) = deploy_contract();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
+fn test_submit_result_success_events() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    let audition_id: felt252 = 1;
+    let season_id: u256 = 1;
+    let performer_id: felt252 = 'performerA';
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract
+        .create_audition(
+            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
+        );
+    contract.register_performer(audition_id, performer_id);
+    contract.submit_result(audition_id, "result_uri", performer_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    let result = contract.get_result(audition_id, performer_id);
+    assert(result == "result_uri", 'Result should be "result_uri"');
+
+    let results = contract.get_results(audition_id);
+    assert(results.len() == 1, 'Results should be 1');
+    assert(results[0].clone() == "result_uri", 'Result  incorrect"');
+
+    let performer_results = contract.get_performer_results(performer_id);
+    assert(performer_results.len() == 1, 'Performer results should be 1');
+    assert(performer_results[0].clone() == "result_uri", 'Result should be "result_uri"');
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::ResultSubmitted(
+                        ResultSubmitted {
+                            audition_id: audition_id,
+                            result_uri: "result_uri",
+                            performer: performer_id,
+                        },
+                    ),
+                ),
+            ],
+        );
 }

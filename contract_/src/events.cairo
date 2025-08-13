@@ -397,3 +397,11 @@ pub struct ArtistRegistered {
     pub audition_id: felt252,
     pub registration_timestamp: u64,
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct ResultSubmitted {
+    #[key]
+    pub audition_id: felt252,
+    pub result_uri: ByteArray,
+    pub performer: felt252,
+}

@@ -95,38 +95,6 @@ fn test_non_owner_cannot_add_oracle() {
     stop_cheat_caller_address(dispatcher.contract_address);
 }
 
-#[test]
-fn test_oracle_access_control() {
-    let (dispatcher, _, _) = deploy_contract();
-
-    // Add an oracle as owner
-    start_cheat_caller_address(dispatcher.contract_address, OWNER());
-    dispatcher.add_oracle(ORACLE());
-    stop_cheat_caller_address(dispatcher.contract_address);
-
-    // Oracle can submit results
-    start_cheat_caller_address(dispatcher.contract_address, ORACLE());
-    let audition_id = 1;
-    dispatcher.submit_results(audition_id, 10, 100);
-    stop_cheat_caller_address(dispatcher.contract_address);
-}
-
-#[test]
-#[should_panic(expect: 'Not Authorized')]
-fn test_non_oracle_cannot_submit_results() {
-    let (dispatcher, _, _) = deploy_contract();
-
-    // Add an oracle as owner
-    start_cheat_caller_address(dispatcher.contract_address, OWNER());
-    dispatcher.add_oracle(ORACLE());
-    stop_cheat_caller_address(dispatcher.contract_address);
-
-    // Non-oracle tries to submit results
-    start_cheat_caller_address(dispatcher.contract_address, NON_ORACLE());
-    let audition_id = 1;
-    dispatcher.submit_results(audition_id, 10, 100);
-    stop_cheat_caller_address(dispatcher.contract_address);
-}
 
 #[test]
 fn test_emergency_stop() {
@@ -253,77 +221,6 @@ fn test_cannot_create_audition_when_paused() {
             test_audition.paused,
         );
 
-    stop_cheat_caller_address(dispatcher.contract_address);
-}
-
-#[test]
-#[should_panic(expect: 'Contract is paused')]
-fn test_oracle_cannot_submit_results_when_paused() {
-    let (dispatcher, _, _) = deploy_contract();
-
-    // Add an address as owner
-    start_cheat_caller_address(dispatcher.contract_address, OWNER());
-    dispatcher.add_oracle(ORACLE());
-
-    // Pause the contract
-    dispatcher.pause_all();
-    stop_cheat_caller_address(dispatcher.contract_address);
-
-    // Oracle tries to submit results when paused
-    start_cheat_caller_address(dispatcher.contract_address, ORACLE());
-    let audition_id = 1;
-    dispatcher.submit_results(audition_id, 10, 100);
-    stop_cheat_caller_address(dispatcher.contract_address);
-}
-
-#[test]
-fn test_can_perform_operations_after_resume() {
-    let (dispatcher, _, _) = deploy_contract();
-
-    // Owner operations
-    start_cheat_caller_address(dispatcher.contract_address, OWNER());
-
-    // Pause the contract
-    dispatcher.pause_all();
-    assert(dispatcher.is_paused(), 'Contract should be paused');
-
-    // Resume the contract
-    dispatcher.resume_all();
-    assert(!dispatcher.is_paused(), 'Contract should be resumed');
-
-    // Create a season after resuming
-    let season_id = 1;
-    default_contract_create_season(dispatcher);
-
-    // Create an audition after resuming
-    let audition_id = 1;
-    let test_audition = create_default_audition(audition_id, season_id);
-    dispatcher
-        .create_audition(
-            audition_id,
-            season_id,
-            test_audition.genre,
-            test_audition.name,
-            test_audition.start_timestamp,
-            test_audition.end_timestamp,
-            test_audition.paused,
-        );
-
-    // Verify season was created
-    let read_season = dispatcher.read_season(season_id);
-    assert(read_season.season_id == season_id, 'Season should be created');
-
-    // Verify audition was created
-    let read_audition = dispatcher.read_audition(audition_id);
-    assert(read_audition.audition_id == audition_id, 'Audition should be created');
-
-    // Add an oracle
-    dispatcher.add_oracle(ORACLE());
-    stop_cheat_caller_address(dispatcher.contract_address);
-
-    // Oracle can perform operations after resume
-    start_cheat_caller_address(dispatcher.contract_address, ORACLE());
-    dispatcher.submit_results(audition_id, 10, 100);
     stop_cheat_caller_address(dispatcher.contract_address);
 }
 
