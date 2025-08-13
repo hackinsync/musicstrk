@@ -20,8 +20,9 @@ pub mod SeasonAndAudition {
         AuditionCalculationCompleted, AuditionCreated, AuditionDeleted, AuditionEnded,
         AuditionPaused, AuditionResumed, AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet,
         JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll, PriceDeposited,
-        PriceDistributed, RegistrationConfigSet, ResultsSubmitted, ResumedAll, SeasonCreated,
-        SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed, SeasonUpdated, VoteRecorded, ResultsSubmitted,
+        PriceDistributed, RegistrationConfigSet, ResultSubmitted, ResultsSubmitted, ResumedAll,
+        SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed, SeasonUpdated,
+        VoteRecorded,
     };
 
     // Integrates OpenZeppelin ownership component
