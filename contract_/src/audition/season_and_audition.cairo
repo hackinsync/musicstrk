@@ -1,8 +1,8 @@
 #[starknet::contract]
 pub mod SeasonAndAudition {
     use OwnableComponent::{HasComponent, InternalTrait};
-    use contract_::audition::season_and_audition_interface::ISeasonAndAudition;
-    use contract_::audition::season_and_audition_types::{
+    use contract_::audition::interfaces::iseason_and_audition::ISeasonAndAudition;
+    use contract_::audition::types::season_and_audition::{
         Appeal, Audition, Evaluation, Genre, Season, Vote,
     };
     use contract_::errors::errors;
@@ -43,7 +43,7 @@ pub mod SeasonAndAudition {
         active_season: Option<u256>,
         auditions: Map<u256, Audition>,
         audition_count: u256,
-        votes: Map<(u256, felt252, felt252), Vote>,
+        votes: Map<(u256, ContractAddress, ContractAddress), Vote>,
         global_paused: bool,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
@@ -73,7 +73,7 @@ pub mod SeasonAndAudition {
         audition_evaluations: Map<u256, Vec<u256>>,
         /// @notice maps each audition id and performer id to a list of evaluation id for a specific
         /// performer @dev a vec containing all evaluation ids for a specific performer
-        audition_evaluations_for_performer: Map<(u256, felt252), Vec<u256>>,
+        audition_evaluations_for_performer: Map<(u256, ContractAddress), Vec<u256>>,
         /// @notice maps an evaluation id to an evaluation
         /// @dev a map containing an evaluation
         evaluations: Map<u256, Evaluation>,
@@ -86,7 +86,7 @@ pub mod SeasonAndAudition {
         /// @notice maps the submission status of an evaluation for a given audition, performer, and
         /// judge @dev Map from (audition_id, performer_id, judge_address) to bool indicating if
         /// evaluation was submitted
-        evaluation_submission_status: Map<(u256, felt252, ContractAddress), bool>,
+        evaluation_submission_status: Map<(u256, ContractAddress, ContractAddress), bool>,
         /// @notice maps each audition to the weight of each evaluation
         /// @dev Map from audition_id to (u256, u256, u256) indicating the weight of each evaluation
         /// @dev NOTE: THE CRITERIA IS A TUPLE OF THE SCORE OF EACH EVALUATION: TECHNICAL SKILLS,
@@ -96,31 +96,31 @@ pub mod SeasonAndAudition {
         /// @notice aggregate score for each performer
         /// @dev Map audition and performer to u256 indicating the aggregate score for each
         /// performer
-        performer_aggregate_score: Map<(u256, felt252), u256>,
+        performer_aggregate_score: Map<(u256, ContractAddress), u256>,
         /// @notice maps each audition to a list of aggregate scores
         /// @dev Map from audition_id to Vec<(felt252, u256)> containing performer id and aggregate
         /// scores
-        audition_aggregate_scores: Map<u256, Vec<(felt252, u256)>>,
+        audition_aggregate_scores: Map<u256, Vec<(ContractAddress, u256)>>,
         // @notice function fro audition calculation completed
         audition_calculation_completed: Map<u256, bool>,
         /// @notice implementing this to register people to an audition
         /// so that the aggregate score calculation can be tested
-        enrolled_performers: Map<u256, Vec<felt252>>,
-        performer_enrollment_status: Map<(u256, felt252), bool>,
+        enrolled_performers: Map<u256, Vec<ContractAddress>>,
+        performer_enrollment_status: Map<(u256, ContractAddress), bool>,
         appeals: Map<u256, Appeal>,
         /// @notice maps each audition and performer to a bool indicating if the performer has
         /// submitted the result @dev Map from (audition_id, performer_id) to bool indicating if the
         /// performer has submitted the result
-        performer_result_submission_status: Map<(u256, felt252), bool>,
+        performer_result_submission_status: Map<(u256, ContractAddress), bool>,
         /// @notice maps each audition and performer to a result uri
         /// @dev Map from (audition_id, performer_id) to result uri
-        performer_result: Map<(u256, felt252), ByteArray>,
+        performer_result: Map<(u256, ContractAddress), ByteArray>,
         /// @notice list of submitted results for an audition
         /// @dev List of (audition_id, result_uri)
         submitted_results: Map<u256, Vec<ByteArray>>,
         /// notice list of all results for a perfomer
         /// @dev List of (performer_id, result_uri)
-        performer_results: Map<felt252, Vec<ByteArray>>,
+        performer_results: Map<ContractAddress, Vec<ByteArray>>,
     }
 
     #[event]
@@ -343,8 +343,10 @@ pub mod SeasonAndAudition {
             let (technical_weight, creativity_weight, presentation_weight) = self
                 .get_evaluation_weight(audition_id);
 
-            let all_performers: Array<felt252> = self.get_enrolled_performers(audition_id);
-            let mut aggregate_scores: Array<(felt252, u256)> = ArrayTrait::<(felt252, u256)>::new();
+            let all_performers: Array<ContractAddress> = self.get_enrolled_performers(audition_id);
+            let mut aggregate_scores: Array<(ContractAddress, u256)> = ArrayTrait::<
+                (ContractAddress, u256),
+            >::new();
             for performer in all_performers {
                 let all_evaluations_for_performer: Array<Evaluation> = self
                     .get_evaluation(audition_id, performer);
@@ -390,8 +392,10 @@ pub mod SeasonAndAudition {
                 );
         }
 
-        fn get_aggregate_score(self: @ContractState, audition_id: u256) -> Array<(felt252, u256)> {
-            let mut aggregate_score_array = ArrayTrait::<(felt252, u256)>::new();
+        fn get_aggregate_score(
+            self: @ContractState, audition_id: u256,
+        ) -> Array<(ContractAddress, u256)> {
+            let mut aggregate_score_array = ArrayTrait::<(ContractAddress, u256)>::new();
             let storage_vec = self.audition_aggregate_scores.entry(audition_id);
             for i in 0..storage_vec.len() {
                 let (performer_id, aggregate_score) = storage_vec.at(i).read();
@@ -401,7 +405,7 @@ pub mod SeasonAndAudition {
         }
 
         fn get_aggregate_score_for_performer(
-            self: @ContractState, audition_id: u256, performer_id: felt252,
+            self: @ContractState, audition_id: u256, performer_id: ContractAddress,
         ) -> u256 {
             self.performer_aggregate_score.read((audition_id, performer_id))
         }
@@ -480,7 +484,7 @@ pub mod SeasonAndAudition {
         fn submit_evaluation(
             ref self: ContractState,
             audition_id: u256,
-            performer: felt252,
+            performer: ContractAddress,
             criteria: (u256, u256, u256),
         ) {
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -522,7 +526,7 @@ pub mod SeasonAndAudition {
         /// @param performer the id of the performer to get the evaluation for
         /// @return the evaluation for the performer
         fn get_evaluation(
-            self: @ContractState, audition_id: u256, performer: felt252,
+            self: @ContractState, audition_id: u256, performer: ContractAddress,
         ) -> Array<Evaluation> {
             let evaluation_ids = self
                 .audition_evaluations_for_performer
@@ -567,7 +571,10 @@ pub mod SeasonAndAudition {
 
 
         fn submit_result(
-            ref self: ContractState, audition_id: u256, result_uri: ByteArray, performer: felt252,
+            ref self: ContractState,
+            audition_id: u256,
+            result_uri: ByteArray,
+            performer: ContractAddress,
         ) {
             self.ownable.assert_only_owner();
             let audition = self.auditions.entry(audition_id).read();
@@ -593,7 +600,9 @@ pub mod SeasonAndAudition {
                 );
         }
 
-        fn get_result(self: @ContractState, audition_id: u256, performer: felt252) -> ByteArray {
+        fn get_result(
+            self: @ContractState, audition_id: u256, performer: ContractAddress,
+        ) -> ByteArray {
             self.performer_result.read((audition_id, performer))
         }
         /// @notice Gets the results of an audition.
@@ -606,7 +615,9 @@ pub mod SeasonAndAudition {
             results
         }
         /// @notice Gets the results of a performer for an audition.
-        fn get_performer_results(self: @ContractState, performer: felt252) -> Array<ByteArray> {
+        fn get_performer_results(
+            self: @ContractState, performer: ContractAddress,
+        ) -> Array<ByteArray> {
             let mut results = ArrayTrait::new();
             for i in 0..self.performer_results.entry(performer).len() {
                 let result = self.performer_results.entry(performer).at(i).read();
@@ -771,8 +782,8 @@ pub mod SeasonAndAudition {
         fn record_vote(
             ref self: ContractState,
             audition_id: u256,
-            performer: felt252,
-            voter: felt252,
+            performer: ContractAddress,
+            voter: ContractAddress,
             weight: felt252,
         ) {
             self.only_oracle();
@@ -793,7 +804,10 @@ pub mod SeasonAndAudition {
         }
 
         fn get_vote(
-            self: @ContractState, audition_id: u256, performer: felt252, voter: felt252,
+            self: @ContractState,
+            audition_id: u256,
+            performer: ContractAddress,
+            voter: ContractAddress,
         ) -> Vote {
             self.ownable.assert_only_owner();
 
@@ -979,7 +993,9 @@ pub mod SeasonAndAudition {
 
 
         // dummy implementation to register a performer to an audition
-        fn register_performer(ref self: ContractState, audition_id: u256, performer_id: felt252) {
+        fn register_performer(
+            ref self: ContractState, audition_id: u256, performer_id: ContractAddress,
+        ) {
             self.enrolled_performers.entry(audition_id).push(performer_id);
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
@@ -987,8 +1003,10 @@ pub mod SeasonAndAudition {
         }
 
         // dummy implementation to get the enrolled performers for an audition
-        fn get_enrolled_performers(self: @ContractState, audition_id: u256) -> Array<felt252> {
-            let mut performers_array = ArrayTrait::<felt252>::new();
+        fn get_enrolled_performers(
+            self: @ContractState, audition_id: u256,
+        ) -> Array<ContractAddress> {
+            let mut performers_array = ArrayTrait::<ContractAddress>::new();
             let enrolled_performers = self.enrolled_performers.entry(audition_id);
             for i in 0..enrolled_performers.len() {
                 let performer = enrolled_performers.at(i).read();
@@ -1197,7 +1215,10 @@ pub mod SeasonAndAudition {
         }
 
         fn assert_evaluation_not_submitted(
-            self: @ContractState, audition_id: u256, performer: felt252, judge: ContractAddress,
+            self: @ContractState,
+            audition_id: u256,
+            performer: ContractAddress,
+            judge: ContractAddress,
         ) {
             let evaluation_submission_status = self
                 .evaluation_submission_status
@@ -1222,7 +1243,8 @@ pub mod SeasonAndAudition {
         }
 
         fn assert_all_players_have_been_evaluated(self: @ContractState, audition_id: u256) {
-            let enrolled_performers: Array<felt252> = self.get_enrolled_performers(audition_id);
+            let enrolled_performers: Array<ContractAddress> = self
+                .get_enrolled_performers(audition_id);
             let judges_len: u32 = self.get_judges(audition_id).len();
             for performer in enrolled_performers {
                 let performers_evaluations_len: u32 = self
