@@ -1,11 +1,11 @@
-use contract_::audition::interfaces::istake_to_vote::{
-    IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
-};
-use contract_::audition::season_and_audition_interface::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher,
 };
-use contract_::audition::season_and_audition_types::{Genre, Season};
+use contract_::audition::interfaces::istake_to_vote::{
+    IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
+};
+use contract_::audition::types::season_and_audition::{Genre, Season};
 use contract_::events::{
     AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
     AuditionUpdated, PriceDeposited, PriceDistributed, SeasonCreated, SeasonDeleted, SeasonUpdated,

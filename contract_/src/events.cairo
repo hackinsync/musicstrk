@@ -1,7 +1,7 @@
 use contract_::governance::types::VoteType;
 use starknet::ContractAddress;
 use crate::IRevenueDistribution::Category;
-use crate::audition::season_and_audition_types::Genre;
+use crate::audition::types::season_and_audition::Genre;
 
 #[derive(Drop, starknet::Event)]
 pub struct SeasonCreated {
@@ -77,7 +77,7 @@ pub struct AuditionEnded {
 pub struct ResultsSubmitted {
     #[key]
     pub audition_id: u256,
-    pub top_performers: felt252,
+    pub top_performers: ContractAddress,
     pub shares: felt252,
     pub end_timestamp: u64,
 }
@@ -96,8 +96,8 @@ pub struct OracleRemoved {
 pub struct VoteRecorded {
     #[key]
     pub audition_id: u256,
-    pub performer: felt252,
-    pub voter: felt252,
+    pub performer: ContractAddress,
+    pub voter: ContractAddress,
     pub weight: felt252,
 }
 
@@ -325,7 +325,7 @@ pub struct JudgeRemoved {
 pub struct EvaluationSubmitted {
     #[key]
     pub audition_id: u256,
-    pub performer: felt252,
+    pub performer: ContractAddress,
     pub criteria: (u256, u256, u256),
 }
 
@@ -346,7 +346,7 @@ pub struct AuditionCalculationCompleted {
 pub struct AggregateScoreCalculated {
     #[key]
     pub audition_id: u256,
-    pub aggregate_scores: Array<(felt252, u256)>,
+    pub aggregate_scores: Array<(ContractAddress, u256)>,
     pub timestamp: u64,
 }
 
@@ -390,5 +390,5 @@ pub struct ResultSubmitted {
     #[key]
     pub audition_id: u256,
     pub result_uri: ByteArray,
-    pub performer: felt252,
+    pub performer: ContractAddress,
 }
