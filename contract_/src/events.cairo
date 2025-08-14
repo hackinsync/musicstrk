@@ -32,56 +32,54 @@ pub struct SeasonDeleted {
 #[derive(Drop, starknet::Event)]
 pub struct AuditionCreated {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub season_id: u256,
-    #[key]
-    pub genre: Genre,
     pub name: felt252,
-    pub timestamp: u64,
+    pub end_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AuditionUpdated {
     #[key]
-    pub audition_id: felt252,
-    pub timestamp: u64,
+    pub audition_id: u256,
+    pub end_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AuditionDeleted {
     #[key]
-    pub audition_id: felt252,
-    pub timestamp: u64,
+    pub audition_id: u256,
+    pub end_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AuditionPaused {
     #[key]
-    pub audition_id: felt252,
-    pub timestamp: u64,
+    pub audition_id: u256,
+    pub end_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AuditionResumed {
     #[key]
-    pub audition_id: felt252,
-    pub timestamp: u64,
+    pub audition_id: u256,
+    pub end_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AuditionEnded {
     #[key]
-    pub audition_id: felt252,
-    pub timestamp: u64,
+    pub audition_id: u256,
+    pub end_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct ResultsSubmitted {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub top_performers: felt252,
     pub shares: felt252,
-    pub timestamp: u64,
+    pub end_timestamp: u64,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -97,7 +95,7 @@ pub struct OracleRemoved {
 #[derive(Drop, starknet::Event)]
 pub struct VoteRecorded {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub performer: felt252,
     pub voter: felt252,
     pub weight: felt252,
@@ -105,7 +103,7 @@ pub struct VoteRecorded {
 
 #[derive(Drop, starknet::Event)]
 pub struct PriceDistributed {
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub winners: [ContractAddress; 3],
     pub shares: [u256; 3],
     pub token_address: ContractAddress,
@@ -114,7 +112,7 @@ pub struct PriceDistributed {
 
 #[derive(Drop, starknet::Event)]
 pub struct PriceDeposited {
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub token_address: ContractAddress,
     pub amount: u256,
 }
@@ -312,21 +310,21 @@ pub struct TokenTransferDuringVoting {
 #[derive(Drop, starknet::Event)]
 pub struct JudgeAdded {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub judge_address: ContractAddress,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct JudgeRemoved {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub judge_address: ContractAddress,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct EvaluationSubmitted {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub performer: felt252,
     pub criteria: (u256, u256, u256),
 }
@@ -334,20 +332,20 @@ pub struct EvaluationSubmitted {
 #[derive(Drop, starknet::Event)]
 pub struct EvaluationWeightSet {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub weight: (u256, u256, u256),
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AuditionCalculationCompleted {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AggregateScoreCalculated {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub aggregate_scores: Array<(felt252, u256)>,
     pub timestamp: u64,
 }
@@ -390,7 +388,7 @@ pub struct SeasonEnded {
 #[derive(Drop, starknet::Event)]
 pub struct ResultSubmitted {
     #[key]
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub result_uri: ByteArray,
     pub performer: felt252,
 }

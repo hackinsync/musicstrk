@@ -11,14 +11,13 @@ pub struct Season {
     pub ended: bool,
 }
 
-#[derive(Drop, Serde, Default, starknet::Store)]
+#[derive(Drop, Serde, Default, starknet::Store, Copy)]
 pub struct Audition {
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub season_id: u256,
-    pub genre: Genre,
     pub name: felt252,
-    pub start_timestamp: felt252,
-    pub end_timestamp: felt252,
+    pub start_timestamp: u64,
+    pub end_timestamp: u64,
     pub paused: bool,
 }
 
@@ -59,7 +58,7 @@ pub enum Genre {
 
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub performer: felt252,
     pub voter: felt252,
     pub weight: felt252,
@@ -73,7 +72,7 @@ pub struct Vote {
 /// @param criteria A tuple containing technical skills, creativity, and presentation scores
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Evaluation {
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub performer: felt252,
     pub criteria: (u256, u256, u256),
 }

@@ -123,11 +123,10 @@ pub fn deploy_music_share_token() -> ContractAddress {
     contract_address
 }
 // Helper function to create a default Audition struct
-pub fn create_default_audition(audition_id: felt252, season_id: u256) -> Audition {
+pub fn create_default_audition(audition_id: u256, season_id: u256) -> Audition {
     Audition {
         audition_id,
         season_id,
-        genre: Genre::Pop,
         name: 'Live Audition',
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
@@ -136,12 +135,7 @@ pub fn create_default_audition(audition_id: felt252, season_id: u256) -> Auditio
 }
 
 pub fn default_contract_create_audition(contract: ISeasonAndAuditionDispatcher) {
-    let audition_id: felt252 = 1;
-    let season_id: u256 = 1;
-    let genre: Genre = Genre::Pop;
     let name: felt252 = 'Live Audition';
-    let start_time: felt252 = 1672531200;
-    let end_time: felt252 = 1675123200;
-    let paused: bool = false;
-    contract.create_audition(audition_id, season_id, genre, name, start_time, end_time, paused);
+    let end_time: u64 = 1675123200;
+    contract.create_audition(name, end_time);
 }
