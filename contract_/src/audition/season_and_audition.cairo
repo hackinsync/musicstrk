@@ -108,16 +108,16 @@ pub mod SeasonAndAudition {
         /// so that the aggregate score calculation can be tested
         enrolled_performers: Map<u256, Vec<felt252>>,
         performer_enrollment_status: Map<(u256, felt252), bool>,
-        registration_config: Map<felt252, Option<RegistrationConfig>>,
+        registration_config: Map<u256, Option<RegistrationConfig>>,
         /// @notice a Map of audition id to a bool of whether the registration has started or not.
         /// once started, updating a config of this audition fails.
-        registration_started: Map<felt252, bool>,
+        registration_started: Map<u256, bool>,
         /// @notice a Map of a (Performer's address, audition_id) to the performer id, use for ease
         /// of reading the id. Thus if the id is zero, the performer has not registered.
-        performer_has_registered: Map<(ContractAddress, felt252), felt252>,
+        performer_has_registered: Map<(ContractAddress, u256), felt252>,
         /// @notice performer count per audition id.
-        performer_count: Map<felt252, felt252>,
-        registered_artists: Map<(ContractAddress, felt252), ArtistRegistration>,
+        performer_count: Map<u256, felt252>,
+        registered_artists: Map<(ContractAddress, u256), ArtistRegistration>,
         appeals: Map<u256, Appeal>,
         /// @notice maps each audition and performer to a bool indicating if the performer has
         /// submitted the result @dev Map from (audition_id, performer_id) to bool indicating if the
@@ -307,18 +307,14 @@ pub mod SeasonAndAudition {
         }
 
         fn update_registration_config(
-            ref self: ContractState, audition_id: felt252, config: RegistrationConfig,
+            ref self: ContractState, audition_id: u256, config: RegistrationConfig,
         ) {
             self.ownable.assert_only_owner();
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition already ended');
             assert(!self.registration_started.entry(audition_id).read(), 'Registration Started');
             let prev = self.registration_config.entry(audition_id).read();
-            let mut new = if prev.is_some() {
-                prev.unwrap()
-            } else {
-                Default::default()
-            };
+            let mut new = prev.unwrap_or_default();
 
             let RegistrationConfig {
                 fee_amount, fee_token, registration_open, max_participants,
@@ -346,7 +342,7 @@ pub mod SeasonAndAudition {
         }
 
         fn get_registration_config(
-            ref self: ContractState, audition_id: felt252,
+            ref self: ContractState, audition_id: u256,
         ) -> Option<RegistrationConfig> {
             let config = self.registration_config.entry(audition_id).read();
             if self.audition_exists(audition_id) {
@@ -361,7 +357,7 @@ pub mod SeasonAndAudition {
             Option::None
         }
 
-        fn delete_audition(ref self: ContractState, audition_id: felt252) {
+        fn delete_audition(ref self: ContractState, audition_id: u256) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(!self.is_audition_paused(audition_id), 'Cannot delete paused audition');
@@ -375,7 +371,7 @@ pub mod SeasonAndAudition {
             self
                 .emit(
                     Event::AuditionDeleted(
-                        AuditionDeleted { audition_id, timestamp: get_block_timestamp() },
+                        AuditionDeleted { audition_id, end_timestamp: get_block_timestamp() },
                     ),
                 );
         }
@@ -1070,7 +1066,7 @@ pub mod SeasonAndAudition {
         /// is not yet registered
         fn register_performer(
             ref self: ContractState,
-            audition_id: felt252,
+            audition_id: u256,
             tiktok_id: felt252,
             tiktok_username: felt252,
             email_hash: felt252,

@@ -25,14 +25,13 @@ pub trait ISeasonAndAudition<TContractState> {
     fn create_audition(ref self: TContractState, name: felt252, end_timestamp: u64);
     fn read_audition(self: @TContractState, audition_id: u256) -> Audition;
     fn update_audition_time(ref self: TContractState, audition_id: u256, new_time: u64);
-    fn update_audition(ref self: TContractState, audition_id: felt252, audition: Audition);
     fn update_registration_config(
-        ref self: TContractState, audition_id: felt252, config: RegistrationConfig,
+        ref self: TContractState, audition_id: u256, config: RegistrationConfig,
     );
     fn get_registration_config(
-        ref self: TContractState, audition_id: felt252,
+        ref self: TContractState, audition_id: u256,
     ) -> Option<RegistrationConfig>;
-    fn delete_audition(ref self: TContractState, audition_id: felt252);
+    fn delete_audition(ref self: TContractState, audition_id: u256);
 
     /// @notice Performer submits the result of an audition.
     /// @dev Only the performer can submit the result.

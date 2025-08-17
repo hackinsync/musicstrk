@@ -1,4 +1,3 @@
-use core::num::traits::Zero;
 use starknet::ContractAddress;
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
@@ -51,7 +50,7 @@ impl RegistrationConfigDefault of Default<RegistrationConfig> {
 #[derive(Drop, Serde, Copy, starknet::Store)]
 pub struct ArtistRegistration {
     pub wallet_address: ContractAddress,
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub tiktok_id: felt252,
     pub tiktok_username: felt252, // Pre-verified off-chain
     pub email_hash: felt252, // Privacy hash
