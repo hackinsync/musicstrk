@@ -344,8 +344,6 @@ pub mod SeasonAndAudition {
                 registration_open,
                 max_participants,
             };
-
-            self.registration_started.entry(audition_id).write(true);
             self.emit(event);
         }
 
@@ -1136,6 +1134,7 @@ pub mod SeasonAndAudition {
             let performer_id: felt252 = count.into() + 1;
             self.performer_count.entry(audition_id).write(performer_id);
             self.performer_has_registered.entry((caller, audition_id)).write(performer_id);
+            self.registration_started.entry(audition_id).write(true);
 
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
             self.enrolled_performers.entry(audition_id).push(performer_id);

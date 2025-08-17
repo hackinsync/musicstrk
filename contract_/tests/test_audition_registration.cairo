@@ -1,60 +1,61 @@
 use contract_::audition::season_and_audition::SeasonAndAudition;
 use contract_::audition::season_and_audition_interface::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
-    ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait,
 };
-use contract_::audition::season_and_audition_types::{
-    ArtistRegistration, Audition, RegistrationConfig,
-};
-use contract_::events::RegistrationConfigSet;
+use contract_::audition::season_and_audition_types::RegistrationConfig;
+use contract_::events::{ArtistRegistered, RegistrationConfigSet};
 use core::num::traits::Zero;
-use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     CheatSpan, EventSpyAssertionsTrait, cheat_block_timestamp, cheat_caller_address, spy_events,
+    test_address,
 };
-use starknet::{ContractAddress, get_block_timestamp};
+use starknet::ContractAddress;
 use crate::test_utils::*;
 
 const DEFAULT_TIMESTAMP: u64 = 1672531200;
 
-// fn update_registration_config(
-//     ref self: TContractState, audition_id: felt252, config: RegistrationConfig,
-// );
-// fn get_registration_config(
-//     ref self: TContractState, audition_id: felt252,
-// ) -> Option<RegistrationConfig>;
-
-// fn register_performer(
-//     ref self: TContractState,
-//     audition_id: felt252,
-//     tiktok_id: felt252,
-//     tiktok_username: felt252,
-//     email_hash: felt252,
-// ) -> felt252;
+fn feign_update_config(
+    caller: ContractAddress, audition_id: felt252, amount: u256,
+) -> (ISeasonAndAuditionDispatcher, IERC20Dispatcher) {
+    let audition = default_season();
+    let token = deploy_mock_erc20_contract();
+    cheat_caller_address(audition.contract_address, caller, CheatSpan::Indefinite);
+    let new_config = build_config(amount, token.contract_address, true, 5);
+    audition.update_registration_config(audition_id, new_config);
+    (audition, token)
+}
 
 fn feign_artists_registration(
-    artists_len: u32, erc20: IERC20Dispatcher, fee_amount: u256, audition: ISeasonAndAuditionDispatcher
-) { // Get all the artists using get_artists, and simulate a registration.
+    artists_len: u32,
+    erc20: IERC20Dispatcher,
+    fee_amount: u256,
+    audition: ISeasonAndAuditionDispatcher,
+) -> Array<ContractAddress> {
+    // Get all the artists using get_artists, and simulate a registration.
     let artists = get_artists(artists_len);
     for i in 0..artists.len() {
         let artist = *artists.at(i);
         cheat_caller_address(erc20.contract_address, OWNER(), CheatSpan::TargetCalls(1));
         erc20.transfer(artist, fee_amount);
+        cheat_caller_address(erc20.contract_address, artist, CheatSpan::TargetCalls(1));
+        erc20.approve(audition.contract_address, fee_amount);
         cheat_caller_address(audition.contract_address, artist, CheatSpan::Indefinite);
-        audition.register_performer(1, 'tiktok', 'tiktok', 'email');
+        let id: u256 = audition.register_performer(1, 'tiktok', 'tiktok', 'email').into();
+        assert(id == i.into() + 1, 'INVALID ID');
     }
+    artists
 }
 
 fn get_artists(len: u32) -> Array<ContractAddress> {
     let mut artists = array![];
     for i in 0..len {
-        let artist: ContractAddress = Into::<u64, felt252>::into((i.into() + get_block_timestamp() + 1))
+        let artist: ContractAddress = Into::<u64, felt252>::into((i.into() + 1))
             .try_into()
             .unwrap();
+        println!("Generated address: {:?}", artist);
         artists.append(artist);
     }
-
     artists
 }
 
@@ -73,6 +74,7 @@ fn default_season() -> ISeasonAndAuditionDispatcher {
     assert(registration_config.is_none(), 'CONFIG SHOULD BE NONE');
     cheat_caller_address(audition.contract_address, OWNER(), CheatSpan::TargetCalls(3));
     default_contract_create_season(audition);
+    default_contract_create_audition(audition);
     audition
 }
 
@@ -80,6 +82,8 @@ fn default_season() -> ISeasonAndAuditionDispatcher {
 fn test_audition_registration_config_update_flow() {
     let mut spy = spy_events();
     let audition = default_season();
+    let season = audition.read_season(1);
+    println!("Season id is: {}", season.season_id);
     cheat_caller_address(audition.contract_address, OWNER(), CheatSpan::Indefinite);
     let registration_config = audition.get_registration_config(1);
     assert(registration_config.is_some(), 'CONFIG SHOULD BE SOME');
@@ -146,44 +150,98 @@ fn test_audition_registration_config_update_flow() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller not owner')]
-fn test_audition_registration_config_update_should_panic_on_non_owner() {}
-
-fn feign_update_config(caller: ContractAddress, audition_id: felt252) -> ISeasonAndAuditionDispatcher {
-    let audition = default_season();
-    let token = deploy_mock_erc20_contract();
-    cheat_caller_address(audition.contract_address, caller, CheatSpan::Indefinite);
-    let new_config = build_config(10000, token.contract_address, true, 5);
-    audition.update_registration_config(1, new_config);
-    audition
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_audition_registration_config_update_should_panic_on_non_owner() {
+    let non_owner = test_address();
+    feign_update_config(non_owner, 1, 10000);
 }
 
 #[test]
 #[should_panic(expected: 'Audition does not exist')]
-fn test_audition_registration_config_update_on_invalid_audition() {}
+fn test_audition_registration_config_update_on_invalid_audition() {
+    // simulate an update on a nonexistent id.
+    feign_update_config(OWNER(), 2, 10000);
+}
 
 #[test]
 #[should_panic(expected: 'Registration Started')]
-fn test_audition_registration_config_update_on_registration_already_started() {}
+fn test_audition_registration_config_update_on_registration_already_started() {
+    let (audition, erc20) = feign_update_config(OWNER(), 1, 10000);
+    feign_artists_registration(1, erc20, 10000, audition);
+    cheat_caller_address(audition.contract_address, OWNER(), CheatSpan::Indefinite);
+    audition.update_registration_config(1, Default::default());
+}
 
 #[test]
 fn test_audition_registration_register_performer_success() { // update with a regular amount
-// extract all into a separate function
+    // extract all into a separate function
+    let (audition, erc20) = feign_update_config(OWNER(), 1, 10000);
+    let mut spy = spy_events();
+    cheat_block_timestamp(audition.contract_address, 10, CheatSpan::Indefinite);
+    let artists = feign_artists_registration(1, erc20, 100000, audition);
+    // minted 100000, whereas registration is 10000
+    // check the artist's balance
+    let balance = erc20.balance_of(*artists.at(0));
+    assert_eq!(balance, 90000, "Balance at 0 is: {}", balance);
+
+    let event = SeasonAndAudition::Event::ArtistRegistered(
+        ArtistRegistered {
+            artist_address: *artists.at(0), audition_id: 1, registration_timestamp: 10,
+        },
+    );
+    spy.assert_emitted(@array![(audition.contract_address, event)]);
 }
 
 #[test]
 fn test_audition_registration_register_performer_success_on_zero_amount() { // update with zero amount
-// test registration
+    // test registration
+    let (audition, erc20) = feign_update_config(OWNER(), 1, 0);
+    let mut spy = spy_events();
+    cheat_block_timestamp(audition.contract_address, 10, CheatSpan::Indefinite);
+    let artists = feign_artists_registration(1, erc20, 100, audition);
+    let balance = erc20.balance_of(*artists.at(0));
+    assert_eq!(balance, 100, "BALANCE MISMATCH 2.");
+
+    let event = SeasonAndAudition::Event::ArtistRegistered(
+        ArtistRegistered {
+            artist_address: *artists.at(0), audition_id: 1, registration_timestamp: 10,
+        },
+    );
+    spy.assert_emitted(@array![(audition.contract_address, event)]);
 }
 
 #[test]
 #[should_panic(expected: 'Registration not open')]
-fn test_audition_registration_register_performer_should_panic_on_config_not_set() {}
+fn test_audition_registration_register_performer_should_panic_on_config_not_set() {
+    let audition = default_season();
+    let artist = test_address();
+    cheat_caller_address(audition.contract_address, artist, CheatSpan::Indefinite);
+    audition.register_performer(1, 'tiktok', 'tiktok', 'email');
+}
 
 #[test]
 #[should_panic(expected: 'Performer already registered')]
-fn test_audition_registration_register_performer_should_panic_on_performer_already_registered() {}
+fn test_audition_registration_register_performer_should_panic_on_performer_already_registered() {
+    let (audition, erc20) = feign_update_config(OWNER(), 1, 100);
+    let artists = feign_artists_registration(1, erc20, 10000, audition);
+    let artist = *artists.at(0);
+    cheat_caller_address(audition.contract_address, artist, CheatSpan::Indefinite);
+    audition.register_performer(1, 'tiktok', 'tiktok', 'email');
+}
 
 #[test]
-#[should_panic(expected: 'Insufficient balance')]
-fn test_audition_registration_register_performer_should_panic_on_insufficient_funds() {}
+#[should_panic(expected: 'Insufficient allowance')]
+fn test_audition_registration_register_performer_should_panic_on_insufficient_funds() {
+    let (audition, erc20) = feign_update_config(OWNER(), 1, 10000);
+    // simulate artists registration with
+    feign_artists_registration(1, erc20, 1000, audition);
+}
+
+#[test]
+#[should_panic(expected: 'Max participants reached')]
+fn test_audition_registration_register_performer_should_panic_on_max_participants_reached() {
+    let (audition, erc20) = feign_update_config(OWNER(), 1, 1000);
+    // default update config sets the max number of participants as 5
+    // simulate registration with 6 performers
+    feign_artists_registration(6, erc20, 1000, audition);
+}
