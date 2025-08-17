@@ -3128,7 +3128,7 @@ fn test_submit_result_success() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    // contract.register_performer(audition_id, performer_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
 }
@@ -3147,7 +3147,7 @@ fn test_submit_result_should_panic_if_non_owner() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    // contract.register_performer(audition_id, performer_id);
     stop_cheat_caller_address(contract.contract_address);
 
     contract.submit_result(audition_id, "result_uri", performer_id);
@@ -3180,15 +3180,12 @@ fn test_submit_result_should_panic_if_contract_paused() {
 fn test_submit_result_should_panic_if_season_doesnt_exist() {
     let (contract, _, _) = deploy_contract();
 
-    let audition_id: felt252 = 1;
+    let audition_id: u256 = 1;
     let season_id: u256 = 1;
     let performer_id: felt252 = 'performerA';
 
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract
-        .create_audition(
-            audition_id, season_id, Genre::Pop, 'Lfggg', 1672531200, 1675123200, false,
-        );
+    contract.create_audition('Summer Hits', 1675123200);
     // contract.register_performer(audition_id, performer_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -3208,7 +3205,7 @@ fn test_submit_result_should_panic_if_season_is_paused() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    // contract.register_performer(audition_id, performer_id);
     contract.pause_season(season_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -3227,7 +3224,7 @@ fn test_submit_result_should_panic_if_season_is_ended() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    // contract.register_performer(audition_id, performer_id);
     start_cheat_block_timestamp(contract.contract_address, 1675123200 + 1);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_block_timestamp(contract.contract_address);
@@ -3265,7 +3262,7 @@ fn test_submit_result_should_panic_if_performer_already_submitted() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    // contract.register_performer(audition_id, performer_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -3285,7 +3282,7 @@ fn test_submit_result_success_events() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    // contract.register_performer(audition_id, performer_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
 

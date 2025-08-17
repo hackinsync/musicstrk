@@ -16,7 +16,7 @@ use crate::test_utils::*;
 const DEFAULT_TIMESTAMP: u64 = 1672531200;
 
 fn feign_update_config(
-    caller: ContractAddress, audition_id: felt252, amount: u256,
+    caller: ContractAddress, audition_id: u256, amount: u256,
 ) -> (ISeasonAndAuditionDispatcher, IERC20Dispatcher) {
     let audition = default_season();
     let token = deploy_mock_erc20_contract();
