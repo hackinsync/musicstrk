@@ -2,7 +2,6 @@ use starknet::ContractAddress;
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
     pub season_id: u256,
-    pub genre: Genre,
     pub name: felt252,
     pub start_timestamp: u64,
     pub end_timestamp: u64,
@@ -16,6 +15,7 @@ pub struct Audition {
     pub audition_id: u256,
     pub season_id: u256,
     pub name: felt252,
+    pub genre: Genre,
     pub start_timestamp: u64,
     pub end_timestamp: u64,
     pub paused: bool,

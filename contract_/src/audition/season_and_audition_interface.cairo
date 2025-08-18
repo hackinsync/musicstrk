@@ -23,6 +23,7 @@ pub trait ISeasonAndAudition<TContractState> {
     fn create_audition(ref self: TContractState, name: felt252, end_timestamp: u64);
     fn read_audition(self: @TContractState, audition_id: u256) -> Audition;
     fn update_audition_time(ref self: TContractState, audition_id: u256, new_time: u64);
+    fn update_audition_details(ref self: TContractState, audition_id: u256, name: Option<felt252>, genre: Option<Genre>);
 
     /// @notice Performer submits the result of an audition.
     /// @dev Only the performer can submit the result.
