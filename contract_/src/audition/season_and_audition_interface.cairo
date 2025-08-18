@@ -4,26 +4,27 @@ use super::season_and_audition_types::{Appeal, Audition, Evaluation, Genre, Seas
 // Define the contract interface
 #[starknet::interface]
 pub trait ISeasonAndAudition<TContractState> {
-    fn create_season(
-        ref self: TContractState, genre: Genre, name: felt252, start_time: u64, end_time: u64,
-    );
+    fn create_season(ref self: TContractState, name: felt252, start_time: u64, end_time: u64);
 
     fn read_season(self: @TContractState, season_id: u256) -> Season;
 
     fn update_season(
-        ref self: TContractState,
-        season_id: u256,
-        genre: Option<Genre>,
-        name: Option<felt252>,
-        end_time: Option<u64>,
+        ref self: TContractState, season_id: u256, name: Option<felt252>, end_time: Option<u64>,
     );
 
     fn get_active_season(self: @TContractState) -> Option<u256>;
 
-    fn create_audition(ref self: TContractState, name: felt252, end_timestamp: u64);
+    fn create_audition(ref self: TContractState, name: felt252, genre: Genre, end_timestamp: u64);
     fn read_audition(self: @TContractState, audition_id: u256) -> Audition;
-    fn update_audition_time(ref self: TContractState, audition_id: u256, new_time: u64);
-    fn update_audition_details(ref self: TContractState, audition_id: u256, name: Option<felt252>, genre: Option<Genre>);
+    /// Updates the details of an audition. You can update the end time, name, and genre in a single
+    /// call.
+    fn update_audition_details(
+        ref self: TContractState,
+        audition_id: u256,
+        new_time: Option<u64>,
+        name: Option<felt252>,
+        genre: Option<Genre>,
+    );
 
     /// @notice Performer submits the result of an audition.
     /// @dev Only the performer can submit the result.
