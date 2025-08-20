@@ -132,6 +132,7 @@ pub mod SeasonAndAudition {
         /// notice list of all results for a perfomer
         /// @dev List of (performer_id, result_uri)
         performer_results: Map<felt252, Vec<ByteArray>>,
+        // prize_pool: Map<(u256, ContractAddress), u256>,
     }
 
     #[event]
@@ -1095,6 +1096,12 @@ pub mod SeasonAndAudition {
             let amount = config.fee_amount;
             if amount > 0 {
                 self._process_payment(amount, config.fee_token);
+                // update prize pool
+                // token contract address should never change as update is
+                // let (token_contract_address, mut prize_pool): (ContractAddress, u256) = self
+                //     .audition_prices
+                //     .read(audition_id);
+
             }
 
             let registration_timestamp = get_block_timestamp();
