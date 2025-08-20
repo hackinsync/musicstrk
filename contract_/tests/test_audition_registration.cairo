@@ -15,7 +15,7 @@ use crate::test_utils::*;
 
 const DEFAULT_TIMESTAMP: u64 = 1672531200;
 
-fn feign_update_config(
+pub fn feign_update_config(
     caller: ContractAddress, audition_id: u256, amount: u256,
 ) -> (ISeasonAndAuditionDispatcher, IERC20Dispatcher) {
     let audition = default_season();
@@ -26,14 +26,15 @@ fn feign_update_config(
     (audition, token)
 }
 
-fn feign_artists_registration(
+pub fn feign_artists_registration(
     artists_len: u32,
     erc20: IERC20Dispatcher,
     fee_amount: u256,
     audition: ISeasonAndAuditionDispatcher,
-) -> Array<ContractAddress> {
+) -> Array<(ContractAddress, felt252)> {
     // Get all the artists using get_artists, and simulate a registration.
     let artists = get_artists(artists_len);
+    let mut arr: Array<(ContractAddress, felt252)> = array![];
     for i in 0..artists.len() {
         let artist = *artists.at(i);
         cheat_caller_address(erc20.contract_address, OWNER(), CheatSpan::TargetCalls(1));
@@ -43,8 +44,10 @@ fn feign_artists_registration(
         cheat_caller_address(audition.contract_address, artist, CheatSpan::Indefinite);
         let id: u256 = audition.register_performer(1, 'tiktok', 'tiktok', 'email').into();
         assert(id == i.into() + 1, 'INVALID ID');
+
+        arr.append((artist, id.try_into().unwrap()));
     }
-    artists
+    arr
 }
 
 fn get_artists(len: u32) -> Array<ContractAddress> {
@@ -181,13 +184,12 @@ fn test_audition_registration_register_performer_success() { // update with a re
     let artists = feign_artists_registration(1, erc20, 100000, audition);
     // minted 100000, whereas registration is 10000
     // check the artist's balance
-    let balance = erc20.balance_of(*artists.at(0));
+    let (artist, _) = *artists.at(0);
+    let balance = erc20.balance_of(artist);
     assert_eq!(balance, 90000, "Balance at 0 is: {}", balance);
 
     let event = SeasonAndAudition::Event::ArtistRegistered(
-        ArtistRegistered {
-            artist_address: *artists.at(0), audition_id: 1, registration_timestamp: 10,
-        },
+        ArtistRegistered { artist_address: artist, audition_id: 1, registration_timestamp: 10 },
     );
     spy.assert_emitted(@array![(audition.contract_address, event)]);
 }
@@ -199,13 +201,12 @@ fn test_audition_registration_register_performer_success_on_zero_amount() { // u
     let mut spy = spy_events();
     cheat_block_timestamp(audition.contract_address, 10, CheatSpan::Indefinite);
     let artists = feign_artists_registration(1, erc20, 100, audition);
-    let balance = erc20.balance_of(*artists.at(0));
+    let (artist, _) = *artists.at(0);
+    let balance = erc20.balance_of(artist);
     assert_eq!(balance, 100, "BALANCE MISMATCH 2.");
 
     let event = SeasonAndAudition::Event::ArtistRegistered(
-        ArtistRegistered {
-            artist_address: *artists.at(0), audition_id: 1, registration_timestamp: 10,
-        },
+        ArtistRegistered { artist_address: artist, audition_id: 1, registration_timestamp: 10 },
     );
     spy.assert_emitted(@array![(audition.contract_address, event)]);
 }
@@ -224,7 +225,7 @@ fn test_audition_registration_register_performer_should_panic_on_config_not_set(
 fn test_audition_registration_register_performer_should_panic_on_performer_already_registered() {
     let (audition, erc20) = feign_update_config(OWNER(), 1, 100);
     let artists = feign_artists_registration(1, erc20, 10000, audition);
-    let artist = *artists.at(0);
+    let (artist, _) = *artists.at(0);
     cheat_caller_address(audition.contract_address, artist, CheatSpan::Indefinite);
     audition.register_performer(1, 'tiktok', 'tiktok', 'email');
 }

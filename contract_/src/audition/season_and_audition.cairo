@@ -1097,10 +1097,10 @@ pub mod SeasonAndAudition {
             if amount > 0 {
                 self._process_payment(amount, config.fee_token);
                 // update prize pool
-                // token contract address should never change as update is
-                // let (token_contract_address, mut prize_pool): (ContractAddress, u256) = self
-                //     .audition_prices
-                //     .read(audition_id);
+            // token contract address should never change as update is
+            // let (token_contract_address, mut prize_pool): (ContractAddress, u256) = self
+            //     .audition_prices
+            //     .read(audition_id);
 
             }
 
