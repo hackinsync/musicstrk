@@ -30,21 +30,17 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @dev Only the performer can submit the result.
     /// @param audition_id The ID of the audition the user wants to submit the result for.
     /// @param result_uri The URI of the result.
+    /// @param performer_id The ID of the performer
     fn submit_result(
-        ref self: TContractState,
-        audition_id: u256,
-        result_uri: ByteArray,
-        performer: ContractAddress,
+        ref self: TContractState, audition_id: u256, result_uri: ByteArray, performer_id: u256,
     );
     /// @notice Gets the result of a performer for an audition.
 
-    fn get_result(
-        self: @TContractState, audition_id: u256, performer: ContractAddress,
-    ) -> ByteArray;
+    fn get_result(self: @TContractState, audition_id: u256, performer_id: u256) -> ByteArray;
     /// @notice Gets the results of an audition.
     fn get_results(self: @TContractState, audition_id: u256) -> Array<ByteArray>;
     /// @notice Gets the results of a performer for an audition.
-    fn get_performer_results(self: @TContractState, performer: ContractAddress) -> Array<ByteArray>;
+    fn get_performer_results(self: @TContractState, performer_id: u256) -> Array<ByteArray>;
 
     fn only_oracle(ref self: TContractState);
     fn add_oracle(ref self: TContractState, oracle_address: ContractAddress);
@@ -136,22 +132,22 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @notice Submits an evaluation for a performer in an audition.
     /// @dev Only authorized judges can submit evaluations.
     /// @param audition_id The ID of the audition being evaluated.
-    /// @param performer The address of the performer being evaluated.
+    /// @param performer_id The ID of the performer being evaluated.
     /// @param weight The weight of the evaluation (e.g., 1 for first place, 2 for second, etc.)
     /// @param criteria A tuple containing technical skills, creativity, and presentation scores.
     fn submit_evaluation(
         ref self: TContractState,
         audition_id: u256,
-        performer: ContractAddress,
+        performer_id: u256,
         criteria: (u256, u256, u256),
     );
 
     /// @notice Retrieves an evaluation for a specific performer in an audition.
     /// @param audition_id The ID of the audition being evaluated.
-    /// @param performer The ID of the performer being evaluated.
+    /// @param performer_id The ID of the performer being evaluated.
     /// @return Evaluation The evaluation for the performer.
     fn get_evaluation(
-        self: @TContractState, audition_id: u256, performer: ContractAddress,
+        self: @TContractState, audition_id: u256, performer_id: u256,
     ) -> Array<Evaluation>;
 
     /// @notice Retrieves all evaluations for a specific audition.
@@ -194,14 +190,12 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @param audition_id the id of the audition to get the aggregate score for
     /// @param performer_id the id of the performer to get the aggregate score for
     fn get_aggregate_score_for_performer(
-        self: @TContractState, audition_id: u256, performer_id: ContractAddress,
+        self: @TContractState, audition_id: u256, performer_id: u256,
     ) -> u256;
 
     /// @notice dummy function to register a performer to an audition
-    fn register_performer(
-        ref self: TContractState, audition_id: u256, performer_id: ContractAddress,
-    );
-    fn get_enrolled_performers(self: @TContractState, audition_id: u256) -> Array<ContractAddress>;
+    fn register_performer(ref self: TContractState, audition_id: u256);
+    fn get_enrolled_performers(self: @TContractState, audition_id: u256) -> Array<u256>;
 
     /// @notice Submits an appeal for a specific evaluation.
     /// @param evaluation_id The ID of the evaluation being appealed.
@@ -217,7 +211,16 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @notice gets the aggregate score for a given audition
     /// @param audition_id the id of the audition to get the aggregate score for
     /// @return a array of (performer_id, aggregate_score)
-    fn get_aggregate_score(
-        self: @TContractState, audition_id: u256,
-    ) -> Array<(ContractAddress, u256)>;
+    fn get_aggregate_score(self: @TContractState, audition_id: u256) -> Array<(u256, u256)>;
+
+    /// @notice Gets the total number of performers registered across all auditions.
+    /// @dev This function returns a count of all unique performers in the system.
+    /// @return u256 The total number of performers.
+    fn get_performers_count(self: @TContractState) -> u256;
+
+    /// @notice Gets the wallet address of a performer by their ID.
+    /// @dev Retrieves the contract address associated with a given performer ID.
+    /// @param performer_id The unique identifier of the performer.
+    /// @return ContractAddress The wallet address of the performer.
+    fn get_performer_address(self: @TContractState, performer_id: u256) -> ContractAddress;
 }

@@ -346,7 +346,7 @@ pub struct AuditionCalculationCompleted {
 pub struct AggregateScoreCalculated {
     #[key]
     pub audition_id: u256,
-    pub aggregate_scores: Array<(ContractAddress, u256)>,
+    pub aggregate_scores: Array<(u256, u256)>,
     pub timestamp: u64,
 }
 
