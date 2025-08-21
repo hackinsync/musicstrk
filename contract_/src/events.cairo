@@ -394,6 +394,9 @@ pub struct ArtistRegistered {
     pub artist_address: ContractAddress,
     pub audition_id: u256,
     pub registration_timestamp: u64,
+    pub fee: u256,
+    pub fee_token: ContractAddress,
+    pub pool_size: u256,
 }
 
 #[derive(Drop, starknet::Event)]

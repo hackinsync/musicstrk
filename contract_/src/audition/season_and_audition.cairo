@@ -1096,9 +1096,9 @@ pub mod SeasonAndAudition {
             assert(count.try_into().unwrap() < config.max_participants, 'Max participants reached');
             // test this...
             let amount = config.fee_amount;
+            let (_, prize_pool) = self.audition_prices.entry(audition_id).read();
             if amount > 0 {
                 self._process_payment(amount, config.fee_token);
-                let (_, prize_pool) = self.audition_prices.entry(audition_id).read();
                 self
                     .audition_prices
                     .entry(audition_id)
@@ -1127,8 +1127,15 @@ pub mod SeasonAndAudition {
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
             self.enrolled_performers.entry(audition_id).push(performer_id);
 
+            let pool_size = prize_pool + amount;
+
             let event = ArtistRegistered {
-                artist_address: caller, audition_id, registration_timestamp,
+                artist_address: caller,
+                audition_id,
+                registration_timestamp,
+                fee: amount,
+                fee_token: config.fee_token,
+                pool_size,
             };
             self.emit(event);
 

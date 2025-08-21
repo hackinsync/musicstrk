@@ -189,7 +189,14 @@ fn test_audition_registration_register_performer_success() { // update with a re
     assert_eq!(balance, 90000, "Balance at 0 is: {}", balance);
 
     let event = SeasonAndAudition::Event::ArtistRegistered(
-        ArtistRegistered { artist_address: artist, audition_id: 1, registration_timestamp: 10 },
+        ArtistRegistered {
+            artist_address: artist,
+            audition_id: 1,
+            registration_timestamp: 10,
+            fee: 10000,
+            fee_token: erc20.contract_address,
+            pool_size: 10000,
+        },
     );
     spy.assert_emitted(@array![(audition.contract_address, event)]);
 }
@@ -206,7 +213,14 @@ fn test_audition_registration_register_performer_success_on_zero_amount() { // u
     assert_eq!(balance, 100, "BALANCE MISMATCH 2.");
 
     let event = SeasonAndAudition::Event::ArtistRegistered(
-        ArtistRegistered { artist_address: artist, audition_id: 1, registration_timestamp: 10 },
+        ArtistRegistered {
+            artist_address: artist,
+            audition_id: 1,
+            registration_timestamp: 10,
+            fee: 0,
+            fee_token: erc20.contract_address,
+            pool_size: 0,
+        },
     );
     spy.assert_emitted(@array![(audition.contract_address, event)]);
 }
@@ -254,8 +268,10 @@ fn test_audition_registration_register_performer_should_panic_on_max_participant
 fn test_audition_registration_funds_state_success() {
     let fee_amount = 10000;
     let no_of_performers = 5;
+    let mut spy = spy_events();
     let (audition, erc20) = feign_update_config(OWNER(), 1, fee_amount);
-    feign_artists_registration(no_of_performers, erc20, fee_amount, audition);
+    cheat_block_timestamp(audition.contract_address, 10, CheatSpan::Indefinite);
+    let artists = feign_artists_registration(no_of_performers, erc20, fee_amount, audition);
     let expected_pool: u256 = no_of_performers.into() * fee_amount;
 
     let contract_balance = erc20.balance_of(audition.contract_address);
@@ -263,4 +279,22 @@ fn test_audition_registration_funds_state_success() {
     let (fee_token, pool_prize) = audition.get_audition_prices(1);
     assert_eq!(fee_token, erc20.contract_address);
     assert_eq!(pool_prize, expected_pool);
+
+    let mut events = array![];
+    for i in 0..artists.len() {
+        let (artist, _) = *artists.at(i);
+        let event = SeasonAndAudition::Event::ArtistRegistered(
+            ArtistRegistered {
+                artist_address: artist,
+                audition_id: 1,
+                registration_timestamp: 10,
+                fee: fee_amount,
+                fee_token: erc20.contract_address,
+                pool_size: fee_amount * (i.into() + 1),
+            },
+        );
+        events.append((audition.contract_address, event));
+    }
+
+    spy.assert_emitted(@events);
 }
