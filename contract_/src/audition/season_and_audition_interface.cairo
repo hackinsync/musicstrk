@@ -54,7 +54,8 @@ pub trait ISeasonAndAudition<TContractState> {
 
     // price deposit and distribute functionalities
     // fn deposit_prize(
-    //     ref self: TContractState, audition_id: u256, token_address: ContractAddress, amount: u256,
+    //     ref self: TContractState, audition_id: u256, token_address: ContractAddress, amount:
+    //     u256,
     // );
 
     fn distribute_prize(

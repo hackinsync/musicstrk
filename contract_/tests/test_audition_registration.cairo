@@ -246,3 +246,21 @@ fn test_audition_registration_register_performer_should_panic_on_max_participant
     // simulate registration with 6 performers
     feign_artists_registration(6, erc20, 1000, audition);
 }
+
+///
+/// Registration tests testing the flow and accuracy of funds state
+///
+#[test]
+fn test_audition_registration_funds_state_success() {
+    let fee_amount = 10000;
+    let no_of_performers = 5;
+    let (audition, erc20) = feign_update_config(OWNER(), 1, fee_amount);
+    feign_artists_registration(no_of_performers, erc20, fee_amount, audition);
+    let expected_pool: u256 = no_of_performers.into() * fee_amount;
+
+    let contract_balance = erc20.balance_of(audition.contract_address);
+    assert_eq!(contract_balance, expected_pool);
+    let (fee_token, pool_prize) = audition.get_audition_prices(1);
+    assert_eq!(fee_token, erc20.contract_address);
+    assert_eq!(pool_prize, expected_pool);
+}

@@ -132,8 +132,6 @@ pub mod SeasonAndAudition {
         /// notice list of all results for a perfomer
         /// @dev List of (performer_id, result_uri)
         performer_results: Map<felt252, Vec<ByteArray>>,
-        /// @notice maps each audition id to the prize pool available
-        prize_pool: Map<u256, u256>,
     }
 
     #[event]
@@ -744,13 +742,16 @@ pub mod SeasonAndAudition {
         //     let audition = self.auditions.entry(audition_id).read();
         //     self.assert_valid_season(audition.season_id);
 
-        //     let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
+        //     let (existing_token_address, existing_amount) =
+        //     self.audition_prices.read(audition_id);
         //     assert(
-        //         existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
+        //         existing_token_address.is_zero() && existing_amount == 0, 'Prize already
+        //         deposited',
         //     );
         //     self._process_payment(amount, token_address);
         //     self.audition_prices.write(audition_id, (token_address, amount));
-        //     self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
+        //     self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount
+        //     }));
         // }
 
         /// @notice Retrieves the prize information for a specific audition.
@@ -1097,8 +1098,11 @@ pub mod SeasonAndAudition {
             let amount = config.fee_amount;
             if amount > 0 {
                 self._process_payment(amount, config.fee_token);
-                let prize_pool = self.prize_pool.entry(audition_id).read();
-                self.prize_pool.entry(audition_id).write(prize_pool + amount);
+                let (_, prize_pool) = self.audition_prices.entry(audition_id).read();
+                self
+                    .audition_prices
+                    .entry(audition_id)
+                    .write((config.fee_token, prize_pool + amount));
             }
 
             let registration_timestamp = get_block_timestamp();
