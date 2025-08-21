@@ -132,7 +132,8 @@ pub mod SeasonAndAudition {
         /// notice list of all results for a perfomer
         /// @dev List of (performer_id, result_uri)
         performer_results: Map<felt252, Vec<ByteArray>>,
-        // prize_pool: Map<(u256, ContractAddress), u256>,
+        /// @notice maps each audition id to the prize pool available
+        prize_pool: Map<u256, u256>,
     }
 
     #[event]
@@ -728,29 +729,29 @@ pub mod SeasonAndAudition {
         /// deposited.
         /// @param token_address The address of the token to be used as the prize.
         /// @param amount The amount of tokens to be deposited as the prize.
-        fn deposit_prize(
-            ref self: ContractState,
-            audition_id: u256,
-            token_address: ContractAddress,
-            amount: u256,
-        ) {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-            assert(self.audition_exists(audition_id), 'Audition does not exist');
-            assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
-            assert(amount > 0, 'Amount must be more than zero');
-            assert(!token_address.is_zero(), 'Token address cannot be zero');
-            let audition = self.auditions.entry(audition_id).read();
-            self.assert_valid_season(audition.season_id);
+        // fn deposit_prize(
+        //     ref self: ContractState,
+        //     audition_id: u256,
+        //     token_address: ContractAddress,
+        //     amount: u256,
+        // ) {
+        //     self.ownable.assert_only_owner();
+        //     assert(!self.global_paused.read(), 'Contract is paused');
+        //     assert(self.audition_exists(audition_id), 'Audition does not exist');
+        //     assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
+        //     assert(amount > 0, 'Amount must be more than zero');
+        //     assert(!token_address.is_zero(), 'Token address cannot be zero');
+        //     let audition = self.auditions.entry(audition_id).read();
+        //     self.assert_valid_season(audition.season_id);
 
-            let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
-            assert(
-                existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
-            );
-            self._process_payment(amount, token_address);
-            self.audition_prices.write(audition_id, (token_address, amount));
-            self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
-        }
+        //     let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
+        //     assert(
+        //         existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
+        //     );
+        //     self._process_payment(amount, token_address);
+        //     self.audition_prices.write(audition_id, (token_address, amount));
+        //     self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
+        // }
 
         /// @notice Retrieves the prize information for a specific audition.
         /// @dev Returns the token contract address and the amount of tokens deposited as the prize
@@ -1096,12 +1097,8 @@ pub mod SeasonAndAudition {
             let amount = config.fee_amount;
             if amount > 0 {
                 self._process_payment(amount, config.fee_token);
-                // update prize pool
-            // token contract address should never change as update is
-            // let (token_contract_address, mut prize_pool): (ContractAddress, u256) = self
-            //     .audition_prices
-            //     .read(audition_id);
-
+                let prize_pool = self.prize_pool.entry(audition_id).read();
+                self.prize_pool.entry(audition_id).write(prize_pool + amount);
             }
 
             let registration_timestamp = get_block_timestamp();

@@ -2308,10 +2308,6 @@ fn test_submit_evaluation_should_panic_if_season_paused() {
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
 
-    // register a performer
-    // contract.register_performer(audition_id, 'performerid');
-    // contract.register_performer(audition_id, 'performerid2');
-    // contract.register_performer(audition_id, 'performerid3');
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.pause_season(season_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -2351,7 +2347,6 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
 
     // Register a performer
     let performer_id = 'performerX';
-    // contract.register_performer(audition_id, performer_id);
 
     // Each judge submits an evaluation for the same performer
     start_cheat_caller_address(contract.contract_address, judge_address1);
@@ -2423,9 +2418,6 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     let performer_id1 = 'performerA';
     let performer_id2 = 'performerB';
     let performer_id3 = 'performerC';
-    // contract.register_performer(audition_id, performer_id1);
-    // contract.register_performer(audition_id, performer_id2);
-    // contract.register_performer(audition_id, performer_id3);
 
     // Each judge submits an evaluation for a different performer
     start_cheat_caller_address(contract.contract_address, judge_address1);
@@ -2520,9 +2512,6 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
 
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
-
-    // register a performer
-    // contract.register_performer(audition_id, 'performerid');
 
     // pause judging
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -2851,8 +2840,6 @@ fn test_perform_aggregate_score_calculation_should_panic_if_season_paused() {
     // then register 2 performers
     let performer_id1 = 'performerA';
     let performer_id2 = 'performerB';
-    // contract.register_performer(audition_id, performer_id1);
-    // contract.register_performer(audition_id, performer_id2);
 
     // then set weight
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -3126,13 +3113,11 @@ fn test_submit_result_should_panic_if_non_owner() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     let performer_id: felt252 = 'performerA';
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    // contract.register_performer(audition_id, performer_id);
     stop_cheat_caller_address(contract.contract_address);
 
     contract.submit_result(audition_id, "result_uri", performer_id);
@@ -3184,7 +3169,6 @@ fn test_submit_result_should_panic_if_season_is_paused() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    // contract.register_performer(audition_id, performer_id);
     contract.pause_season(season_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -3196,13 +3180,11 @@ fn test_submit_result_should_panic_if_season_is_ended() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     let performer_id: felt252 = 'performerA';
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', 1675123200);
-    // contract.register_performer(audition_id, performer_id);
     start_cheat_block_timestamp(contract.contract_address, 1675123200 + 1);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_block_timestamp(contract.contract_address);
