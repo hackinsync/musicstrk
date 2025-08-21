@@ -1,4 +1,6 @@
+use core::num::traits::Zero;
 use starknet::ContractAddress;
+
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
     pub season_id: u256,
@@ -59,21 +61,21 @@ pub enum Genre {
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {
     pub audition_id: u256,
-    pub performer: felt252,
-    pub voter: felt252,
+    pub performer: ContractAddress,
+    pub voter: ContractAddress,
     pub weight: felt252,
 }
 
 /// @notice Evaluation struct for storing performer evaluations
 /// @param audition_id The ID of the audition being evaluated
-/// @param performer The ID of the performer being evaluated
-/// @param voter The ID of the voter submitting the evaluation
+/// @param performer The address of the performer being evaluated
+/// @param voter The address of the voter submitting the evaluation
 /// @param weight The weight of each evaluation (e.g. (40%, 30%, 30%))
 /// @param criteria A tuple containing technical skills, creativity, and presentation scores
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Evaluation {
     pub audition_id: u256,
-    pub performer: felt252,
+    pub performer: ContractAddress,
     pub criteria: (u256, u256, u256),
 }
 
@@ -84,4 +86,11 @@ pub struct Appeal {
     pub reason: felt252,
     pub resolved: bool,
     pub resolution_comment: felt252,
+}
+
+// Implement default for contract address type
+impl DefaultImpl of Default<ContractAddress> {
+    fn default() -> ContractAddress {
+        Zero::zero()
+    }
 }

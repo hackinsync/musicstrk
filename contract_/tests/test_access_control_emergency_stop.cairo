@@ -1,9 +1,9 @@
-use contract_::audition::season_and_audition::SeasonAndAudition;
-use contract_::audition::season_and_audition_interface::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcherTrait,
 };
-use contract_::audition::season_and_audition_types::{Audition, Genre, Season};
+use contract_::audition::season_and_audition::SeasonAndAudition;
+use contract_::audition::types::season_and_audition::{Audition, Genre, Season};
 use contract_::events::{PausedAll, ResumedAll};
 use core::result::ResultTrait;
 use snforge_std::{

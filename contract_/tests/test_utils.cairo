@@ -1,8 +1,8 @@
-use contract_::audition::season_and_audition_interface::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher,
 };
-use contract_::audition::season_and_audition_types::{
+use contract_::audition::types::season_and_audition::{
     Appeal, Audition, Evaluation, Genre, Season, Vote,
 };
 use core::array::ArrayTrait;
