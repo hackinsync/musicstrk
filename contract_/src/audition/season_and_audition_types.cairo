@@ -2,7 +2,6 @@ use starknet::ContractAddress;
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Season {
     pub season_id: u256,
-    pub genre: Genre,
     pub name: felt252,
     pub start_timestamp: u64,
     pub end_timestamp: u64,
@@ -16,6 +15,7 @@ pub struct Audition {
     pub audition_id: u256,
     pub season_id: u256,
     pub name: felt252,
+    pub genre: Genre,
     pub start_timestamp: u64,
     pub end_timestamp: u64,
     pub paused: bool,
@@ -37,24 +37,7 @@ pub enum Genre {
     Reggae,
     Other,
 }
-// converter not needed
-// pub fn get_genre_from_number(number: u8) -> Genre {
-//     match number {
-//         0 => Genre::Generic,
-//         1 => Genre::Pop,
-//         2 => Genre::Rock,
-//         3 => Genre::Jazz,
-//         4 => Genre::Classical,
-//         5 => Genre::HipHop,
-//         6 => Genre::Electronic,
-//         7 => Genre::Country,
-//         8 => Genre::AfroHouse,
-//         9 => Genre::RnB,
-//         10 => Genre::Reggae,
-//         11 => Genre::Other,
-//         _ => Genre::Generic,
-//     }
-// }
+
 
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct Vote {

@@ -168,9 +168,7 @@ pub mod SeasonAndAudition {
 
     #[abi(embed_v0)]
     impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
-        fn create_season(
-            ref self: ContractState, genre: Genre, name: felt252, start_time: u64, end_time: u64,
-        ) {
+        fn create_season(ref self: ContractState, name: felt252, start_time: u64, end_time: u64) {
             self.ownable.assert_only_owner();
             self.assert_all_seasons_closed();
             self.assert_valid_time(start_time, end_time);
@@ -178,7 +176,6 @@ pub mod SeasonAndAudition {
             let mut season_id: u256 = self.season_count.read() + 1;
             let new_season = Season {
                 season_id,
-                genre,
                 name,
                 start_timestamp: start_time,
                 end_timestamp: end_time,
@@ -194,7 +191,6 @@ pub mod SeasonAndAudition {
                     Event::SeasonCreated(
                         SeasonCreated {
                             season_id,
-                            genre,
                             name,
                             start_timestamp: start_time,
                             end_timestamp: end_time,
@@ -209,20 +205,13 @@ pub mod SeasonAndAudition {
         }
 
         fn update_season(
-            ref self: ContractState,
-            season_id: u256,
-            genre: Option<Genre>,
-            name: Option<felt252>,
-            end_time: Option<u64>,
+            ref self: ContractState, season_id: u256, name: Option<felt252>, end_time: Option<u64>,
         ) {
             self.ownable.assert_only_owner();
             self.assert_valid_season(season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
 
             let mut season = self.seasons.entry(season_id).read();
-            if let Some(genre) = genre {
-                season.genre = genre;
-            }
             if let Some(name) = name {
                 season.name = name;
             }
@@ -243,7 +232,9 @@ pub mod SeasonAndAudition {
             self.active_season.read()
         }
 
-        fn create_audition(ref self: ContractState, name: felt252, end_timestamp: u64) {
+        fn create_audition(
+            ref self: ContractState, name: felt252, genre: Genre, end_timestamp: u64,
+        ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
             let season_id = self.active_season.read().expect('No active season');
@@ -258,6 +249,7 @@ pub mod SeasonAndAudition {
                         audition_id,
                         season_id,
                         name,
+                        genre,
                         start_timestamp: get_block_timestamp(),
                         end_timestamp,
                         paused: false,
@@ -267,7 +259,7 @@ pub mod SeasonAndAudition {
             self
                 .emit(
                     Event::AuditionCreated(
-                        AuditionCreated { audition_id, season_id, name, end_timestamp },
+                        AuditionCreated { audition_id, season_id, name, genre, end_timestamp },
                     ),
                 );
         }
@@ -276,19 +268,40 @@ pub mod SeasonAndAudition {
             self.auditions.entry(audition_id).read()
         }
 
-        fn update_audition_time(ref self: ContractState, audition_id: u256, new_time: u64) {
+        fn update_audition_details(
+            ref self: ContractState,
+            audition_id: u256,
+            new_time: Option<u64>,
+            name: Option<felt252>,
+            genre: Option<Genre>,
+        ) {
             self.ownable.assert_only_owner();
             assert(!self.global_paused.read(), 'Contract is paused');
             self.assert_valid_audition(audition_id);
-            self.assert_valid_update_time(audition_id, new_time);
             let mut audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
-            audition.end_timestamp = new_time;
+            if let Some(new_time) = new_time {
+                self.assert_valid_update_time(audition_id, new_time);
+                audition.end_timestamp = new_time;
+            }
+            if let Some(name) = name {
+                self.assert_audition_hasnt_gone_halfway(audition_id);
+                audition.name = name;
+            }
+            if let Some(genre) = genre {
+                self.assert_audition_hasnt_gone_halfway(audition_id);
+                audition.genre = genre;
+            }
             self.auditions.entry(audition_id).write(audition);
             self
                 .emit(
                     Event::AuditionUpdated(
-                        AuditionUpdated { audition_id, end_timestamp: new_time },
+                        AuditionUpdated {
+                            audition_id,
+                            end_timestamp: audition.end_timestamp,
+                            name: audition.name,
+                            genre: audition.genre,
+                        },
                     ),
                 );
         }
@@ -1264,6 +1277,15 @@ pub mod SeasonAndAudition {
             let audition = self.auditions.entry(audition_id).read();
             assert(new_time > audition.start_timestamp, 'Invalid update time');
             assert(new_time > get_block_timestamp(), 'Invalid update time');
+        }
+
+        // assert that the time that the user is updating this, the audition hasnt gone halfway
+        // already
+        fn assert_audition_hasnt_gone_halfway(self: @ContractState, audition_id: u256) {
+            let audition = self.auditions.entry(audition_id).read();
+            let halfway_time = audition.start_timestamp
+                + (audition.end_timestamp - audition.start_timestamp) / 2;
+            assert(get_block_timestamp() < halfway_time, 'Audition has gone halfway');
         }
     }
 }
