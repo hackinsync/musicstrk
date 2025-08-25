@@ -23,6 +23,7 @@ export default function PerformerRegistrationForm() {
     isSubmitting,
     handleChange,
     handleSelectChange,
+    handleTikTokAuthSuccess,
     handleNext,
     handlePrevious,
     handleSubmit,
@@ -45,7 +46,7 @@ export default function PerformerRegistrationForm() {
         <AnimatedCard step={currentStep}>
           <Card className="border-[#00f5d4]/20 bg-[#1a1a3a]/90 backdrop-blur-sm shadow-xl overflow-hidden">
             <CardHeader className="relative">
-              <StepIndicator currentStep={currentStep} totalSteps={4} />
+              <StepIndicator currentStep={currentStep} totalSteps={5} />
               <FormHeader currentStep={currentStep} />
             </CardHeader>
 
@@ -56,6 +57,7 @@ export default function PerformerRegistrationForm() {
                 errors={errors}
                 handleChange={handleChange}
                 handleSelectChange={handleSelectChange}
+                handleTikTokAuthSuccess={handleTikTokAuthSuccess}  // Added
                 handleNext={handleNext}
                 handlePrevious={handlePrevious}
                 handleSubmit={handleSubmit}
