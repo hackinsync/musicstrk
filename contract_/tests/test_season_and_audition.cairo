@@ -1,9 +1,8 @@
-use contract_::audition::season_and_audition::SeasonAndAudition;
-use contract_::audition::season_and_audition_interface::{
-    ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
-    ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait,
+use contract_::audition::interfaces::iseason_and_audition::{
+    ISeasonAndAuditionDispatcherTrait, ISeasonAndAuditionSafeDispatcherTrait,
 };
-use contract_::audition::season_and_audition_types::{
+use contract_::audition::season_and_audition::SeasonAndAudition;
+use contract_::audition::types::season_and_audition::{
     Appeal, Audition, Evaluation, Genre, Season, Vote,
 };
 use contract_::events::{
@@ -20,6 +19,18 @@ use snforge_std::{
 };
 use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 use crate::test_utils::*;
+
+fn performer() -> ContractAddress {
+    'performerid'.try_into().unwrap()
+}
+
+fn performer2() -> ContractAddress {
+    'performerid2'.try_into().unwrap()
+}
+
+fn performer3() -> ContractAddress {
+    'performerid3'.try_into().unwrap()
+}
 
 #[test]
 fn test_create_season_successfully() {
@@ -2262,21 +2273,27 @@ fn test_submit_evaluation_success() {
     stop_cheat_caller_address(contract.contract_address);
 
     // register a performer
-    contract.register_performer(audition_id, 'performerid');
-    contract.register_performer(audition_id, 'performerid2');
-    contract.register_performer(audition_id, 'performerid3');
+    start_cheat_caller_address(contract.contract_address, performer());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer2());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer3());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
 
     // submit evaluation
     start_cheat_caller_address(contract.contract_address, judge_address);
-    contract.submit_evaluation(audition_id, 'performerid', (1, 2, 3));
+    contract.submit_evaluation(audition_id, 0, (1, 2, 3));
     stop_cheat_caller_address(contract.contract_address);
 
     // get evaluation
-    let evaluation = contract.get_evaluation(audition_id, 'performerid');
+    let evaluation = contract.get_evaluation(audition_id, 0);
     println!("evaluation: {:?}", evaluation.len());
     assert(evaluation.len() == 1, 'Evaluation should be 3');
     assert(*(evaluation.at(0)).audition_id == audition_id, 'Audition ID should match');
-    assert(*(evaluation.at(0)).performer == 'performerid', 'Performer should match');
+    assert(*(evaluation.at(0)).performer == performer(), 'Performer should match');
     assert(*(evaluation.at(0)).criteria == (1, 2, 3), 'Criteria should match');
 }
 
@@ -2311,15 +2328,21 @@ fn test_submit_evaluation_should_panic_if_season_paused() {
     stop_cheat_caller_address(contract.contract_address);
 
     // register a performer
-    contract.register_performer(audition_id, 'performerid');
-    contract.register_performer(audition_id, 'performerid2');
-    contract.register_performer(audition_id, 'performerid3');
+    start_cheat_caller_address(contract.contract_address, performer());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer2());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer3());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.pause_season(season_id);
     stop_cheat_caller_address(contract.contract_address);
     // submit evaluation
     start_cheat_caller_address(contract.contract_address, judge_address);
-    contract.submit_evaluation(audition_id, 'performerid', (1, 2, 3));
+    contract.submit_evaluation(audition_id, 0, (1, 2, 3));
     stop_cheat_caller_address(contract.contract_address);
 }
 
@@ -2352,8 +2375,10 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
     stop_cheat_caller_address(contract.contract_address);
 
     // Register a performer
-    let performer_id = 'performerX';
-    contract.register_performer(audition_id, performer_id);
+    let performer_id = 0;
+    start_cheat_caller_address(contract.contract_address, performer());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
 
     // Each judge submits an evaluation for the same performer
     start_cheat_caller_address(contract.contract_address, judge_address1);
@@ -2387,7 +2412,7 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
             found_criteria_3 = true;
         }
         assert(*(evaluations.at(i)).audition_id == audition_id, 'Audition ID should match');
-        assert(*(evaluations.at(i)).performer == performer_id, 'Performer should match');
+        assert(*(evaluations.at(i)).performer == performer(), 'Performer should match');
     }
     assert(found_criteria_1, 'Criteria (3,4,5) not found');
     assert(found_criteria_2, 'Criteria (6,7,8) not found');
@@ -2422,12 +2447,18 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     stop_cheat_caller_address(contract.contract_address);
 
     // Register different performers
-    let performer_id1 = 'performerA';
-    let performer_id2 = 'performerB';
-    let performer_id3 = 'performerC';
-    contract.register_performer(audition_id, performer_id1);
-    contract.register_performer(audition_id, performer_id2);
-    contract.register_performer(audition_id, performer_id3);
+    let performer_id1 = 0;
+    let performer_id2 = 1;
+    let performer_id3 = 2;
+    start_cheat_caller_address(contract.contract_address, performer());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer2());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer3());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
 
     // Each judge submits an evaluation for a different performer
     start_cheat_caller_address(contract.contract_address, judge_address1);
@@ -2448,7 +2479,7 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     let criteria1 = *(evals1.at(0)).criteria;
     assert(criteria1 == (1, 2, 3), 'criteria1 fail');
     assert(*(evals1.at(0)).audition_id == audition_id, 'aid1 fail');
-    assert(*(evals1.at(0)).performer == performer_id1, 'pid1 fail');
+    assert(*(evals1.at(0)).performer == performer(), 'pid1 fail');
 
     // Get and check evaluation for performer 2
     let evals2 = contract.get_evaluation(audition_id, performer_id2);
@@ -2456,7 +2487,7 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     let criteria2 = *(evals2.at(0)).criteria;
     assert(criteria2 == (4, 5, 6), 'criteria2 fail');
     assert(*(evals2.at(0)).audition_id == audition_id, 'aid2 fail');
-    assert(*(evals2.at(0)).performer == performer_id2, 'pid2 fail');
+    assert(*(evals2.at(0)).performer == performer2(), 'pid2 fail');
 
     // Get and check evaluation for performer 3
     let evals3 = contract.get_evaluation(audition_id, performer_id3);
@@ -2464,7 +2495,7 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     let criteria3 = *(evals3.at(0)).criteria;
     assert(criteria3 == (7, 8, 9), 'criteria3 fail');
     assert(*(evals3.at(0)).audition_id == audition_id, 'aid3 fail');
-    assert(*(evals3.at(0)).performer == performer_id3, 'pid3 fail');
+    assert(*(evals3.at(0)).performer == performer3(), 'pid3 fail');
 
     // Get all evaluations for the audition and assert their correctness
     let all_evals = contract.get_evaluations(audition_id);
@@ -2480,13 +2511,13 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
         let performer = *(eval.performer);
         let criteria = *(eval.criteria);
 
-        if performer == performer_id1 {
+        if performer == contract.get_performer_address(performer_id1) {
             assert(criteria == (1, 2, 3), 'all_evals: criteria1 fail');
             found1 = true;
-        } else if performer == performer_id2 {
+        } else if performer == contract.get_performer_address(performer_id2) {
             assert(criteria == (4, 5, 6), 'all_evals: criteria2 fail');
             found2 = true;
-        } else if performer == performer_id3 {
+        } else if performer == contract.get_performer_address(performer_id3) {
             assert(criteria == (7, 8, 9), 'all_evals: criteria3 fail');
             found3 = true;
         } else {
@@ -2524,7 +2555,7 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
     stop_cheat_caller_address(contract.contract_address);
 
     // register a performer
-    contract.register_performer(audition_id, 'performerid');
+    contract.register_performer(audition_id);
 
     // pause judging
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -2533,7 +2564,7 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
 
     // submit evaluation
     start_cheat_caller_address(contract.contract_address, judge_address);
-    contract.submit_evaluation(audition_id, 'performerid', (1, 2, 3));
+    contract.submit_evaluation(audition_id, 0, (1, 2, 3));
     stop_cheat_caller_address(contract.contract_address);
 }
 
@@ -2781,10 +2812,14 @@ fn test_perform_aggregate_score_calculation_successful() {
     stop_cheat_caller_address(contract.contract_address);
 
     // then register 2 performers
-    let performer_id1 = 'performerA';
-    let performer_id2 = 'performerB';
-    contract.register_performer(audition_id, performer_id1);
-    contract.register_performer(audition_id, performer_id2);
+    let performer_id1 = 0;
+    let performer_id2 = 1;
+    start_cheat_caller_address(contract.contract_address, performer());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer2());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
 
     // then set weight
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -2853,10 +2888,14 @@ fn test_perform_aggregate_score_calculation_should_panic_if_season_paused() {
     stop_cheat_caller_address(contract.contract_address);
 
     // then register 2 performers
-    let performer_id1 = 'performerA';
-    let performer_id2 = 'performerB';
-    contract.register_performer(audition_id, performer_id1);
-    contract.register_performer(audition_id, performer_id2);
+    let performer_id1 = 0;
+    let performer_id2 = 1;
+    start_cheat_caller_address(contract.contract_address, performer());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+    start_cheat_caller_address(contract.contract_address, performer2());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
 
     // then set weight
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -3116,12 +3155,12 @@ fn test_submit_result_success() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    contract.register_performer(audition_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
 }
@@ -3134,12 +3173,12 @@ fn test_submit_result_should_panic_if_non_owner() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    contract.register_performer(audition_id);
     stop_cheat_caller_address(contract.contract_address);
 
     contract.submit_result(audition_id, "result_uri", performer_id);
@@ -3153,12 +3192,12 @@ fn test_submit_result_should_panic_if_contract_paused() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    contract.register_performer(audition_id);
     contract.pause_all();
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -3172,12 +3211,12 @@ fn test_submit_result_should_panic_if_season_is_paused() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    contract.register_performer(audition_id);
     contract.pause_season(season_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -3190,12 +3229,12 @@ fn test_submit_result_should_panic_if_season_is_ended() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    contract.register_performer(audition_id);
     start_cheat_block_timestamp(contract.contract_address, 1675123200 + 1);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_block_timestamp(contract.contract_address);
@@ -3210,7 +3249,7 @@ fn test_submit_result_should_panic_if_performer_not_enrolled() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -3227,12 +3266,12 @@ fn test_submit_result_should_panic_if_performer_already_submitted() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    contract.register_performer(audition_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
@@ -3246,12 +3285,12 @@ fn test_submit_result_success_events() {
 
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-    let performer_id: felt252 = 'performerA';
+    let performer_id = 0;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    contract.register_performer(audition_id, performer_id);
+    contract.register_performer(audition_id);
     contract.submit_result(audition_id, "result_uri", performer_id);
     stop_cheat_caller_address(contract.contract_address);
 
@@ -3273,12 +3312,60 @@ fn test_submit_result_success_events() {
                     contract.contract_address,
                     SeasonAndAudition::Event::ResultSubmitted(
                         ResultSubmitted {
-                            audition_id: audition_id,
-                            result_uri: "result_uri",
-                            performer: performer_id,
+                            audition_id: audition_id, result_uri: "result_uri", performer: OWNER(),
                         },
                     ),
                 ),
             ],
         );
+}
+
+
+#[test]
+fn test_register_perfomer_generates_correct_performer_id() {
+    let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
+
+    let audition_id: u256 = 1;
+    let performer_id1 = 0;
+    let performer_id2 = 1;
+    let performer_id3 = 2;
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
+    stop_cheat_caller_address(contract.contract_address);
+
+    assert(contract.get_performers_count() == 0, 'performer count should be 0');
+
+    start_cheat_caller_address(contract.contract_address, performer());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    assert(contract.get_performers_count() == 1, 'performer count should be 1');
+
+    start_cheat_caller_address(contract.contract_address, performer2());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    assert(contract.get_performers_count() == 2, 'performer count should be 2');
+
+    start_cheat_caller_address(contract.contract_address, performer3());
+    contract.register_performer(audition_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    assert(contract.get_performers_count() == 3, 'performer count should be 3');
+
+    assert(
+        contract.get_performer_address(performer_id1) == performer(),
+        'performer address should match',
+    );
+    assert(
+        contract.get_performer_address(performer_id2) == performer2(),
+        'performer address should match',
+    );
+    assert(
+        contract.get_performer_address(performer_id3) == performer3(),
+        'performer address should match',
+    );
 }
