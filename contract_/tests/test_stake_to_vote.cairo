@@ -2,18 +2,12 @@ use contract_::audition::interfaces::istake_to_vote::{
     IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
 };
 use contract_::audition::season_and_audition::{
-    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
-    ISeasonAndAuditionSafeDispatcher, ISeasonAndAuditionSafeDispatcherTrait, Season,
-    SeasonAndAudition,
+    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait, Season,
 };
-use contract_::events::{
-    AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-    AuditionUpdated, PriceDeposited, PriceDistributed, SeasonCreated, SeasonDeleted, SeasonUpdated,
-};
+use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
-    start_cheat_block_timestamp, start_cheat_caller_address, stop_cheat_block_timestamp,
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, get_block_timestamp};
@@ -30,6 +24,10 @@ fn USER() -> ContractAddress {
 
 fn NON_OWNER() -> ContractAddress {
     'NON_OWNER'.try_into().unwrap()
+}
+
+fn WITHDRAWAL_CONTRACT() -> ContractAddress {
+    'WITHDRAWAL_CONTRACT'.try_into().unwrap()
 }
 
 // Helper function to deploy the contract
@@ -159,7 +157,7 @@ fn setup_staking_audition() -> (
 // staking to vote tests starts here
 #[test]
 fn test_owner_can_set_and_adjust_stake_amount() {
-    let (season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+    let (_season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
 
     // Owner sets the initial staking configuration
     start_cheat_caller_address(stake_to_vote.contract_address, OWNER());
@@ -175,7 +173,7 @@ fn test_owner_can_set_and_adjust_stake_amount() {
 #[test]
 #[should_panic(expected: 'Caller is not the owner')]
 fn test_non_owner_cannot_set_staking_config() {
-    let (season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+    let (_season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
 
     // Non-owner attempts to set the staking configuration
     start_cheat_caller_address(stake_to_vote.contract_address, USER());
@@ -186,7 +184,7 @@ fn test_non_owner_cannot_set_staking_config() {
 #[test]
 #[should_panic(expected: 'Already staked')]
 fn test_prevent_double_staking() {
-    let (season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+    let (_season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
     let stake_amount = 100_u256;
 
     // Configure staking
@@ -212,7 +210,7 @@ fn test_prevent_double_staking() {
 
 #[test]
 fn test_eligibility_tracking_and_stake_locking() {
-    let (season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+    let (_season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
     let stake_amount = 100_u256;
 
     // 1. Set config
@@ -234,12 +232,35 @@ fn test_eligibility_tracking_and_stake_locking() {
 
     // 4. Check eligibility after staking
     assert!(stake_to_vote.is_eligible_voter(audition_id, USER()), "Should be eligible after stake");
+
+    // 5. Verify staker info is recorded correctly
+    let staker_info = stake_to_vote.get_staker_info(USER(), audition_id);
+    assert!(staker_info.address == USER(), "Staker address should match");
+    assert!(staker_info.staked_amount == stake_amount, "Staked amount should match");
+    assert!(staker_info.is_eligible_voter, "Should be marked as eligible voter");
 }
 
 #[test]
-#[should_panic(expected: 'Audition not yet ended')]
-fn test_stake_is_locked_before_results() {
-    let (season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+fn test_get_staking_config() {
+    let (_season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+    let stake_amount = 100_u256;
+    let withdrawal_delay = 3600_u64;
+
+    // Set config
+    start_cheat_caller_address(stake_to_vote.contract_address, OWNER());
+    stake_to_vote.set_staking_config(audition_id, stake_amount, mock_token.contract_address, withdrawal_delay);
+    stop_cheat_caller_address(stake_to_vote.contract_address);
+
+    // Get and verify config
+    let config = stake_to_vote.get_staking_config(audition_id);
+    assert!(config.required_stake_amount == stake_amount, "Stake amount should match");
+    assert!(config.stake_token == mock_token.contract_address, "Token address should match");
+    assert!(config.withdrawal_delay_after_results == withdrawal_delay, "Delay should match");
+}
+
+#[test]
+fn test_required_stake_amount() {
+    let (_season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
     let stake_amount = 100_u256;
 
     // Set config
@@ -247,36 +268,55 @@ fn test_stake_is_locked_before_results() {
     stake_to_vote.set_staking_config(audition_id, stake_amount, mock_token.contract_address, 3600);
     stop_cheat_caller_address(stake_to_vote.contract_address);
 
-    // Approve and stake
-    start_cheat_caller_address(mock_token.contract_address, USER());
-    mock_token.approve(stake_to_vote.contract_address, stake_amount);
-    stop_cheat_caller_address(mock_token.contract_address);
+    // Test required stake amount getter
+    let required_amount = stake_to_vote.required_stake_amount(audition_id);
+    assert!(required_amount == stake_amount, "Required stake amount should match");
+}
 
-    start_cheat_caller_address(stake_to_vote.contract_address, USER());
-    stake_to_vote.stake_to_vote(audition_id);
-    stop_cheat_caller_address(stake_to_vote.contract_address);
+#[test]
+fn test_set_withdrawal_contract() {
+    let (_season_and_audition, stake_to_vote, _mock_token, _audition_id) = setup_staking_audition();
 
-    // Attempt to withdraw before audition has ended
-    start_cheat_caller_address(stake_to_vote.contract_address, USER());
-    stake_to_vote.withdraw_stake_after_results(audition_id);
+    // Owner sets withdrawal contract
+    start_cheat_caller_address(stake_to_vote.contract_address, OWNER());
+    stake_to_vote.set_withdrawal_contract(WITHDRAWAL_CONTRACT());
     stop_cheat_caller_address(stake_to_vote.contract_address);
 }
 
 #[test]
-fn test_successful_withdrawal_after_results() {
-    let (season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_set_withdrawal_contract_unauthorized() {
+    let (_season_and_audition, stake_to_vote, _mock_token, _audition_id) = setup_staking_audition();
+
+    // Non-owner tries to set withdrawal contract
+    start_cheat_caller_address(stake_to_vote.contract_address, USER());
+    stake_to_vote.set_withdrawal_contract(WITHDRAWAL_CONTRACT());
+    stop_cheat_caller_address(stake_to_vote.contract_address);
+}
+
+#[test]
+#[should_panic(expected: 'Only withdrawal contract')]
+fn test_clear_staker_data_unauthorized() {
+    let (_season_and_audition, stake_to_vote, _mock_token, audition_id) = setup_staking_audition();
+
+    // Random user tries to clear staker data
+    start_cheat_caller_address(stake_to_vote.contract_address, USER());
+    stake_to_vote.clear_staker_data(USER(), audition_id);
+    stop_cheat_caller_address(stake_to_vote.contract_address);
+}
+
+#[test]
+fn test_clear_staker_data_authorized() {
+    let (_season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
     let stake_amount = 100_u256;
-    let withdrawal_delay = 3600_u64;
 
-    // Set config
+    // Set up staking config and withdrawal contract
     start_cheat_caller_address(stake_to_vote.contract_address, OWNER());
-    stake_to_vote
-        .set_staking_config(
-            audition_id, stake_amount, mock_token.contract_address, withdrawal_delay,
-        );
+    stake_to_vote.set_staking_config(audition_id, stake_amount, mock_token.contract_address, 3600);
+    stake_to_vote.set_withdrawal_contract(WITHDRAWAL_CONTRACT());
     stop_cheat_caller_address(stake_to_vote.contract_address);
 
-    // User approves and stakes
+    // User stakes
     start_cheat_caller_address(mock_token.contract_address, USER());
     mock_token.approve(stake_to_vote.contract_address, stake_amount);
     stop_cheat_caller_address(mock_token.contract_address);
@@ -285,51 +325,25 @@ fn test_successful_withdrawal_after_results() {
     stake_to_vote.stake_to_vote(audition_id);
     stop_cheat_caller_address(stake_to_vote.contract_address);
 
-    let user_balance_before_withdrawal = mock_token.balance_of(USER().into());
+    // Verify staker is eligible before clearing
+    assert!(stake_to_vote.is_eligible_voter(audition_id, USER()), "Should be eligible");
 
-    // Owner ends the audition
-    start_cheat_caller_address(season_and_audition.contract_address, OWNER());
-    // set block timestamp to non zero, it's zero by default
-    start_cheat_block_timestamp(season_and_audition.contract_address, 1);
-    season_and_audition.end_audition(audition_id);
-
-    // Advance time past the withdrawal delay
-    let audition_end_time = get_block_timestamp();
-    start_cheat_block_timestamp(
-        stake_to_vote.contract_address, audition_end_time + withdrawal_delay + 1,
-    );
-    stop_cheat_caller_address(season_and_audition.contract_address);
-
-    // User withdraws stake
-    start_cheat_caller_address(stake_to_vote.contract_address, USER());
-    stake_to_vote.withdraw_stake_after_results(audition_id);
+    // Authorized withdrawal contract clears staker data
+    start_cheat_caller_address(stake_to_vote.contract_address, WITHDRAWAL_CONTRACT());
+    stake_to_vote.clear_staker_data(USER(), audition_id);
     stop_cheat_caller_address(stake_to_vote.contract_address);
 
-    // Assertions
-    let user_balance_after_withdrawal = mock_token.balance_of(USER().into());
-    assert!(
-        user_balance_after_withdrawal == user_balance_before_withdrawal + stake_amount,
-        "User balance not refunded",
-    );
-    assert!(!stake_to_vote.is_eligible_voter(audition_id, USER()), "Eligibility should be revoked");
+    // Verify staker is no longer eligible
+    assert!(!stake_to_vote.is_eligible_voter(audition_id, USER()), "Should not be eligible after clearing");
 }
 
 #[test]
-#[should_panic(expected: 'No stake to withdraw')]
-fn test_failed_withdrawal_if_not_staked() {
-    let (season_and_audition, stake_to_vote, mock_token, audition_id) = setup_staking_audition();
+fn test_get_staker_info_empty() {
+    let (_season_and_audition, stake_to_vote, _mock_token, audition_id) = setup_staking_audition();
 
-    // Set config
-    start_cheat_caller_address(stake_to_vote.contract_address, OWNER());
-    start_cheat_caller_address(season_and_audition.contract_address, OWNER());
-    stake_to_vote.set_staking_config(audition_id, 100, mock_token.contract_address, 0);
-    // End the audition immediately for testing withdrawal
-    season_and_audition.end_audition(audition_id);
-    stop_cheat_caller_address(stake_to_vote.contract_address);
-    stop_cheat_caller_address(season_and_audition.contract_address);
-
-    // A user who never staked tries to withdraw
-    start_cheat_caller_address(stake_to_vote.contract_address, USER());
-    stake_to_vote.withdraw_stake_after_results(audition_id);
-    stop_cheat_caller_address(stake_to_vote.contract_address);
+    // Get staker info for non-staker
+    let staker_info = stake_to_vote.get_staker_info(USER(), audition_id);
+    assert!(staker_info.address.is_zero(), "Address should be zero");
+    assert!(staker_info.staked_amount == 0, "Amount should be zero");
+    assert!(!staker_info.is_eligible_voter, "Should not be eligible");
 }

@@ -3,9 +3,9 @@ pub mod StakeToVote {
     use OwnableComponent::InternalTrait;
     use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
     use contract_::audition::season_and_audition::{
-        Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+        ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
-    use contract_::audition::types::*;
+    use contract_::audition::types::{StakerInfo, StakingConfig, StakingConfigSet, StakePlaced};
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -38,6 +38,8 @@ pub mod StakeToVote {
         /// @notice Holds the season and audition contract address, to be initialized in the
         /// constructor
         season_and_audition_contract_address: ContractAddress,
+        /// @notice Address of the authorized withdrawal contract
+        withdrawal_contract: ContractAddress,
     }
 
     #[event]
@@ -47,7 +49,6 @@ pub mod StakeToVote {
         OwnableEvent: OwnableComponent::Event,
         StakingConfigSet: StakingConfigSet,
         StakePlaced: StakePlaced,
-        StakeWithdrawn: StakeWithdrawn,
     }
 
     #[constructor]
@@ -133,44 +134,6 @@ pub mod StakeToVote {
                 );
         }
 
-        fn withdraw_stake_after_results(ref self: ContractState, audition_id: felt252) {
-            let caller = get_caller_address();
-            let staker_info = self.stakers.read((audition_id, caller));
-            let config = self.staking_configs.read(audition_id);
-            let season_and_audition_dispatcher = ISeasonAndAuditionDispatcher {
-                contract_address: self.season_and_audition_contract_address.read(),
-            };
-
-            assert(staker_info.is_eligible_voter, errors::NO_STAKE_TO_WITHDRAW);
-            assert(
-                season_and_audition_dispatcher.is_audition_ended(audition_id),
-                errors::AUDITION_NOT_YET_ENDED,
-            );
-
-            // Check withdrawal delay
-            let audition: Audition = season_and_audition_dispatcher.read_audition(audition_id);
-            let end_time: u64 = audition.end_timestamp.try_into().unwrap();
-            assert(
-                get_block_timestamp() >= end_time + config.withdrawal_delay_after_results,
-                errors::WITHDRAWAL_DELAY_ACTIVE,
-            );
-
-            // Clear staker data
-            self.stakers.entry((audition_id, caller)).write(Default::default());
-            self.eligible_voters.write((audition_id, caller), false);
-
-            // Transfer stake back to caller
-            self._send_tokens(caller, staker_info.staked_amount, config.stake_token);
-
-            self
-                .emit(
-                    Event::StakeWithdrawn(
-                        StakeWithdrawn {
-                            audition_id, staker: caller, amount: staker_info.staked_amount,
-                        },
-                    ),
-                );
-        }
 
         fn is_eligible_voter(
             self: @ContractState, audition_id: felt252, voter_address: ContractAddress,
@@ -192,6 +155,29 @@ pub mod StakeToVote {
 
         fn get_staking_config(self: @ContractState, audition_id: felt252) -> StakingConfig {
             self.staking_configs.read(audition_id)
+        }
+
+        fn clear_staker_data(
+            ref self: ContractState, staker: ContractAddress, audition_id: felt252,
+        ) {
+            // Only authorized withdrawal contract can call this
+            let caller = get_caller_address();
+            let authorized_withdrawal_contract = self.withdrawal_contract.read();
+            assert(
+                caller == authorized_withdrawal_contract && !authorized_withdrawal_contract.is_zero(),
+                'Only withdrawal contract'
+            );
+
+            // Clear staker data
+            self.stakers.entry((audition_id, staker)).write(Default::default());
+            self.eligible_voters.write((audition_id, staker), false);
+        }
+
+        fn set_withdrawal_contract(
+            ref self: ContractState, withdrawal_contract: ContractAddress,
+        ) {
+            self.ownable.assert_only_owner();
+            self.withdrawal_contract.write(withdrawal_contract);
         }
     }
 

@@ -38,9 +38,3 @@ pub struct StakePlaced {
     pub amount: u256,
 }
 
-#[derive(Drop, starknet::Event)]
-pub struct StakeWithdrawn {
-    pub audition_id: felt252,
-    pub staker: ContractAddress,
-    pub amount: u256,
-}

@@ -21,9 +21,6 @@ pub trait IStakeToVote<TContractState> {
     /// @param audition_id The ID of the audition to stake for.
     fn stake_to_vote(ref self: TContractState, audition_id: felt252);
 
-    /// @notice Allows a staker to withdraw their stake after the voting results are finalized.
-    /// @param audition_id The ID of the audition from which to withdraw the stake.
-    fn withdraw_stake_after_results(ref self: TContractState, audition_id: felt252);
 
     /// @notice Checks if a wallet is eligible to vote for a specific audition.
     /// @param audition_id The ID of the audition.
@@ -42,4 +39,10 @@ pub trait IStakeToVote<TContractState> {
     fn get_staking_config(
         self: @TContractState, audition_id: felt252,
     ) -> contract_::audition::types::StakingConfig;
+
+    // Withdrawal management functions (called only by authorized withdrawal contract)
+    fn clear_staker_data(
+        ref self: TContractState, staker: ContractAddress, audition_id: felt252,
+    );
+    fn set_withdrawal_contract(ref self: TContractState, withdrawal_contract: ContractAddress);
 }
