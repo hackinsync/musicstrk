@@ -5,7 +5,7 @@ pub mod StakeToVote {
     use contract_::audition::season_and_audition::{
         ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
-    use contract_::audition::types::{StakerInfo, StakingConfig, StakingConfigSet, StakePlaced};
+    use contract_::audition::types::{StakePlaced, StakerInfo, StakingConfig, StakingConfigSet};
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -164,8 +164,9 @@ pub mod StakeToVote {
             let caller = get_caller_address();
             let authorized_withdrawal_contract = self.withdrawal_contract.read();
             assert(
-                caller == authorized_withdrawal_contract && !authorized_withdrawal_contract.is_zero(),
-                'Only withdrawal contract'
+                caller == authorized_withdrawal_contract
+                    && !authorized_withdrawal_contract.is_zero(),
+                'Only withdrawal contract',
             );
 
             // Clear staker data
@@ -173,9 +174,7 @@ pub mod StakeToVote {
             self.eligible_voters.write((audition_id, staker), false);
         }
 
-        fn set_withdrawal_contract(
-            ref self: ContractState, withdrawal_contract: ContractAddress,
-        ) {
+        fn set_withdrawal_contract(ref self: ContractState, withdrawal_contract: ContractAddress) {
             self.ownable.assert_only_owner();
             self.withdrawal_contract.write(withdrawal_contract);
         }

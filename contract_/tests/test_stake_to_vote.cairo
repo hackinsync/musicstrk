@@ -248,7 +248,10 @@ fn test_get_staking_config() {
 
     // Set config
     start_cheat_caller_address(stake_to_vote.contract_address, OWNER());
-    stake_to_vote.set_staking_config(audition_id, stake_amount, mock_token.contract_address, withdrawal_delay);
+    stake_to_vote
+        .set_staking_config(
+            audition_id, stake_amount, mock_token.contract_address, withdrawal_delay,
+        );
     stop_cheat_caller_address(stake_to_vote.contract_address);
 
     // Get and verify config
@@ -334,7 +337,10 @@ fn test_clear_staker_data_authorized() {
     stop_cheat_caller_address(stake_to_vote.contract_address);
 
     // Verify staker is no longer eligible
-    assert!(!stake_to_vote.is_eligible_voter(audition_id, USER()), "Should not be eligible after clearing");
+    assert!(
+        !stake_to_vote.is_eligible_voter(audition_id, USER()),
+        "Should not be eligible after clearing",
+    );
 }
 
 #[test]

@@ -39,17 +39,16 @@ pub trait IStakeWithdrawal<TContractState> {
 
 #[starknet::contract]
 pub mod StakeWithdrawal {
+    use OwnableComponent::InternalTrait as OwnableInternalTrait;
     use contract_::audition::interfaces::istake_to_vote::{
         IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
     };
     use contract_::audition::season_and_audition::{
-        Audition,
-        ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+        Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
     use contract_::audition::types::{StakerInfo, StakingConfig};
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
-    use OwnableComponent::InternalTrait as OwnableInternalTrait;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::event::EventEmitter;
     use starknet::storage::{
@@ -215,17 +214,23 @@ pub mod StakeWithdrawal {
                     if staker_info.staked_amount > 0 {
                         // Get staking config for this audition
                         let config = staking_contract.get_staking_config(audition_id);
-                        
+
                         // Verify withdrawal delay (skip verification in batch if any fails)
-                        let delay_passed = self._check_withdrawal_delay(audition_id, config.withdrawal_delay_after_results);
-                        
+                        let delay_passed = self
+                            ._check_withdrawal_delay(
+                                audition_id, config.withdrawal_delay_after_results,
+                            );
+
                         if delay_passed {
                             // Clear staker data in staking contract
                             staking_contract.clear_staker_data(caller, audition_id);
-                            
+
                             // Transfer stake back to caller
-                            self._send_tokens(caller, staker_info.staked_amount, config.stake_token);
-                            
+                            self
+                                ._send_tokens(
+                                    caller, staker_info.staked_amount, config.stake_token,
+                                );
+
                             // Record withdrawal in our contract
                             self.withdrawn_stakers.entry(audition_id).push(caller);
                             self.withdrawal_status.write((caller, audition_id), true);
@@ -277,7 +282,7 @@ pub mod StakeWithdrawal {
             // For emergency withdrawal, we bypass withdrawal delay restrictions
             // Clear staker data in staking contract
             staking_contract.clear_staker_data(staker, audition_id);
-            
+
             // Transfer stake back to staker directly
             self._send_tokens(staker, staker_info.staked_amount, config.stake_token);
 
@@ -391,9 +396,9 @@ pub mod StakeWithdrawal {
             }
 
             // This function is provided for interface compliance but has architectural limitations.
-            // The withdrawal contract calling staking_contract.set_staking_config() creates 
+            // The withdrawal contract calling staking_contract.set_staking_config() creates
             // ownership issues because the staking contract expects its own owner as the caller.
-            // 
+            //
             // In practice, staking configs should be set directly on the staking contract
             // by its owner. This function will only work if both contracts have the same owner.
             let staking_contract = IStakeToVoteDispatcher {
@@ -482,38 +487,31 @@ pub mod StakeWithdrawal {
         /// @notice Verifies that withdrawal delay has passed
         /// @param audition_id The audition ID
         /// @param delay The required delay in seconds
-        fn _verify_withdrawal_delay(
-            self: @ContractState, audition_id: felt252, delay: u64,
-        ) {
+        fn _verify_withdrawal_delay(self: @ContractState, audition_id: felt252, delay: u64) {
             let audition_contract = ISeasonAndAuditionDispatcher {
                 contract_address: self.audition_contract.read(),
             };
-            
+
             let audition = audition_contract.read_audition(audition_id);
             let end_time: u64 = audition.end_timestamp.try_into().unwrap();
             let current_time = get_block_timestamp();
-            
-            assert(
-                current_time >= end_time + delay,
-                'Withdrawal delay active'
-            );
+
+            assert(current_time >= end_time + delay, 'Withdrawal delay active');
         }
 
         /// @notice Checks if withdrawal delay has passed (non-asserting version)
         /// @param audition_id The audition ID
         /// @param delay The required delay in seconds
         /// @return bool True if delay has passed
-        fn _check_withdrawal_delay(
-            self: @ContractState, audition_id: felt252, delay: u64,
-        ) -> bool {
+        fn _check_withdrawal_delay(self: @ContractState, audition_id: felt252, delay: u64) -> bool {
             let audition_contract = ISeasonAndAuditionDispatcher {
                 contract_address: self.audition_contract.read(),
             };
-            
+
             let audition = audition_contract.read_audition(audition_id);
             let end_time: u64 = audition.end_timestamp.try_into().unwrap();
             let current_time = get_block_timestamp();
-            
+
             current_time >= end_time + delay
         }
     }
