@@ -1,14 +1,12 @@
 use contract_::governance::types::VoteType;
 use starknet::ContractAddress;
 use crate::IRevenueDistribution::Category;
-use crate::audition::season_and_audition_types::Genre;
+use crate::audition::types::season_and_audition::Genre;
 
 #[derive(Drop, starknet::Event)]
 pub struct SeasonCreated {
     #[key]
     pub season_id: u256,
-    #[key]
-    pub genre: Genre,
     pub name: felt252,
     pub start_timestamp: u64,
     pub end_timestamp: u64,
@@ -35,6 +33,7 @@ pub struct AuditionCreated {
     pub audition_id: u256,
     pub season_id: u256,
     pub name: felt252,
+    pub genre: Genre,
     pub end_timestamp: u64,
 }
 
@@ -43,6 +42,8 @@ pub struct AuditionUpdated {
     #[key]
     pub audition_id: u256,
     pub end_timestamp: u64,
+    pub name: felt252,
+    pub genre: Genre,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -77,7 +78,7 @@ pub struct AuditionEnded {
 pub struct ResultsSubmitted {
     #[key]
     pub audition_id: u256,
-    pub top_performers: felt252,
+    pub top_performers: ContractAddress,
     pub shares: felt252,
     pub end_timestamp: u64,
 }
@@ -96,8 +97,8 @@ pub struct OracleRemoved {
 pub struct VoteRecorded {
     #[key]
     pub audition_id: u256,
-    pub performer: felt252,
-    pub voter: felt252,
+    pub performer: ContractAddress,
+    pub voter: ContractAddress,
     pub weight: felt252,
 }
 
@@ -318,7 +319,7 @@ pub struct JudgeRemoved {
 pub struct EvaluationSubmitted {
     #[key]
     pub audition_id: u256,
-    pub performer: felt252,
+    pub performer: ContractAddress,
     pub criteria: (u256, u256, u256),
 }
 
@@ -339,7 +340,7 @@ pub struct AuditionCalculationCompleted {
 pub struct AggregateScoreCalculated {
     #[key]
     pub audition_id: u256,
-    pub aggregate_scores: Array<(felt252, u256)>,
+    pub aggregate_scores: Array<(u256, u256)>,
     pub timestamp: u64,
 }
 
@@ -404,5 +405,5 @@ pub struct ResultSubmitted {
     #[key]
     pub audition_id: u256,
     pub result_uri: ByteArray,
-    pub performer: felt252,
+    pub performer: ContractAddress,
 }

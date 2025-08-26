@@ -1,12 +1,14 @@
 #[starknet::contract]
 pub mod StakeToVote {
     use OwnableComponent::InternalTrait;
-    use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
-    use contract_::audition::season_and_audition_interface::{
+    use contract_::audition::interfaces::iseason_and_audition::{
         ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
-    use contract_::audition::season_and_audition_types::Audition;
-    use contract_::audition::types::*;
+    use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
+    use contract_::audition::types::season_and_audition::{
+        Appeal, Audition, Evaluation, Genre, Season, Vote,
+    };
+    use contract_::audition::types::stake_to_vote::*;
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;

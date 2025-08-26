@@ -1,8 +1,8 @@
-use contract_::audition::season_and_audition_interface::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher,
 };
-use contract_::audition::season_and_audition_types::{
+use contract_::audition::types::season_and_audition::{
     Appeal, Audition, Evaluation, Genre, Season, Vote,
 };
 use core::array::ArrayTrait;
@@ -88,7 +88,6 @@ pub fn deploy_contract() -> (
 pub fn create_default_season(season_id: u256) -> Season {
     Season {
         season_id,
-        genre: Genre::Pop,
         name: 'Summer Hits',
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
@@ -99,11 +98,10 @@ pub fn create_default_season(season_id: u256) -> Season {
 }
 
 pub fn default_contract_create_season(contract: ISeasonAndAuditionDispatcher) {
-    let genre: Genre = Genre::Pop;
     let name: felt252 = 'Summer Hits';
     let start_time: u64 = 1672531200;
     let end_time: u64 = 1675123200;
-    contract.create_season(genre, name, start_time, end_time);
+    contract.create_season(name, start_time, end_time);
 }
 
 pub fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
@@ -128,6 +126,7 @@ pub fn create_default_audition(audition_id: u256, season_id: u256) -> Audition {
         audition_id,
         season_id,
         name: 'Live Audition',
+        genre: Genre::Pop,
         start_timestamp: 1672531200,
         end_timestamp: 1675123200,
         paused: false,
@@ -136,6 +135,7 @@ pub fn create_default_audition(audition_id: u256, season_id: u256) -> Audition {
 
 pub fn default_contract_create_audition(contract: ISeasonAndAuditionDispatcher) {
     let name: felt252 = 'Live Audition';
+    let genre: Genre = Genre::Pop;
     let end_time: u64 = 1675123200;
-    contract.create_audition(name, end_time);
+    contract.create_audition(name, genre, end_time);
 }

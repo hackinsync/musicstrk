@@ -1,9 +1,9 @@
-use contract_::audition::season_and_audition::SeasonAndAudition;
-use contract_::audition::season_and_audition_interface::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcherTrait,
 };
-use contract_::audition::season_and_audition_types::{Audition, Genre, Season};
+use contract_::audition::season_and_audition::SeasonAndAudition;
+use contract_::audition::types::season_and_audition::{Audition, Genre, Season};
 use contract_::events::{PausedAll, ResumedAll};
 use core::result::ResultTrait;
 use snforge_std::{
@@ -27,7 +27,7 @@ fn test_owner_access_control() {
     // Owner can create an audition
     let audition_id = 1;
     let test_audition = create_default_audition(audition_id, season_id);
-    dispatcher.create_audition('Summer Hits', 1675123200);
+    dispatcher.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Owner can add oracles
     dispatcher.add_oracle(ORACLE());
@@ -60,7 +60,7 @@ fn test_non_owner_cannot_create_audition() {
     let audition_id = 1;
     let season_id = 1;
     let test_audition = create_default_audition(audition_id, season_id);
-    dispatcher.create_audition('Summer Hits', 1675123200);
+    dispatcher.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     stop_cheat_caller_address(dispatcher.contract_address);
 }
@@ -192,7 +192,7 @@ fn test_cannot_create_audition_when_paused() {
     let audition_id = 1;
     let season_id = 1;
     let test_audition = create_default_audition(audition_id, season_id);
-    dispatcher.create_audition('Summer Hits', 1675123200);
+    dispatcher.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     stop_cheat_caller_address(dispatcher.contract_address);
 }
