@@ -7,8 +7,6 @@ use crate::audition::types::season_and_audition::Genre;
 pub struct SeasonCreated {
     #[key]
     pub season_id: u256,
-    #[key]
-    pub genre: Genre,
     pub name: felt252,
     pub start_timestamp: u64,
     pub end_timestamp: u64,
@@ -35,6 +33,7 @@ pub struct AuditionCreated {
     pub audition_id: u256,
     pub season_id: u256,
     pub name: felt252,
+    pub genre: Genre,
     pub end_timestamp: u64,
 }
 
@@ -43,6 +42,8 @@ pub struct AuditionUpdated {
     #[key]
     pub audition_id: u256,
     pub end_timestamp: u64,
+    pub name: felt252,
+    pub genre: Genre,
 }
 
 #[derive(Drop, starknet::Event)]

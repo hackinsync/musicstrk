@@ -62,13 +62,10 @@ fn setup_staking_audition() -> (
     let default_season = create_default_season(season_id);
     season_and_audition
         .create_season(
-            default_season.genre,
-            default_season.name,
-            default_season.start_timestamp,
-            default_season.end_timestamp,
+            default_season.name, default_season.start_timestamp, default_season.end_timestamp,
         );
     let default_audition = create_default_audition(audition_id, season_id);
-    season_and_audition.create_audition('Summer Hits', 1675123200);
+    season_and_audition.create_audition('Summer Hits', Genre::Pop, 1675123200);
     stop_cheat_caller_address(season_and_audition.contract_address);
 
     start_cheat_caller_address(mock_token.contract_address, OWNER());

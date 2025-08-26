@@ -30,7 +30,7 @@ fn setup_contract_with_oracle() -> ISeasonAndAuditionDispatcher {
 // Helper function to create a default audition
 fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: u256) {
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract.create_audition('Summer Hits', 1675123200);
+    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
     stop_cheat_caller_address(contract.contract_address);
 }
 
