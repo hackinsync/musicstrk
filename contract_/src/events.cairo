@@ -455,6 +455,6 @@ pub struct ResultsFinalized {
 pub struct StakingConfigUpdated {
     #[key]
     pub audition_id: u256,
-    pub config: contract_::audition::types::StakingConfig,
+    pub config: contract_::audition::types::stake_to_vote::StakingConfig,
     pub timestamp: u64,
 }

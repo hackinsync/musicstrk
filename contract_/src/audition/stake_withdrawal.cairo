@@ -1,38 +1,38 @@
-use contract_::audition::types::{StakerInfo, StakingConfig};
+use contract_::audition::types::stake_to_vote::{StakerInfo, StakingConfig};
 use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IStakeWithdrawal<TContractState> {
     // Core withdrawal functions
-    fn withdraw_stake(ref self: TContractState, audition_id: felt252) -> u256;
-    fn batch_withdraw_stakes(ref self: TContractState, audition_ids: Array<felt252>) -> Array<u256>;
+    fn withdraw_stake(ref self: TContractState, audition_id: u256) -> u256;
+    fn batch_withdraw_stakes(ref self: TContractState, audition_ids: Array<u256>) -> Array<u256>;
 
     // Emergency and admin functions
     fn emergency_withdraw_stake(
-        ref self: TContractState, staker: ContractAddress, audition_id: felt252,
+        ref self: TContractState, staker: ContractAddress, audition_id: u256,
     );
-    fn force_withdraw_all_stakes(ref self: TContractState, audition_id: felt252);
+    fn force_withdraw_all_stakes(ref self: TContractState, audition_id: u256);
 
     // View functions
     fn get_staker_info(
-        self: @TContractState, staker: ContractAddress, audition_id: felt252,
+        self: @TContractState, staker: ContractAddress, audition_id: u256,
     ) -> StakerInfo;
     fn get_withdrawal_eligible_stakers(
-        self: @TContractState, audition_id: felt252,
+        self: @TContractState, audition_id: u256,
     ) -> Array<ContractAddress>;
-    fn get_withdrawn_stakers(self: @TContractState, audition_id: felt252) -> Array<ContractAddress>;
+    fn get_withdrawn_stakers(self: @TContractState, audition_id: u256) -> Array<ContractAddress>;
     fn can_withdraw_stake(
-        self: @TContractState, staker: ContractAddress, audition_id: felt252,
+        self: @TContractState, staker: ContractAddress, audition_id: u256,
     ) -> bool;
-    fn get_total_stakes_for_audition(self: @TContractState, audition_id: felt252) -> (u256, u32);
-    fn get_pending_withdrawals_count(self: @TContractState, audition_id: felt252) -> u32;
+    fn get_total_stakes_for_audition(self: @TContractState, audition_id: u256) -> (u256, u32);
+    fn get_pending_withdrawals_count(self: @TContractState, audition_id: u256) -> u32;
 
     // Admin configuration
-    fn set_staking_config(ref self: TContractState, audition_id: felt252, config: StakingConfig);
-    fn get_staking_config(self: @TContractState, audition_id: felt252) -> StakingConfig;
+    fn set_staking_config(ref self: TContractState, audition_id: u256, config: StakingConfig);
+    fn get_staking_config(self: @TContractState, audition_id: u256) -> StakingConfig;
 
     // Integration with staking and audition contracts
-    fn are_results_finalized(self: @TContractState, audition_id: felt252) -> bool;
+    fn are_results_finalized(self: @TContractState, audition_id: u256) -> bool;
     fn set_audition_contract(ref self: TContractState, audition_contract: ContractAddress);
     fn set_staking_contract(ref self: TContractState, staking_contract: ContractAddress);
 }
@@ -43,10 +43,11 @@ pub mod StakeWithdrawal {
     use contract_::audition::interfaces::istake_to_vote::{
         IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
     };
-    use contract_::audition::season_and_audition::{
-        Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+    use contract_::audition::interfaces::iseason_and_audition::{
+        ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
-    use contract_::audition::types::{StakerInfo, StakingConfig};
+    use contract_::audition::types::season_and_audition::Audition;
+    use contract_::audition::types::stake_to_vote::{StakerInfo, StakingConfig};
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -69,9 +70,9 @@ pub mod StakeWithdrawal {
     #[storage]
     struct Storage {
         // List of withdrawn stakers per audition: audition_id -> Vec<ContractAddress>
-        withdrawn_stakers: Map<felt252, Vec<ContractAddress>>,
+        withdrawn_stakers: Map<u256, Vec<ContractAddress>>,
         // Withdrawal status: (staker, audition_id) -> bool
-        withdrawal_status: Map<(ContractAddress, felt252), bool>,
+        withdrawal_status: Map<(ContractAddress, u256), bool>,
         // Integration with contracts
         audition_contract: ContractAddress,
         staking_contract: ContractAddress,
@@ -96,7 +97,7 @@ pub mod StakeWithdrawal {
         #[key]
         pub staker: ContractAddress,
         #[key]
-        pub audition_id: felt252,
+        pub audition_id: u256,
         pub amount: u256,
         pub timestamp: u64,
     }
@@ -105,7 +106,7 @@ pub mod StakeWithdrawal {
     pub struct BatchStakeWithdrawn {
         #[key]
         pub staker: ContractAddress,
-        pub audition_ids: Array<felt252>,
+        pub audition_ids: Array<u256>,
         pub total_amount: u256,
         pub timestamp: u64,
     }
@@ -115,7 +116,7 @@ pub mod StakeWithdrawal {
         #[key]
         pub staker: ContractAddress,
         #[key]
-        pub audition_id: felt252,
+        pub audition_id: u256,
         pub amount: u256,
         pub admin: ContractAddress,
         pub timestamp: u64,
@@ -126,7 +127,7 @@ pub mod StakeWithdrawal {
         #[key]
         pub staker: ContractAddress,
         #[key]
-        pub audition_id: felt252,
+        pub audition_id: u256,
         pub reason: felt252,
         pub timestamp: u64,
     }
@@ -134,7 +135,7 @@ pub mod StakeWithdrawal {
     #[derive(Drop, starknet::Event)]
     pub struct ResultsFinalized {
         #[key]
-        pub audition_id: felt252,
+        pub audition_id: u256,
         pub timestamp: u64,
     }
 
@@ -152,7 +153,7 @@ pub mod StakeWithdrawal {
 
     #[abi(embed_v0)]
     impl StakeWithdrawalImpl of IStakeWithdrawal<ContractState> {
-        fn withdraw_stake(ref self: ContractState, audition_id: felt252) -> u256 {
+        fn withdraw_stake(ref self: ContractState, audition_id: u256) -> u256 {
             let caller = get_caller_address();
 
             let staking_contract = IStakeToVoteDispatcher {
@@ -196,7 +197,7 @@ pub mod StakeWithdrawal {
         }
 
         fn batch_withdraw_stakes(
-            ref self: ContractState, audition_ids: Array<felt252>,
+            ref self: ContractState, audition_ids: Array<u256>,
         ) -> Array<u256> {
             let caller = get_caller_address();
             let mut withdrawn_amounts = ArrayTrait::new();
@@ -263,7 +264,7 @@ pub mod StakeWithdrawal {
         }
 
         fn emergency_withdraw_stake(
-            ref self: ContractState, staker: ContractAddress, audition_id: felt252,
+            ref self: ContractState, staker: ContractAddress, audition_id: u256,
         ) {
             self.ownable.assert_only_owner();
 
@@ -303,7 +304,7 @@ pub mod StakeWithdrawal {
                 );
         }
 
-        fn force_withdraw_all_stakes(ref self: ContractState, audition_id: felt252) {
+        fn force_withdraw_all_stakes(ref self: ContractState, audition_id: u256) {
             self.ownable.assert_only_owner();
 
             // This is a mass emergency withdrawal - would need to be implemented
@@ -313,7 +314,7 @@ pub mod StakeWithdrawal {
         }
 
         fn get_staker_info(
-            self: @ContractState, staker: ContractAddress, audition_id: felt252,
+            self: @ContractState, staker: ContractAddress, audition_id: u256,
         ) -> StakerInfo {
             let staking_contract = IStakeToVoteDispatcher {
                 contract_address: self.staking_contract.read(),
@@ -322,7 +323,7 @@ pub mod StakeWithdrawal {
         }
 
         fn get_withdrawal_eligible_stakers(
-            self: @ContractState, audition_id: felt252,
+            self: @ContractState, audition_id: u256,
         ) -> Array<ContractAddress> {
             // This would require querying the staking contract for all stakers
             // For now, return empty array - full implementation would need the staking contract
@@ -331,7 +332,7 @@ pub mod StakeWithdrawal {
         }
 
         fn get_withdrawn_stakers(
-            self: @ContractState, audition_id: felt252,
+            self: @ContractState, audition_id: u256,
         ) -> Array<ContractAddress> {
             let mut withdrawn_list = ArrayTrait::new();
             let withdrawn_vec = self.withdrawn_stakers.entry(audition_id);
@@ -345,7 +346,7 @@ pub mod StakeWithdrawal {
         }
 
         fn can_withdraw_stake(
-            self: @ContractState, staker: ContractAddress, audition_id: felt252,
+            self: @ContractState, staker: ContractAddress, audition_id: u256,
         ) -> bool {
             // Check if already withdrawn through our contract
             if self.withdrawal_status.read((staker, audition_id)) {
@@ -367,7 +368,7 @@ pub mod StakeWithdrawal {
         }
 
         fn get_total_stakes_for_audition(
-            self: @ContractState, audition_id: felt252,
+            self: @ContractState, audition_id: u256,
         ) -> (u256, u32) {
             // This would require enumerating all stakers from the staking contract
             // For now, return zero - full implementation would need the staking contract
@@ -375,14 +376,14 @@ pub mod StakeWithdrawal {
             (0, 0)
         }
 
-        fn get_pending_withdrawals_count(self: @ContractState, audition_id: felt252) -> u32 {
+        fn get_pending_withdrawals_count(self: @ContractState, audition_id: u256) -> u32 {
             // This would require enumerating all stakers from the staking contract
             // For now, return zero
             0
         }
 
         fn set_staking_config(
-            ref self: ContractState, audition_id: felt252, config: StakingConfig,
+            ref self: ContractState, audition_id: u256, config: StakingConfig,
         ) {
             self.ownable.assert_only_owner();
 
@@ -414,7 +415,7 @@ pub mod StakeWithdrawal {
                 );
         }
 
-        fn get_staking_config(self: @ContractState, audition_id: felt252) -> StakingConfig {
+        fn get_staking_config(self: @ContractState, audition_id: u256) -> StakingConfig {
             let staking_contract = IStakeToVoteDispatcher {
                 contract_address: self.staking_contract.read(),
             };
@@ -438,7 +439,7 @@ pub mod StakeWithdrawal {
             staking_contract.get_staking_config(audition_id)
         }
 
-        fn are_results_finalized(self: @ContractState, audition_id: felt252) -> bool {
+        fn are_results_finalized(self: @ContractState, audition_id: u256) -> bool {
             // Check with the audition contract if configured
             let audition_contract_addr = self.audition_contract.read();
             if !audition_contract_addr.is_zero() {
@@ -487,7 +488,7 @@ pub mod StakeWithdrawal {
         /// @notice Verifies that withdrawal delay has passed
         /// @param audition_id The audition ID
         /// @param delay The required delay in seconds
-        fn _verify_withdrawal_delay(self: @ContractState, audition_id: felt252, delay: u64) {
+        fn _verify_withdrawal_delay(self: @ContractState, audition_id: u256, delay: u64) {
             let audition_contract = ISeasonAndAuditionDispatcher {
                 contract_address: self.audition_contract.read(),
             };
@@ -503,7 +504,7 @@ pub mod StakeWithdrawal {
         /// @param audition_id The audition ID
         /// @param delay The required delay in seconds
         /// @return bool True if delay has passed
-        fn _check_withdrawal_delay(self: @ContractState, audition_id: felt252, delay: u64) -> bool {
+        fn _check_withdrawal_delay(self: @ContractState, audition_id: u256, delay: u64) -> bool {
             let audition_contract = ISeasonAndAuditionDispatcher {
                 contract_address: self.audition_contract.read(),
             };

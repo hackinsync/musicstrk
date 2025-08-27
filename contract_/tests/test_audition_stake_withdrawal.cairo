@@ -1,13 +1,14 @@
 use contract_::audition::interfaces::istake_to_vote::{
     IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
 };
-use contract_::audition::season_and_audition::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
 };
+use contract_::audition::types::season_and_audition::Genre;
 use contract_::audition::stake_withdrawal::{
     IStakeWithdrawalDispatcher, IStakeWithdrawalDispatcherTrait,
 };
-use contract_::audition::types::StakingConfig;
+use contract_::audition::types::stake_to_vote::StakingConfig;
 use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
@@ -17,9 +18,9 @@ use snforge_std::{
 use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 
 // Test constants
-const AUDITION_ID: felt252 = 1;
-const AUDITION_ID_2: felt252 = 2;
-const AUDITION_ID_3: felt252 = 3;
+const AUDITION_ID: u256 = 1;
+const AUDITION_ID_2: u256 = 2;
+const AUDITION_ID_3: u256 = 3;
 const STAKE_AMOUNT: u256 = 5000000; // 5 USDC (6 decimals)
 const WITHDRAWAL_DELAY: u64 = 86400; // 24 hours
 const INITIAL_TOKEN_SUPPLY: u256 = 1000000000000; // 1M tokens with 6 decimals
@@ -113,44 +114,11 @@ fn setup() -> (
     let future_end: u64 = 9999999999 + 86400; // Even further future
 
     // Create season first
-    audition_contract
-        .create_season(
-            1, // season_id
-            'Pop', 'Test Season', future_start, // start
-            future_end, // end
-            false,
-        );
+    audition_contract.create_season('Test Season', future_start, future_end);
 
-    audition_contract
-        .create_audition(
-            AUDITION_ID,
-            1, // season_id
-            'Pop',
-            'Test Audition 1',
-            future_start.into(), // start
-            future_end.into(), // end
-            false,
-        );
-    audition_contract
-        .create_audition(
-            AUDITION_ID_2,
-            1,
-            'Rock',
-            'Test Audition 2',
-            future_start.into(),
-            future_end.into(),
-            false,
-        );
-    audition_contract
-        .create_audition(
-            AUDITION_ID_3,
-            1,
-            'Jazz',
-            'Test Audition 3',
-            future_start.into(),
-            future_end.into(),
-            false,
-        );
+    audition_contract.create_audition('Test Audition 1', Genre::Pop, future_end);
+    audition_contract.create_audition('Test Audition 2', Genre::Rock, future_end);
+    audition_contract.create_audition('Test Audition 3', Genre::Jazz, future_end);
     stop_cheat_caller_address(audition_contract.contract_address);
 
     // NOW setup staking config for multiple auditions via staking contract
@@ -180,7 +148,7 @@ fn stake_for_user(
     staking_contract: IStakeToVoteDispatcher,
     token: IERC20Dispatcher,
     staker: ContractAddress,
-    audition_id: felt252,
+    audition_id: u256,
 ) {
     start_cheat_caller_address(token.contract_address, staker);
     token.approve(staking_contract.contract_address, STAKE_AMOUNT);
@@ -193,7 +161,7 @@ fn stake_for_user(
 
 // Helper to simulate results finalization
 fn finalize_audition_results(
-    audition_contract: ISeasonAndAuditionDispatcher, audition_id: felt252,
+    audition_contract: ISeasonAndAuditionDispatcher, audition_id: u256,
 ) {
     start_cheat_caller_address(audition_contract.contract_address, OWNER());
 
@@ -662,7 +630,7 @@ fn test_large_audition_ids() {
     let (withdrawal_contract, _, _, _) = setup();
 
     // Test reading config for large audition IDs (should return default/empty config)
-    let large_audition_id: felt252 = 999999;
+    let large_audition_id: u256 = 999999;
     let retrieved = withdrawal_contract.get_staking_config(large_audition_id);
 
     // Since the audition doesn't exist, should return default values
