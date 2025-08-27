@@ -18,7 +18,7 @@ use snforge_std::{
 };
 use starknet::{ContractAddress, get_block_timestamp};
 use crate::test_utils::{
-    OWNER, USER, NON_OWNER, create_default_audition, create_default_season,
+    NON_OWNER, OWNER, USER, create_default_audition, create_default_season,
     deploy_contract as deploy_season_and_audition_contract, deploy_mock_erc20_contract,
 };
 

@@ -40,11 +40,11 @@ pub trait IStakeWithdrawal<TContractState> {
 #[starknet::contract]
 pub mod StakeWithdrawal {
     use OwnableComponent::InternalTrait as OwnableInternalTrait;
-    use contract_::audition::interfaces::istake_to_vote::{
-        IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
-    };
     use contract_::audition::interfaces::iseason_and_audition::{
         ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+    };
+    use contract_::audition::interfaces::istake_to_vote::{
+        IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
     };
     use contract_::audition::types::season_and_audition::Audition;
     use contract_::audition::types::stake_to_vote::{StakerInfo, StakingConfig};
@@ -367,9 +367,7 @@ pub mod StakeWithdrawal {
             staker_info.staked_amount > 0 && staker_info.is_eligible_voter
         }
 
-        fn get_total_stakes_for_audition(
-            self: @ContractState, audition_id: u256,
-        ) -> (u256, u32) {
+        fn get_total_stakes_for_audition(self: @ContractState, audition_id: u256) -> (u256, u32) {
             // This would require enumerating all stakers from the staking contract
             // For now, return zero - full implementation would need the staking contract
             // to provide aggregated data
@@ -382,9 +380,7 @@ pub mod StakeWithdrawal {
             0
         }
 
-        fn set_staking_config(
-            ref self: ContractState, audition_id: u256, config: StakingConfig,
-        ) {
+        fn set_staking_config(ref self: ContractState, audition_id: u256, config: StakingConfig) {
             self.ownable.assert_only_owner();
 
             // Check if audition exists first

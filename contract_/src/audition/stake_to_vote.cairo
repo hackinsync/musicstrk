@@ -158,9 +158,7 @@ pub mod StakeToVote {
             self.staking_configs.read(audition_id)
         }
 
-        fn clear_staker_data(
-            ref self: ContractState, staker: ContractAddress, audition_id: u256,
-        ) {
+        fn clear_staker_data(ref self: ContractState, staker: ContractAddress, audition_id: u256) {
             // Only authorized withdrawal contract can call this
             let caller = get_caller_address();
             let authorized_withdrawal_contract = self.withdrawal_contract.read();

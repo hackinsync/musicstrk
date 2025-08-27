@@ -1,13 +1,13 @@
-use contract_::audition::interfaces::istake_to_vote::{
-    IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
-};
 use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
 };
-use contract_::audition::types::season_and_audition::Genre;
+use contract_::audition::interfaces::istake_to_vote::{
+    IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
+};
 use contract_::audition::stake_withdrawal::{
     IStakeWithdrawalDispatcher, IStakeWithdrawalDispatcherTrait,
 };
+use contract_::audition::types::season_and_audition::Genre;
 use contract_::audition::types::stake_to_vote::StakingConfig;
 use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -160,9 +160,7 @@ fn stake_for_user(
 }
 
 // Helper to simulate results finalization
-fn finalize_audition_results(
-    audition_contract: ISeasonAndAuditionDispatcher, audition_id: u256,
-) {
+fn finalize_audition_results(audition_contract: ISeasonAndAuditionDispatcher, audition_id: u256) {
     start_cheat_caller_address(audition_contract.contract_address, OWNER());
 
     // End the audition by calling end_audition
