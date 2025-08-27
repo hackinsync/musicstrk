@@ -1,11 +1,14 @@
 #[starknet::contract]
 pub mod StakeToVote {
     use OwnableComponent::InternalTrait;
-    use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
-    use contract_::audition::season_and_audition::{
+    use contract_::audition::interfaces::iseason_and_audition::{
         ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
-    use contract_::audition::types::{StakePlaced, StakerInfo, StakingConfig, StakingConfigSet};
+    use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
+    use contract_::audition::types::season_and_audition::{
+        Appeal, Audition, Evaluation, Genre, Season, Vote,
+    };
+    use contract_::audition::types::stake_to_vote::*;
     use contract_::errors::errors;
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
@@ -30,11 +33,11 @@ pub mod StakeToVote {
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
         /// @notice Maps an audition ID to its staking configuration.
-        staking_configs: Map<felt252, StakingConfig>,
+        staking_configs: Map<u256, StakingConfig>,
         /// @notice Maps (audition_id, staker_address) to the staker's information.
-        stakers: Map<(felt252, ContractAddress), StakerInfo>,
+        stakers: Map<(u256, ContractAddress), StakerInfo>,
         /// @notice Tracks which wallets are eligible to vote for a specific audition.
-        eligible_voters: Map<(felt252, ContractAddress), bool>,
+        eligible_voters: Map<(u256, ContractAddress), bool>,
         /// @notice Holds the season and audition contract address, to be initialized in the
         /// constructor
         season_and_audition_contract_address: ContractAddress,
@@ -65,7 +68,7 @@ pub mod StakeToVote {
     impl StakeToVoteImpl of IStakeToVote<ContractState> {
         fn set_staking_config(
             ref self: ContractState,
-            audition_id: felt252,
+            audition_id: u256,
             required_stake_amount: u256,
             stake_token: ContractAddress,
             withdrawal_delay_after_results: u64,
@@ -94,7 +97,7 @@ pub mod StakeToVote {
                 );
         }
 
-        fn stake_to_vote(ref self: ContractState, audition_id: felt252) {
+        fn stake_to_vote(ref self: ContractState, audition_id: u256) {
             let caller = get_caller_address();
             let config = self.staking_configs.read(audition_id);
             let required_amount = config.required_stake_amount;
@@ -136,29 +139,29 @@ pub mod StakeToVote {
 
 
         fn is_eligible_voter(
-            self: @ContractState, audition_id: felt252, voter_address: ContractAddress,
+            self: @ContractState, audition_id: u256, voter_address: ContractAddress,
         ) -> bool {
             self.eligible_voters.entry((audition_id, voter_address)).read()
         }
 
-        fn required_stake_amount(self: @ContractState, audition_id: felt252) -> u256 {
+        fn required_stake_amount(self: @ContractState, audition_id: u256) -> u256 {
             let config = self.staking_configs.read(audition_id);
 
             config.required_stake_amount
         }
 
         fn get_staker_info(
-            self: @ContractState, staker: ContractAddress, audition_id: felt252,
+            self: @ContractState, staker: ContractAddress, audition_id: u256,
         ) -> StakerInfo {
             self.stakers.read((audition_id, staker))
         }
 
-        fn get_staking_config(self: @ContractState, audition_id: felt252) -> StakingConfig {
+        fn get_staking_config(self: @ContractState, audition_id: u256) -> StakingConfig {
             self.staking_configs.read(audition_id)
         }
 
         fn clear_staker_data(
-            ref self: ContractState, staker: ContractAddress, audition_id: felt252,
+            ref self: ContractState, staker: ContractAddress, audition_id: u256,
         ) {
             // Only authorized withdrawal contract can call this
             let caller = get_caller_address();

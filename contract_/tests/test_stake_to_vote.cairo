@@ -1,8 +1,14 @@
+use contract_::audition::interfaces::iseason_and_audition::{
+    ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
+    ISeasonAndAuditionSafeDispatcher,
+};
 use contract_::audition::interfaces::istake_to_vote::{
     IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
 };
-use contract_::audition::season_and_audition::{
-    Audition, ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait, Season,
+use contract_::audition::types::season_and_audition::{Genre, Season};
+use contract_::events::{
+    AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
+    AuditionUpdated, PriceDeposited, PriceDistributed, SeasonCreated, SeasonDeleted, SeasonUpdated,
 };
 use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -11,83 +17,18 @@ use snforge_std::{
     stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, get_block_timestamp};
-
-// Test account -> Owner
-fn OWNER() -> ContractAddress {
-    'OWNER'.try_into().unwrap()
-}
-
-// Test account -> User
-fn USER() -> ContractAddress {
-    'USER'.try_into().unwrap()
-}
-
-fn NON_OWNER() -> ContractAddress {
-    'NON_OWNER'.try_into().unwrap()
-}
+use crate::test_utils::{
+    OWNER, USER, NON_OWNER, create_default_audition, create_default_season,
+    deploy_contract as deploy_season_and_audition_contract, deploy_mock_erc20_contract,
+};
 
 fn WITHDRAWAL_CONTRACT() -> ContractAddress {
     'WITHDRAWAL_CONTRACT'.try_into().unwrap()
 }
 
-// Helper function to deploy the contract
-fn deploy_season_and_audition_contract() -> ISeasonAndAuditionDispatcher {
-    // declare the contract
-    let contract_class = declare("SeasonAndAudition")
-        .expect('Failed to declare counter')
-        .contract_class();
-
-    // serialize constructor
-    let mut calldata: Array<felt252> = array![];
-
-    OWNER().serialize(ref calldata);
-
-    // deploy the contract
-    let (contract_address, _) = contract_class
-        .deploy(@calldata)
-        .expect('Failed to deploy contract');
-
-    let contract = ISeasonAndAuditionDispatcher { contract_address };
-
-    contract
-}
-
-fn deploy_mock_erc20_contract() -> IERC20Dispatcher {
-    let erc20_class = declare("mock_erc20").unwrap().contract_class();
-    let mut calldata = array![OWNER().into(), OWNER().into(), 6];
-    let (erc20_address, _) = erc20_class.deploy(@calldata).unwrap();
-
-    IERC20Dispatcher { contract_address: erc20_address }
-}
-
-// Helper function to create a default Season struct
-fn create_default_season(season_id: felt252) -> Season {
-    Season {
-        season_id,
-        genre: 'Pop',
-        name: 'Summer Hits',
-        start_timestamp: 1672531200,
-        end_timestamp: 1675123200,
-        paused: false,
-        ended: false,
-    }
-}
-
-// Helper function to create a default Audition struct
-fn create_default_audition(audition_id: felt252, season_id: felt252) -> Audition {
-    Audition {
-        audition_id,
-        season_id,
-        genre: 'Pop',
-        name: 'Live Audition',
-        start_timestamp: 1672531200,
-        end_timestamp: 1675123200,
-        paused: false,
-    }
-}
-
 fn deploy_contracts() -> (ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher) {
-    let season_and_audition = deploy_season_and_audition_contract();
+    // deploy_season_and_audition_contract returns a tuple, but we only want the first element
+    let (season_and_audition, _, _) = deploy_season_and_audition_contract();
 
     // deploy stake to vote contract
     // 1. declare the contract
@@ -113,37 +54,22 @@ fn deploy_contracts() -> (ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher) 
 
 // Helper function to set up a standard environment for staking tests
 fn setup_staking_audition() -> (
-    ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher, IERC20Dispatcher, felt252,
+    ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher, IERC20Dispatcher, u256,
 ) {
     let (season_and_audition, stake_to_vote) = deploy_contracts();
     let mock_token = deploy_mock_erc20_contract();
-    let audition_id: felt252 = 1;
-    let season_id: felt252 = 1;
+    let audition_id: u256 = 1;
+    let season_id: u256 = 1;
 
     // Create a new audition as the owner
     start_cheat_caller_address(season_and_audition.contract_address, OWNER());
     let default_season = create_default_season(season_id);
     season_and_audition
         .create_season(
-            season_id,
-            default_season.genre,
-            default_season.name,
-            default_season.start_timestamp,
-            default_season.end_timestamp,
-            default_season.paused,
+            default_season.name, default_season.start_timestamp, default_season.end_timestamp,
         );
     let default_audition = create_default_audition(audition_id, season_id);
-    season_and_audition
-        .create_audition(
-            audition_id,
-            season_id,
-            default_audition.genre,
-            default_audition.name,
-            default_audition.start_timestamp,
-            // A future end timestamp to ensure it's not ended
-            get_block_timestamp().into() + 1000,
-            default_audition.paused,
-        );
+    season_and_audition.create_audition('Summer Hits', Genre::Pop, 1675123200);
     stop_cheat_caller_address(season_and_audition.contract_address);
 
     start_cheat_caller_address(mock_token.contract_address, OWNER());

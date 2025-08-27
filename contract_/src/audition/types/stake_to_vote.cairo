@@ -11,7 +11,7 @@ pub struct StakingConfig {
 #[derive(Drop, Serde, Default, starknet::Store)]
 pub struct StakerInfo {
     pub address: ContractAddress,
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub staked_amount: u256,
     pub stake_timestamp: u64,
     pub is_eligible_voter: bool,
@@ -26,14 +26,14 @@ impl ContractAddressDefault of Default<ContractAddress> {
 
 #[derive(Drop, starknet::Event)]
 pub struct StakingConfigSet {
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub required_stake_amount: u256,
     pub stake_token: ContractAddress,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct StakePlaced {
-    pub audition_id: felt252,
+    pub audition_id: u256,
     pub staker: ContractAddress,
     pub amount: u256,
 }

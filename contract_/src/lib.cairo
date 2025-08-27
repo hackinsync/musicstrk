@@ -8,8 +8,12 @@ pub mod audition {
     pub mod season_and_audition;
     pub mod stake_to_vote;
     pub mod stake_withdrawal;
-    pub mod types;
+    pub mod types {
+        pub mod season_and_audition;
+        pub mod stake_to_vote;
+    }
     pub mod interfaces {
+        pub mod iseason_and_audition;
         pub mod istake_to_vote;
     }
 }
