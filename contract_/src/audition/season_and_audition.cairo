@@ -3,7 +3,7 @@ pub mod SeasonAndAudition {
     use OwnableComponent::{HasComponent, InternalTrait};
     use contract_::audition::interfaces::iseason_and_audition::ISeasonAndAudition;
     use contract_::audition::types::season_and_audition::{
-        Appeal, Audition, Evaluation, Genre, Season, Vote, ArtistRegistration, RegistrationConfig,
+        Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
     };
     use contract_::errors::errors;
     use core::num::traits::Zero;
@@ -114,9 +114,9 @@ pub mod SeasonAndAudition {
         registration_started: Map<u256, bool>,
         /// @notice a Map of a (Performer's address, audition_id) to the performer id, use for ease
         /// of reading the id. Thus if the id is zero, the performer has not registered.
-        performer_has_registered: Map<(ContractAddress, u256), felt252>,
+        performer_has_registered: Map<(ContractAddress, u256), u256>,
         /// @notice performer count per audition id.
-        performer_count: Map<u256, felt252>,
+        performer_count: Map<u256, u256>,
         registered_artists: Map<(ContractAddress, u256), ArtistRegistration>,
         appeals: Map<u256, Appeal>,
         /// @notice maps each audition and performer to a bool indicating if the performer has
@@ -375,24 +375,25 @@ pub mod SeasonAndAudition {
             Option::None
         }
 
-        fn delete_audition(ref self: ContractState, audition_id: u256) {
-            self.ownable.assert_only_owner();
-            assert(!self.global_paused.read(), 'Contract is paused');
-            assert(!self.is_audition_paused(audition_id), 'Cannot delete paused audition');
-            assert(!self.is_audition_ended(audition_id), 'Cannot delete ended audition');
+        /// seems this function is no longer available in the upstream, so I'm just commenting it out
+        // fn delete_audition(ref self: ContractState, audition_id: u256) {
+        //     self.ownable.assert_only_owner();
+        //     assert(!self.global_paused.read(), 'Contract is paused');
+        //     assert(!self.is_audition_paused(audition_id), 'Cannot delete paused audition');
+        //     assert(!self.is_audition_ended(audition_id), 'Cannot delete ended audition');
 
-            let default_audition: Audition = Default::default();
-            let audition = self.auditions.entry(audition_id).read();
-            self.assert_valid_season(audition.season_id);
+        //     let default_audition: Audition = Default::default();
+        //     let audition = self.auditions.entry(audition_id).read();
+        //     self.assert_valid_season(audition.season_id);
 
-            self.auditions.entry(audition_id).write(default_audition);
-            self
-                .emit(
-                    Event::AuditionDeleted(
-                        AuditionDeleted { audition_id, end_timestamp: get_block_timestamp() },
-                    ),
-                );
-        }
+        //     self.auditions.entry(audition_id).write(default_audition);
+        //     self
+        //         .emit(
+        //             Event::AuditionDeleted(
+        //                 AuditionDeleted { audition_id, end_timestamp: get_block_timestamp() },
+        //             ),
+        //         );
+        // }
 
         /// @notice sets the weight of each evaluation for an audition
         /// @dev only the owner can set the weight of each evaluation
@@ -1097,7 +1098,7 @@ pub mod SeasonAndAudition {
             tiktok_id: felt252,
             tiktok_username: felt252,
             email_hash: felt252,
-        ) -> felt252 {
+        ) -> u256 {
             let caller = get_caller_address();
 
             let audition = self.auditions.entry(audition_id).read();
@@ -1116,7 +1117,7 @@ pub mod SeasonAndAudition {
             };
 
             assert(config.registration_open, 'Registration not open');
-            let count: felt252 = self.performer_count.entry(audition_id).read();
+            let count: u256 = self.performer_count.entry(audition_id).read();
             assert(count.try_into().unwrap() < config.max_participants, 'Max participants reached');
             // test this...
             let amount = config.fee_amount;
@@ -1143,7 +1144,7 @@ pub mod SeasonAndAudition {
             };
 
             self.registered_artists.entry((caller, audition_id)).write(artist);
-            let performer_id: felt252 = count.into() + 1;
+            let performer_id: u256 = count + 1;
             self.performer_count.entry(audition_id).write(performer_id);
             self.performer_has_registered.entry((caller, audition_id)).write(performer_id);
             self.registration_started.entry(audition_id).write(true);
