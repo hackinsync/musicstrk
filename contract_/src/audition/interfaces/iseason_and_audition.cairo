@@ -55,10 +55,9 @@ pub trait ISeasonAndAudition<TContractState> {
     fn remove_oracle(ref self: TContractState, oracle_address: ContractAddress);
 
     // price deposit and distribute functionalities
-    // fn deposit_prize(
-    //     ref self: TContractState, audition_id: u256, token_address: ContractAddress, amount:
-    //     u256,
-    // );
+    fn deposit_prize(
+        ref self: TContractState, audition_id: u256, token_address: ContractAddress, amount: u256,
+    );
 
     fn distribute_prize(
         ref self: TContractState,
