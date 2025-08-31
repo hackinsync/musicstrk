@@ -1,8 +1,8 @@
-use contract_::audition::season_and_audition::SeasonAndAudition;
-use contract_::audition::season_and_audition_interface::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
 };
-use contract_::audition::season_and_audition_types::RegistrationConfig;
+use contract_::audition::season_and_audition::SeasonAndAudition;
+use contract_::audition::types::season_and_audition::RegistrationConfig;
 use contract_::events::{ArtistRegistered, RegistrationConfigSet};
 use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -31,10 +31,10 @@ pub fn feign_artists_registration(
     erc20: IERC20Dispatcher,
     fee_amount: u256,
     audition: ISeasonAndAuditionDispatcher,
-) -> Array<(ContractAddress, felt252)> {
+) -> Array<(ContractAddress, u256)> {
     // Get all the artists using get_artists, and simulate a registration.
     let artists = get_artists(artists_len);
-    let mut arr: Array<(ContractAddress, felt252)> = array![];
+    let mut arr: Array<(ContractAddress, u256)> = array![];
     for i in 0..artists.len() {
         let artist = *artists.at(i);
         cheat_caller_address(erc20.contract_address, OWNER(), CheatSpan::TargetCalls(1));
@@ -45,7 +45,7 @@ pub fn feign_artists_registration(
         let id: u256 = audition.register_performer(1, 'tiktok', 'tiktok', 'email').into();
         assert(id == i.into() + 1, 'INVALID ID');
 
-        arr.append((artist, id.try_into().unwrap()));
+        arr.append((artist, id));
     }
     arr
 }

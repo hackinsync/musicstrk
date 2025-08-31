@@ -237,5 +237,7 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @dev Retrieves the contract address associated with a given performer ID.
     /// @param performer_id The unique identifier of the performer.
     /// @return ContractAddress The wallet address of the performer.
-    fn get_performer_address(self: @TContractState, performer_id: u256) -> ContractAddress;
+    fn get_performer_address(
+        self: @TContractState, audition_id: u256, performer_id: u256,
+    ) -> ContractAddress;
 }

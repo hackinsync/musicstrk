@@ -132,9 +132,9 @@ pub mod SeasonAndAudition {
         /// @notice list of all results for a perfomer
         /// @dev List of (performer_id, result_uri)
         performer_results: Map<u256, Vec<ByteArray>>,
-        /// @notice maps a performer_id to performer address
-        /// @dev uint256 -> ContractAddress
-        performer_registry: Map<u256, ContractAddress>,
+        /// @notice maps a (auditon_id, performer_id) to performer address
+        /// @dev (u256, u256) -> ContractAddress
+        performer_registry: Map<(u256, u256), ContractAddress>,
         /// @notice a count of performer
         performers_count: u256,
     }
@@ -375,7 +375,8 @@ pub mod SeasonAndAudition {
             Option::None
         }
 
-        /// seems this function is no longer available in the upstream, so I'm just commenting it out
+        /// seems this function is no longer available in the upstream, so I'm just commenting it
+        /// out
         // fn delete_audition(ref self: ContractState, audition_id: u256) {
         //     self.ownable.assert_only_owner();
         //     assert(!self.global_paused.read(), 'Contract is paused');
@@ -602,7 +603,7 @@ pub mod SeasonAndAudition {
             let mut new_evaluation_id = self.evaluation_count.read() + 1;
             self.evaluation_count.write(new_evaluation_id);
 
-            let performer = self.performer_registry.entry(performer_id).read();
+            let performer = self.performer_registry.entry((audition_id, performer_id)).read();
 
             self
                 .evaluations
@@ -692,7 +693,7 @@ pub mod SeasonAndAudition {
             self.performer_result.write((audition_id, performer_id), result_uri.clone());
             self.submitted_results.entry(audition_id).push(result_uri.clone());
             self.performer_results.entry(performer_id).push(result_uri.clone());
-            let performer = self.performer_registry.entry(performer_id).read();
+            let performer = self.performer_registry.entry((audition_id, performer_id)).read();
             self
                 .emit(
                     Event::ResultSubmitted(ResultSubmitted { audition_id, result_uri, performer }),
@@ -1151,6 +1152,10 @@ pub mod SeasonAndAudition {
 
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
             self.enrolled_performers.entry(audition_id).push(performer_id);
+            self.performer_registry.entry((audition_id, performer_id)).write(caller);
+
+            let performers_count = self.performers_count.read() + 1;
+            self.performers_count.write(performers_count);
 
             let pool_size = prize_pool + amount;
 
@@ -1231,8 +1236,10 @@ pub mod SeasonAndAudition {
             self.performers_count.read()
         }
 
-        fn get_performer_address(self: @ContractState, performer_id: u256) -> ContractAddress {
-            self.performer_registry.entry(performer_id).read()
+        fn get_performer_address(
+            self: @ContractState, audition_id: u256, performer_id: u256,
+        ) -> ContractAddress {
+            self.performer_registry.entry((audition_id, performer_id)).read()
         }
     }
 
