@@ -5,6 +5,10 @@ use super::types::{
     BatchAssignmentResult, AuditionJudgeInfo, JudgePerformanceMetrics
 };
 
+// ============================================
+// MAIN JUDGE MANAGEMENT INTERFACE
+// ============================================
+
 #[starknet::interface]
 pub trait IJudgeManagement<TContractState> {
     // ============================================
@@ -166,4 +170,27 @@ pub trait IJudgeManagement<TContractState> {
         weight_percentage: u8,
         evaluation_deadline: u64,
     );
+}
+
+// ============================================
+// PHASE 2: ACCESS CONTROL INTERFACE
+// ============================================
+
+#[starknet::interface]
+pub trait IAccessControl<TContractState> {
+    // Emergency stop functions
+    fn emergency_stop(ref self: TContractState, reason: felt252);
+    fn emergency_resume(ref self: TContractState);
+    
+    // Operator management
+    fn authorize_operator(ref self: TContractState, operator: ContractAddress);
+    fn revoke_operator(ref self: TContractState, operator: ContractAddress);
+    
+    // System configuration
+    fn set_season_audition_contract(ref self: TContractState, contract_address: ContractAddress);
+    
+    // Query functions
+    fn is_emergency_stopped(self: @TContractState) -> bool;
+    fn is_authorized_operator(self: @TContractState, operator: ContractAddress) -> bool;
+    fn get_season_audition_contract(self: @TContractState) -> ContractAddress;
 }

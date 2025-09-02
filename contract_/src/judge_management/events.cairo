@@ -186,3 +186,44 @@ pub struct JudgeProfileUpdated {
     pub updated_by: ContractAddress,
     pub timestamp: u64,
 }
+
+// ============================================
+// PHASE 2: ACCESS CONTROL EVENTS
+// ============================================
+
+#[derive(Drop, starknet::Event)]
+pub struct EmergencyStopped {
+    pub stopped_by: ContractAddress,
+    pub reason: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct EmergencyResumed {
+    pub resumed_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct OperatorAuthorized {
+    #[key]
+    pub operator: ContractAddress,
+    pub authorized_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct OperatorRevoked {
+    #[key]
+    pub operator: ContractAddress,
+    pub revoked_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct SeasonAuditionContractSet {
+    pub old_contract: ContractAddress,
+    pub new_contract: ContractAddress,
+    pub set_by: ContractAddress,
+    pub timestamp: u64,
+}
