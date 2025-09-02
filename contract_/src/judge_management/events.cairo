@@ -264,3 +264,70 @@ pub struct WeightDistributionAnalyzed {
     pub analyzed_by: ContractAddress,
     pub timestamp: u64,
 }
+
+// ============================================
+// PHASE 5: PAYMENT INTEGRATION EVENTS
+// ============================================
+
+#[derive(Drop, starknet::Event)]
+pub struct PaymentConfigurationUpdated {
+    pub regular_judge_rate: u256,
+    pub celebrity_judge_rate: u256,
+    pub minimum_pool_balance: u256,
+    pub payment_delay: u64,
+    pub updated_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PaymentPoolSet {
+    pub old_pool: ContractAddress,
+    pub new_pool: ContractAddress,
+    pub set_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AuditionCompleted {
+    #[key]
+    pub audition_id: felt252,
+    pub completed_by: ContractAddress,
+    pub timestamp: u64,
+    pub judges_count: u8,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PaymentEligibilityUpdated {
+    #[key]
+    pub audition_id: felt252,
+    #[key]
+    pub judge_address: ContractAddress,
+    pub is_eligible: bool,
+    pub reason: felt252,
+    pub updated_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct BatchPaymentProcessed {
+    #[key]
+    pub audition_id: felt252,
+    pub successful_payments: u8,
+    pub failed_payments: u8,
+    pub total_amount_paid: u256,
+    pub processed_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PaymentCalculated {
+    #[key]
+    pub judge_address: ContractAddress,
+    #[key]
+    pub audition_id: felt252,
+    pub base_amount: u256,
+    pub celebrity_bonus: u256,
+    pub total_amount: u256,
+    pub pool_percentage: u256,
+    pub timestamp: u64,
+}

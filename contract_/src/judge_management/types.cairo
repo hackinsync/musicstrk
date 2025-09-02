@@ -170,3 +170,43 @@ pub struct WeightRedistributionResult {
     pub total_weight_after: u256,
     pub redistribution_applied: bool,
 }
+
+// ============================================
+// PHASE 5: PAYMENT INTEGRATION TYPES
+// ============================================
+
+#[derive(Drop, Serde, starknet::Store)]
+pub struct PaymentConfiguration {
+    pub regular_judge_rate: u256,      // Percentage of pool per audition (e.g., 50 = 0.5%)
+    pub celebrity_judge_rate: u256,    // Percentage of pool per audition (e.g., 200 = 2%)
+    pub minimum_pool_balance: u256,    // Minimum pool balance required
+    pub payment_delay: u64,           // Delay after audition completion (seconds)
+}
+
+#[derive(Drop, Serde)]
+pub struct PaymentCalculation {
+    pub judge_address: ContractAddress,
+    pub audition_id: felt252,
+    pub base_amount: u256,
+    pub celebrity_bonus: u256,
+    pub total_amount: u256,
+    pub pool_percentage: u256,
+}
+
+#[derive(Drop, Serde)]
+pub struct BatchPaymentResult {
+    pub successful_payments: u8,
+    pub failed_payments: u8,
+    pub total_amount_paid: u256,
+    pub remaining_pool_balance: u256,
+}
+
+#[derive(Drop, Serde)]
+pub struct JudgePaymentInfo {
+    pub judge_address: ContractAddress,
+    pub is_eligible: bool,
+    pub payment_amount: u256,
+    pub payment_status: PaymentStatus,
+    pub participation_verified: bool,
+    pub audition_completed: bool,
+}

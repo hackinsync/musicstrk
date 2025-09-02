@@ -2,7 +2,9 @@ use starknet::ContractAddress;
 use core::array::Array;
 use super::types::{
     JudgeProfile, WeightLimits, JudgePayment, JudgeStats, BatchJudgeAssignment, 
-    BatchAssignmentResult, AuditionJudgeInfo, JudgePerformanceMetrics
+    BatchAssignmentResult, AuditionJudgeInfo, JudgePerformanceMetrics, WeightAdjustment,
+    WeightRedistributionResult, WeightDistribution, PaymentConfiguration, PaymentCalculation,
+    BatchPaymentResult, JudgePaymentInfo
 };
 
 // ============================================
@@ -231,4 +233,55 @@ pub trait IWeightManagement<TContractState> {
     fn is_voting_started(self: @TContractState, audition_id: felt252) -> bool;
     fn get_weight_concentration(self: @TContractState, audition_id: felt252) -> u256;
     fn can_adjust_weights(self: @TContractState, audition_id: felt252) -> bool;
+}
+
+// ============================================
+// PHASE 5: PAYMENT MANAGEMENT INTERFACE
+// ============================================
+
+#[starknet::interface]
+pub trait IPaymentManagement<TContractState> {
+    // Payment configuration functions
+    fn set_payment_configuration(
+        ref self: TContractState,
+        config: PaymentConfiguration,
+    );
+    
+    fn set_payment_pool(
+        ref self: TContractState,
+        pool_address: ContractAddress,
+    );
+    
+    // Audition completion management
+    fn complete_audition(
+        ref self: TContractState,
+        audition_id: felt252,
+    );
+    
+    fn set_payment_eligibility(
+        ref self: TContractState,
+        audition_id: felt252,
+        judge_address: ContractAddress,
+        is_eligible: bool,
+        reason: felt252,
+    );
+    
+    // Payment calculation and processing
+    fn calculate_judge_payment(
+        self: @TContractState,
+        judge_address: ContractAddress,
+        audition_id: felt252,
+    ) -> PaymentCalculation;
+    
+    fn get_judge_payment_info(
+        self: @TContractState,
+        judge_address: ContractAddress,
+        audition_id: felt252,
+    ) -> JudgePaymentInfo;
+    
+    // Query functions
+    fn get_payment_configuration(self: @TContractState) -> PaymentConfiguration;
+    fn get_payment_pool(self: @TContractState) -> ContractAddress;
+    fn is_audition_completed(self: @TContractState, audition_id: felt252) -> bool;
+    fn get_audition_completion_time(self: @TContractState, audition_id: felt252) -> u64;
 }
