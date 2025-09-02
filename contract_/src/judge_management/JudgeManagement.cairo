@@ -14,7 +14,8 @@ pub mod JudgeManagement {
     use super::types::{
         JudgeProfile, WeightLimits, JudgePayment, JudgeStats, AuditionJudgeRequirements,
         JudgeEvaluation, PaymentStatus, JudgeType, JudgeStatus, BatchJudgeAssignment,
-        BatchAssignmentResult, AuditionJudgeInfo, JudgePerformanceMetrics
+        BatchAssignmentResult, AuditionJudgeInfo, JudgePerformanceMetrics, WeightAdjustment,
+        WeightRedistributionResult, WeightDistribution
     };
     use super::events::{
         JudgeAssigned, BatchJudgeAssignment as BatchJudgeAssignmentEvent, JudgeStatusChanged,
@@ -22,10 +23,11 @@ pub mod JudgeManagement {
         JudgePaymentProcessed, BatchJudgePayment, JudgePaymentFailed, JudgeEvaluationSubmitted,
         EvaluationWeightCalculated, JudgeManagementInitialized, AuditionJudgeRequirementsSet,
         JudgeProfileUpdated, EmergencyStopped, EmergencyResumed, OperatorAuthorized, 
-        OperatorRevoked, SeasonAuditionContractSet
+        OperatorRevoked, SeasonAuditionContractSet, VotingStatusChanged, 
+        WeightRedistributionCompleted, WeightDistributionAnalyzed
     };
     use super::utils;
-    use super::IJudgeManagement::{IJudgeManagement, IAccessControl};
+    use super::IJudgeManagement::{IJudgeManagement, IAccessControl, IWeightManagement};
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: ReentrancyGuardComponent, storage: reentrancy_guard, event: ReentrancyGuardEvent);
@@ -93,6 +95,16 @@ pub mod JudgeManagement {
         emergency_stopped: bool,
         authorized_operators: LegacyMap<ContractAddress, bool>,
         season_audition_contract: ContractAddress, // For audition existence validation
+        
+        // Phase 4: Weight Management System Storage
+        // Voting status tracking: audition_id -> bool (true if voting started)
+        audition_voting_started: LegacyMap<felt252, bool>,
+        
+        // Weight adjustment history: (audition_id, judge_address, adjustment_index) -> WeightAdjustment
+        weight_adjustment_history: LegacyMap<(felt252, ContractAddress, u32), WeightAdjustment>,
+        
+        // Weight adjustment count: (audition_id, judge_address) -> u32
+        weight_adjustment_count: LegacyMap<(felt252, ContractAddress), u32>,
     }
 
     // ============================================
@@ -119,6 +131,8 @@ pub mod JudgeManagement {
         // Weight Management Events
         JudgeWeightUpdated: JudgeWeightUpdated,
         WeightLimitsUpdated: WeightLimitsUpdated,
+        WeightRedistributionCompleted: WeightRedistributionCompleted,
+        WeightDistributionAnalyzed: WeightDistributionAnalyzed,
         
         // Payment Events
         JudgePaymentProcessed: JudgePaymentProcessed,
@@ -140,6 +154,7 @@ pub mod JudgeManagement {
         OperatorAuthorized: OperatorAuthorized,
         OperatorRevoked: OperatorRevoked,
         SeasonAuditionContractSet: SeasonAuditionContractSet,
+        VotingStatusChanged: VotingStatusChanged,
     }
 
     // ============================================
@@ -271,8 +286,13 @@ pub mod JudgeManagement {
             audition_id: felt252,
             new_weight: u256,
         ) {
-            // TODO: Implementation in Phase 4
-            panic!("Implementation pending - Phase 4");
+            // Phase 2: Access control and validation
+            self.assert_only_owner_or_operator();
+            self.assert_not_emergency_stopped();
+            self.assert_system_initialized();
+            
+            // Phase 4: Weight adjustment implementation
+            self._adjust_judge_weight_internal(judge_address, audition_id, new_weight, 'Manual adjustment');
         }
         
         fn set_weight_limits(ref self: ContractState, limits: WeightLimits) {
@@ -948,6 +968,348 @@ pub mod JudgeManagement {
                 deactivated_by: get_caller_address(),
                 timestamp: get_block_timestamp(),
             });
+        }
+    }
+
+    // ============================================
+    // PHASE 4: WEIGHT MANAGEMENT SYSTEM IMPLEMENTATION
+    // ============================================
+
+    #[generate_trait]
+    impl WeightManagementImpl of WeightManagementTrait {
+        
+        // ============================================
+        // 4.1 WEIGHT ADJUSTMENT IMPLEMENTATION
+        // ============================================
+
+        fn _adjust_judge_weight_internal(
+            ref self: ContractState,
+            judge_address: ContractAddress,
+            audition_id: felt252,
+            new_weight: u256,
+            reason: felt252,
+        ) {
+            // Validation: Judge must be assigned to audition
+            assert(self.audition_judge_assignments.read((audition_id, judge_address)), errors::JUDGE_NOT_ASSIGNED);
+            
+            // Validation: Voting must not have started
+            assert(!self.audition_voting_started.read(audition_id), errors::VOTING_ALREADY_STARTED);
+            
+            let mut profile = self.judge_profiles.read(judge_address);
+            let old_weight = profile.weight;
+            
+            // Validate new weight against limits
+            let limits = self.weight_limits.read();
+            utils::validate_weight_against_limits(new_weight, profile.is_celebrity, limits);
+            
+            // Validate total weight after adjustment
+            let current_total = self.audition_total_weight.read(audition_id);
+            let new_total = current_total - old_weight + new_weight;
+            
+            // Check against maximum total judge percentage
+            let assumed_total_voting_power: u256 = 1000; // Integration point
+            let new_percentage = (new_total * 100) / assumed_total_voting_power;
+            assert(new_percentage <= limits.max_total_judge_percentage.into(), errors::TOTAL_JUDGE_WEIGHT_EXCEEDED);
+            
+            // Update judge profile with new weight
+            profile.weight = new_weight;
+            self.judge_profiles.write(judge_address, profile);
+            
+            // Update audition total weight
+            self.audition_total_weight.write(audition_id, new_total);
+            
+            // Update audition requirements
+            let mut requirements = self.audition_requirements.read(audition_id);
+            requirements.total_weight_assigned = requirements.total_weight_assigned - old_weight + new_weight;
+            self.audition_requirements.write(audition_id, requirements);
+            
+            // Record weight adjustment in history
+            let adjustment_count = self.weight_adjustment_count.read((audition_id, judge_address));
+            let adjustment = WeightAdjustment {
+                audition_id,
+                judge_address,
+                old_weight,
+                new_weight,
+                adjustment_reason: reason,
+                adjusted_by: get_caller_address(),
+                timestamp: get_block_timestamp(),
+            };
+            
+            self.weight_adjustment_history.write((audition_id, judge_address, adjustment_count), adjustment);
+            self.weight_adjustment_count.write((audition_id, judge_address), adjustment_count + 1);
+            
+            // Emit weight update event
+            self.emit(JudgeWeightUpdated {
+                judge_address,
+                audition_id,
+                old_weight,
+                new_weight,
+                updated_by: get_caller_address(),
+                timestamp: get_block_timestamp(),
+            });
+        }
+
+        // ============================================
+        // 4.2 WEIGHT REDISTRIBUTION IMPLEMENTATION
+        // ============================================
+
+        fn _redistribute_weights_proportionally_internal(
+            ref self: ContractState,
+            audition_id: felt252,
+            target_total_weight: u256,
+        ) -> WeightRedistributionResult {
+            // Validation: Voting must not have started
+            assert(!self.audition_voting_started.read(audition_id), errors::VOTING_ALREADY_STARTED);
+            
+            let judges = self.get_audition_judges(audition_id);
+            let current_total = self.audition_total_weight.read(audition_id);
+            
+            if current_total == 0 || judges.len() == 0 {
+                return WeightRedistributionResult {
+                    successful_adjustments: 0,
+                    failed_adjustments: 0,
+                    total_weight_before: current_total,
+                    total_weight_after: current_total,
+                    redistribution_applied: false,
+                };
+            }
+            
+            let mut successful_adjustments = 0_u8;
+            let mut failed_adjustments = 0_u8;
+            let mut new_total_weight = 0_u256;
+            
+            // Redistribute weights proportionally
+            let mut i = 0;
+            loop {
+                if i >= judges.len() {
+                    break;
+                }
+                
+                let judge_address = *judges.at(i);
+                let profile = self.judge_profiles.read(judge_address);
+                
+                // Calculate new proportional weight
+                let new_weight = (profile.weight * target_total_weight) / current_total;
+                
+                // Validate the new weight against limits
+                let limits = self.weight_limits.read();
+                let is_valid = if profile.is_celebrity {
+                    new_weight <= limits.max_celebrity_weight
+                } else {
+                    new_weight <= limits.max_regular_judge_weight
+                };
+                
+                if is_valid && new_weight > 0 {
+                    self._adjust_judge_weight_internal(
+                        judge_address,
+                        audition_id,
+                        new_weight,
+                        'Weight redistribution'
+                    );
+                    successful_adjustments += 1;
+                    new_total_weight += new_weight;
+                } else {
+                    failed_adjustments += 1;
+                    new_total_weight += profile.weight; // Keep old weight
+                }
+                
+                i += 1;
+            };
+            
+            // Emit redistribution completed event
+            self.emit(WeightRedistributionCompleted {
+                audition_id,
+                successful_adjustments,
+                failed_adjustments,
+                total_weight_before: current_total,
+                total_weight_after: new_total_weight,
+                redistributed_by: get_caller_address(),
+                timestamp: get_block_timestamp(),
+            });
+            
+            WeightRedistributionResult {
+                successful_adjustments,
+                failed_adjustments,
+                total_weight_before: current_total,
+                total_weight_after: new_total_weight,
+                redistribution_applied: successful_adjustments > 0,
+            }
+        }
+
+        // ============================================
+        // 4.3 VOTING STATUS MANAGEMENT
+        // ============================================
+
+        fn _set_voting_status_internal(
+            ref self: ContractState,
+            audition_id: felt252,
+            voting_started: bool,
+        ) {
+            let current_status = self.audition_voting_started.read(audition_id);
+            if current_status != voting_started {
+                self.audition_voting_started.write(audition_id, voting_started);
+                
+                self.emit(VotingStatusChanged {
+                    audition_id,
+                    voting_started,
+                    changed_by: get_caller_address(),
+                    timestamp: get_block_timestamp(),
+                });
+            }
+        }
+
+        // ============================================
+        // 4.4 WEIGHT DISTRIBUTION ANALYSIS
+        // ============================================
+
+        fn _analyze_weight_distribution_internal(
+            self: @ContractState,
+            audition_id: felt252,
+        ) -> WeightDistribution {
+            let judges = self.get_audition_judges(audition_id);
+            let mut judge_weights = ArrayTrait::new();
+            let mut total_judge_weight = 0_u256;
+            let mut celebrity_weight = 0_u256;
+            let mut regular_weight = 0_u256;
+            let mut max_individual_weight = 0_u256;
+            
+            // Analyze each judge's weight
+            let mut i = 0;
+            loop {
+                if i >= judges.len() {
+                    break;
+                }
+                
+                let judge_address = *judges.at(i);
+                let profile = self.judge_profiles.read(judge_address);
+                
+                judge_weights.append((judge_address, profile.weight));
+                total_judge_weight += profile.weight;
+                
+                if profile.is_celebrity {
+                    celebrity_weight += profile.weight;
+                } else {
+                    regular_weight += profile.weight;
+                }
+                
+                if profile.weight > max_individual_weight {
+                    max_individual_weight = profile.weight;
+                }
+                
+                i += 1;
+            };
+            
+            // Calculate weight concentration (highest individual percentage)
+            let weight_concentration = if total_judge_weight > 0 {
+                (max_individual_weight * 100) / total_judge_weight
+            } else {
+                0
+            };
+            
+            // Emit analysis event
+            self.emit(WeightDistributionAnalyzed {
+                audition_id,
+                total_judge_weight,
+                celebrity_weight,
+                regular_weight,
+                weight_concentration,
+                analyzed_by: get_caller_address(),
+                timestamp: get_block_timestamp(),
+            });
+            
+            WeightDistribution {
+                audition_id,
+                judge_weights,
+                total_judge_weight,
+                celebrity_judge_weight: celebrity_weight,
+                regular_judge_weight: regular_weight,
+                weight_concentration,
+            }
+        }
+    }
+
+    // ============================================
+    // PHASE 4: PUBLIC WEIGHT MANAGEMENT FUNCTIONS
+    // ============================================
+
+    #[abi(embed_v0)]
+    impl WeightManagementPublicImpl of IWeightManagement<ContractState> {
+        
+        fn redistribute_weights_proportionally(
+            ref self: ContractState,
+            audition_id: felt252,
+            target_total_weight: u256,
+        ) -> WeightRedistributionResult {
+            // Access control
+            self.assert_only_owner_or_operator();
+            self.assert_not_emergency_stopped();
+            self.assert_system_initialized();
+            
+            // Call internal implementation
+            self._redistribute_weights_proportionally_internal(audition_id, target_total_weight)
+        }
+
+        fn set_voting_status(
+            ref self: ContractState,
+            audition_id: felt252,
+            voting_started: bool,
+        ) {
+            // Access control - only owner/operator can change voting status
+            self.assert_only_owner_or_operator();
+            self.assert_not_emergency_stopped();
+            self.assert_system_initialized();
+            
+            // Validate audition exists
+            utils::validate_audition_id(audition_id);
+            
+            // Call internal implementation
+            self._set_voting_status_internal(audition_id, voting_started);
+        }
+
+        fn analyze_weight_distribution(
+            self: @ContractState,
+            audition_id: felt252,
+        ) -> WeightDistribution {
+            // Validate audition exists
+            utils::validate_audition_id(audition_id);
+            
+            // Call internal implementation
+            self._analyze_weight_distribution_internal(audition_id)
+        }
+
+        fn get_weight_adjustment_history(
+            self: @ContractState,
+            audition_id: felt252,
+            judge_address: ContractAddress,
+        ) -> Array<WeightAdjustment> {
+            let mut history = ArrayTrait::new();
+            let count = self.weight_adjustment_count.read((audition_id, judge_address));
+            
+            let mut i = 0;
+            loop {
+                if i >= count {
+                    break;
+                }
+                let adjustment = self.weight_adjustment_history.read((audition_id, judge_address, i));
+                history.append(adjustment);
+                i += 1;
+            };
+            
+            history
+        }
+
+        fn is_voting_started(self: @ContractState, audition_id: felt252) -> bool {
+            self.audition_voting_started.read(audition_id)
+        }
+
+        fn get_weight_concentration(self: @ContractState, audition_id: felt252) -> u256 {
+            let distribution = self.analyze_weight_distribution(audition_id);
+            distribution.weight_concentration
+        }
+
+        fn can_adjust_weights(self: @ContractState, audition_id: felt252) -> bool {
+            // Can adjust weights if voting hasn't started and system is not emergency stopped
+            !self.audition_voting_started.read(audition_id) && !self.emergency_stopped.read()
         }
     }
 }

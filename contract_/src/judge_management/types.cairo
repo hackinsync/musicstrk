@@ -136,3 +136,37 @@ pub struct JudgePerformanceMetrics {
     pub consistency_score: u256,
     pub reputation_score: u256,
 }
+
+// ============================================
+// PHASE 4: WEIGHT MANAGEMENT TYPES
+// ============================================
+
+#[derive(Drop, Serde, starknet::Store)]
+pub struct WeightAdjustment {
+    pub audition_id: felt252,
+    pub judge_address: ContractAddress,
+    pub old_weight: u256,
+    pub new_weight: u256,
+    pub adjustment_reason: felt252,
+    pub adjusted_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, Serde)]
+pub struct WeightDistribution {
+    pub audition_id: felt252,
+    pub judge_weights: Array<(ContractAddress, u256)>, // (judge_address, weight)
+    pub total_judge_weight: u256,
+    pub celebrity_judge_weight: u256,
+    pub regular_judge_weight: u256,
+    pub weight_concentration: u256, // Highest individual judge percentage
+}
+
+#[derive(Drop, Serde)]
+pub struct WeightRedistributionResult {
+    pub successful_adjustments: u8,
+    pub failed_adjustments: u8,
+    pub total_weight_before: u256,
+    pub total_weight_after: u256,
+    pub redistribution_applied: bool,
+}

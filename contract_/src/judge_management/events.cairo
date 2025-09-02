@@ -227,3 +227,40 @@ pub struct SeasonAuditionContractSet {
     pub set_by: ContractAddress,
     pub timestamp: u64,
 }
+
+// ============================================
+// PHASE 4: WEIGHT MANAGEMENT EVENTS
+// ============================================
+
+#[derive(Drop, starknet::Event)]
+pub struct VotingStatusChanged {
+    #[key]
+    pub audition_id: felt252,
+    pub voting_started: bool,
+    pub changed_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct WeightRedistributionCompleted {
+    #[key]
+    pub audition_id: felt252,
+    pub successful_adjustments: u8,
+    pub failed_adjustments: u8,
+    pub total_weight_before: u256,
+    pub total_weight_after: u256,
+    pub redistributed_by: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct WeightDistributionAnalyzed {
+    #[key]
+    pub audition_id: felt252,
+    pub total_judge_weight: u256,
+    pub celebrity_weight: u256,
+    pub regular_weight: u256,
+    pub weight_concentration: u256,
+    pub analyzed_by: ContractAddress,
+    pub timestamp: u64,
+}

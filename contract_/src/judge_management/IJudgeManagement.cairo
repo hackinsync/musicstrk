@@ -194,3 +194,41 @@ pub trait IAccessControl<TContractState> {
     fn is_authorized_operator(self: @TContractState, operator: ContractAddress) -> bool;
     fn get_season_audition_contract(self: @TContractState) -> ContractAddress;
 }
+
+// ============================================
+// PHASE 4: WEIGHT MANAGEMENT INTERFACE
+// ============================================
+
+#[starknet::interface]
+pub trait IWeightManagement<TContractState> {
+    // Weight redistribution functions
+    fn redistribute_weights_proportionally(
+        ref self: TContractState,
+        audition_id: felt252,
+        target_total_weight: u256,
+    ) -> WeightRedistributionResult;
+    
+    // Voting status management
+    fn set_voting_status(
+        ref self: TContractState,
+        audition_id: felt252,
+        voting_started: bool,
+    );
+    
+    // Weight analysis functions
+    fn analyze_weight_distribution(
+        self: @TContractState,
+        audition_id: felt252,
+    ) -> WeightDistribution;
+    
+    fn get_weight_adjustment_history(
+        self: @TContractState,
+        audition_id: felt252,
+        judge_address: ContractAddress,
+    ) -> Array<WeightAdjustment>;
+    
+    // Query functions
+    fn is_voting_started(self: @TContractState, audition_id: felt252) -> bool;
+    fn get_weight_concentration(self: @TContractState, audition_id: felt252) -> u256;
+    fn can_adjust_weights(self: @TContractState, audition_id: felt252) -> bool;
+}
