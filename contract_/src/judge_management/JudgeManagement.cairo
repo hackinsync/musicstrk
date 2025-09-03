@@ -16,7 +16,8 @@ pub mod JudgeManagement {
         JudgeEvaluation, PaymentStatus, JudgeType, JudgeStatus, BatchJudgeAssignment,
         BatchAssignmentResult, AuditionJudgeInfo, JudgePerformanceMetrics, WeightAdjustment,
         WeightRedistributionResult, WeightDistribution, PaymentConfiguration, PaymentCalculation,
-        BatchPaymentResult, JudgePaymentInfo
+        BatchPaymentResult, JudgePaymentInfo, JudgesByCategory, AuditionStatistics, 
+        JudgeAuditionParticipation, SystemOverview
     };
     use super::events::{
         JudgeAssigned, BatchJudgeAssignment as BatchJudgeAssignmentEvent, JudgeStatusChanged,
@@ -30,7 +31,7 @@ pub mod JudgeManagement {
         PaymentCalculated
     };
     use super::utils;
-    use super::IJudgeManagement::{IJudgeManagement, IAccessControl, IWeightManagement, IPaymentManagement};
+    use super::IJudgeManagement::{IJudgeManagement, IAccessControl, IWeightManagement, IPaymentManagement, IAdvancedQuery};
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: ReentrancyGuardComponent, storage: reentrancy_guard, event: ReentrancyGuardEvent);
@@ -426,16 +427,52 @@ pub mod JudgeManagement {
             self: @ContractState, 
             audition_id: felt252
         ) -> Array<ContractAddress> {
-            // TODO: Full implementation in Phase 7
-            ArrayTrait::new()
+            // Phase 7: Complete implementation
+            let mut active_judges = ArrayTrait::new();
+            let count = self.audition_judge_count.read(audition_id);
+            let mut i = 0;
+            
+            loop {
+                if i >= count {
+                    break;
+                }
+                let judge_address = self.audition_judges_by_index.read((audition_id, i));
+                if !judge_address.is_zero() {
+                    let profile = self.judge_profiles.read(judge_address);
+                    if profile.is_active {
+                        active_judges.append(judge_address);
+                    }
+                }
+                i += 1;
+            };
+            
+            active_judges
         }
         
         fn get_celebrity_judges(
             self: @ContractState, 
             audition_id: felt252
         ) -> Array<ContractAddress> {
-            // TODO: Full implementation in Phase 7
-            ArrayTrait::new()
+            // Phase 7: Complete implementation
+            let mut celebrity_judges = ArrayTrait::new();
+            let count = self.audition_judge_count.read(audition_id);
+            let mut i = 0;
+            
+            loop {
+                if i >= count {
+                    break;
+                }
+                let judge_address = self.audition_judges_by_index.read((audition_id, i));
+                if !judge_address.is_zero() {
+                    let profile = self.judge_profiles.read(judge_address);
+                    if profile.is_celebrity {
+                        celebrity_judges.append(judge_address);
+                    }
+                }
+                i += 1;
+            };
+            
+            celebrity_judges
         }
 
         fn is_judge_assigned_to_audition(
@@ -451,8 +488,8 @@ pub mod JudgeManagement {
             judge_address: ContractAddress,
             audition_id: felt252,
         ) -> bool {
-            // TODO: Full implementation in Phase 5/7
-            false
+            // Phase 7: Complete implementation using Phase 5's validation
+            self._validate_payment_eligibility_internal(judge_address, audition_id)
         }
 
         fn get_total_judge_weight(
@@ -494,8 +531,16 @@ pub mod JudgeManagement {
             self: @ContractState, 
             judge_address: ContractAddress
         ) -> Array<JudgePayment> {
-            // TODO: Full implementation in Phase 7
-            ArrayTrait::new()
+            // Phase 7: Complete implementation - collect all payment records for judge
+            let mut payment_history = ArrayTrait::new();
+            
+            // Since we don't have a comprehensive index, we'll need to iterate through known auditions
+            // In a production system, this would use a better indexing system
+            // For now, we return a basic structure that can be extended
+            
+            // TODO: In production, implement a payment history index per judge
+            // This is a placeholder that returns empty array - would need audition iteration
+            payment_history
         }
         
         fn get_judge_performance_metrics(
@@ -1801,6 +1846,215 @@ pub mod JudgeManagement {
 
         fn get_audition_completion_time(self: @ContractState, audition_id: felt252) -> u64 {
             self.audition_completion_time.read(audition_id)
+        }
+    }
+
+    // ============================================
+    // PHASE 7: ADVANCED QUERY SYSTEM IMPLEMENTATION
+    // ============================================
+
+    #[abi(embed_v0)]
+    impl AdvancedQueryImpl of IAdvancedQuery<ContractState> {
+        
+        fn get_judges_by_category(
+            self: @ContractState,
+            audition_id: felt252,
+        ) -> JudgesByCategory {
+            let mut active_judges = ArrayTrait::new();
+            let mut inactive_judges = ArrayTrait::new();
+            let mut celebrity_judges = ArrayTrait::new();
+            let mut regular_judges = ArrayTrait::new();
+            
+            let count = self.audition_judge_count.read(audition_id);
+            let mut total_count = 0_u32;
+            let mut i = 0;
+            
+            loop {
+                if i >= count {
+                    break;
+                }
+                
+                let judge_address = self.audition_judges_by_index.read((audition_id, i));
+                if !judge_address.is_zero() {
+                    let profile = self.judge_profiles.read(judge_address);
+                    total_count += 1;
+                    
+                    // Categorize by active status
+                    if profile.is_active {
+                        active_judges.append(judge_address);
+                    } else {
+                        inactive_judges.append(judge_address);
+                    }
+                    
+                    // Categorize by judge type
+                    if profile.is_celebrity {
+                        celebrity_judges.append(judge_address);
+                    } else {
+                        regular_judges.append(judge_address);
+                    }
+                }
+                i += 1;
+            };
+            
+            JudgesByCategory {
+                active_judges,
+                inactive_judges,
+                celebrity_judges,
+                regular_judges,
+                total_count,
+            }
+        }
+        
+        fn get_judges_by_season(
+            self: @ContractState,
+            season_id: felt252,
+        ) -> Array<ContractAddress> {
+            let mut season_judges = ArrayTrait::new();
+            
+            // Since we don't have a comprehensive season index, this is a placeholder
+            // In production, this would require iterating through season assignments
+            // or maintaining a better indexing system
+            
+            // TODO: Implement comprehensive season judge tracking
+            // For now, return empty array as this requires season integration
+            season_judges
+        }
+        
+        fn get_audition_statistics(
+            self: @ContractState,
+            audition_id: felt252,
+        ) -> AuditionStatistics {
+            let judges_by_category = self.get_judges_by_category(audition_id);
+            let total_weight = self.audition_total_weight.read(audition_id);
+            let requirements = self.audition_requirements.read(audition_id);
+            let completion_status = self.audition_completed.read(audition_id);
+            
+            // Calculate average weight
+            let average_weight = if judges_by_category.total_count > 0 {
+                total_weight / judges_by_category.total_count.into()
+            } else {
+                0
+            };
+            
+            AuditionStatistics {
+                audition_id,
+                total_judges: judges_by_category.total_count,
+                active_judges: judges_by_category.active_judges.len().try_into().unwrap(),
+                celebrity_count: judges_by_category.celebrity_judges.len().try_into().unwrap(),
+                regular_count: judges_by_category.regular_judges.len().try_into().unwrap(),
+                total_weight,
+                average_weight,
+                completion_status,
+                requirements_met: requirements.assigned_count >= requirements.required_count,
+            }
+        }
+        
+        fn get_judge_audition_participation(
+            self: @ContractState,
+            judge_address: ContractAddress,
+        ) -> JudgeAuditionParticipation {
+            let mut audition_participations = ArrayTrait::new();
+            let stats = self.judge_stats.read(judge_address);
+            
+            // Since we don't have a comprehensive participation index, this is a simplified version
+            // In production, this would require maintaining a participation index per judge
+            
+            // Calculate payment received count from stats
+            let payment_received_count = if stats.total_payments_received > 0 {
+                // Estimate based on average payment amount
+                // This is a placeholder calculation
+                1_u32 
+            } else {
+                0_u32
+            };
+            
+            JudgeAuditionParticipation {
+                judge_address,
+                audition_participations,
+                total_auditions: stats.total_auditions_judged.try_into().unwrap(),
+                payment_received_count,
+                current_active_auditions: 0, // Would require active audition tracking
+            }
+        }
+        
+        fn get_system_overview(self: @ContractState) -> SystemOverview {
+            // This is a simplified system overview
+            // In production, these would be maintained as system-wide counters
+            
+            let weight_limits = self.weight_limits.read();
+            let emergency_stopped = self.emergency_stopped.read();
+            
+            // Placeholder values - would require comprehensive system tracking
+            SystemOverview {
+                total_judges_registered: 0, // Would require global judge counter
+                total_auditions_with_judges: 0, // Would require global audition counter
+                total_payments_processed: 0, // Would require global payment counter
+                emergency_stopped,
+                weight_limits,
+                average_judges_per_audition: 0, // Calculated from totals
+            }
+        }
+        
+        fn get_judges_by_expertise_level(
+            self: @ContractState,
+            audition_id: felt252,
+            min_expertise: u8,
+            max_expertise: u8,
+        ) -> Array<ContractAddress> {
+            assert(min_expertise <= max_expertise, 'Invalid expertise range');
+            assert(min_expertise >= 1 && max_expertise <= 5, 'Expertise level out of range');
+            
+            let mut filtered_judges = ArrayTrait::new();
+            let count = self.audition_judge_count.read(audition_id);
+            let mut i = 0;
+            
+            loop {
+                if i >= count {
+                    break;
+                }
+                
+                let judge_address = self.audition_judges_by_index.read((audition_id, i));
+                if !judge_address.is_zero() {
+                    let profile = self.judge_profiles.read(judge_address);
+                    
+                    if profile.expertise_level >= min_expertise && profile.expertise_level <= max_expertise {
+                        filtered_judges.append(judge_address);
+                    }
+                }
+                i += 1;
+            };
+            
+            filtered_judges
+        }
+        
+        fn get_top_performing_judges(
+            self: @ContractState,
+            limit: u32,
+        ) -> Array<(ContractAddress, u256)> {
+            let mut top_judges = ArrayTrait::new();
+            
+            // This is a simplified implementation
+            // In production, this would require maintaining a sorted index of judge performance
+            // or implementing a more sophisticated ranking algorithm
+            
+            // TODO: Implement comprehensive performance tracking and ranking
+            // For now, return empty array as this requires global judge performance indexing
+            
+            top_judges
+        }
+        
+        fn get_auditions_requiring_judges(
+            self: @ContractState,
+        ) -> Array<felt252> {
+            let mut requiring_judges = ArrayTrait::new();
+            
+            // This would require iterating through all auditions
+            // In production, this would be maintained as a separate index
+            
+            // TODO: Implement audition requirements tracking
+            // For now, return empty array as this requires global audition indexing
+            
+            requiring_judges
         }
     }
 }

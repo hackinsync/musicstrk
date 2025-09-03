@@ -4,7 +4,8 @@ use super::types::{
     JudgeProfile, WeightLimits, JudgePayment, JudgeStats, BatchJudgeAssignment, 
     BatchAssignmentResult, AuditionJudgeInfo, JudgePerformanceMetrics, WeightAdjustment,
     WeightRedistributionResult, WeightDistribution, PaymentConfiguration, PaymentCalculation,
-    BatchPaymentResult, JudgePaymentInfo
+    BatchPaymentResult, JudgePaymentInfo, JudgesByCategory, AuditionStatistics, 
+    JudgeAuditionParticipation, SystemOverview
 };
 
 // ============================================
@@ -284,4 +285,53 @@ pub trait IPaymentManagement<TContractState> {
     fn get_payment_pool(self: @TContractState) -> ContractAddress;
     fn is_audition_completed(self: @TContractState, audition_id: felt252) -> bool;
     fn get_audition_completion_time(self: @TContractState, audition_id: felt252) -> u64;
+}
+
+// ============================================
+// PHASE 7: ADVANCED QUERY INTERFACE
+// ============================================
+
+#[starknet::interface]
+pub trait IAdvancedQuery<TContractState> {
+    // Judge categorization queries
+    fn get_judges_by_category(
+        self: @TContractState,
+        audition_id: felt252,
+    ) -> JudgesByCategory;
+    
+    fn get_judges_by_season(
+        self: @TContractState,
+        season_id: felt252,
+    ) -> Array<ContractAddress>;
+    
+    // Audition statistics
+    fn get_audition_statistics(
+        self: @TContractState,
+        audition_id: felt252,
+    ) -> AuditionStatistics;
+    
+    fn get_judge_audition_participation(
+        self: @TContractState,
+        judge_address: ContractAddress,
+    ) -> JudgeAuditionParticipation;
+    
+    // System overview
+    fn get_system_overview(self: @TContractState) -> SystemOverview;
+    
+    // Advanced filtering functions
+    fn get_judges_by_expertise_level(
+        self: @TContractState,
+        audition_id: felt252,
+        min_expertise: u8,
+        max_expertise: u8,
+    ) -> Array<ContractAddress>;
+    
+    fn get_top_performing_judges(
+        self: @TContractState,
+        limit: u32,
+    ) -> Array<(ContractAddress, u256)>; // (address, reputation_score)
+    
+    fn get_auditions_requiring_judges(
+        self: @TContractState,
+    ) -> Array<felt252>; // audition_ids that haven't met minimum requirements
 }

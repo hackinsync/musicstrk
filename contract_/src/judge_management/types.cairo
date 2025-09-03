@@ -210,3 +210,48 @@ pub struct JudgePaymentInfo {
     pub participation_verified: bool,
     pub audition_completed: bool,
 }
+
+// ============================================
+// PHASE 7: ADVANCED QUERY TYPES
+// ============================================
+
+#[derive(Drop, Serde)]
+pub struct JudgesByCategory {
+    pub active_judges: Array<ContractAddress>,
+    pub inactive_judges: Array<ContractAddress>,
+    pub celebrity_judges: Array<ContractAddress>,
+    pub regular_judges: Array<ContractAddress>,
+    pub total_count: u32,
+}
+
+#[derive(Drop, Serde)]
+pub struct AuditionStatistics {
+    pub audition_id: felt252,
+    pub total_judges: u32,
+    pub active_judges: u32,
+    pub celebrity_count: u32,
+    pub regular_count: u32,
+    pub total_weight: u256,
+    pub average_weight: u256,
+    pub completion_status: bool,
+    pub requirements_met: bool,
+}
+
+#[derive(Drop, Serde)]
+pub struct JudgeAuditionParticipation {
+    pub judge_address: ContractAddress,
+    pub audition_participations: Array<felt252>, // audition_ids
+    pub total_auditions: u32,
+    pub payment_received_count: u32,
+    pub current_active_auditions: u32,
+}
+
+#[derive(Drop, Serde)]
+pub struct SystemOverview {
+    pub total_judges_registered: u32,
+    pub total_auditions_with_judges: u32,
+    pub total_payments_processed: u256,
+    pub emergency_stopped: bool,
+    pub weight_limits: WeightLimits,
+    pub average_judges_per_audition: u32,
+}
