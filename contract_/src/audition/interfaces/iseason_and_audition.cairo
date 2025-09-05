@@ -1,5 +1,5 @@
 use contract_::audition::types::season_and_audition::{
-    Appeal, Audition, Evaluation, Genre, Season, Vote,
+    Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
 };
 use starknet::ContractAddress;
 
@@ -27,6 +27,12 @@ pub trait ISeasonAndAudition<TContractState> {
         name: Option<felt252>,
         genre: Option<Genre>,
     );
+    fn update_registration_config(
+        ref self: TContractState, audition_id: u256, config: RegistrationConfig,
+    );
+    fn get_registration_config(
+        ref self: TContractState, audition_id: u256,
+    ) -> Option<RegistrationConfig>;
 
     /// @notice Performer submits the result of an audition.
     /// @dev Only the performer can submit the result.
@@ -195,8 +201,14 @@ pub trait ISeasonAndAudition<TContractState> {
         self: @TContractState, audition_id: u256, performer_id: u256,
     ) -> u256;
 
-    /// @notice dummy function to register a performer to an audition
-    fn register_performer(ref self: TContractState, audition_id: u256);
+    /// @notice Registers a performer for an audition successfully
+    fn register_performer(
+        ref self: TContractState,
+        audition_id: u256,
+        tiktok_id: felt252,
+        tiktok_username: felt252,
+        email_hash: felt252,
+    ) -> u256;
     fn get_enrolled_performers(self: @TContractState, audition_id: u256) -> Array<u256>;
 
     /// @notice Submits an appeal for a specific evaluation.
@@ -224,5 +236,7 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @dev Retrieves the contract address associated with a given performer ID.
     /// @param performer_id The unique identifier of the performer.
     /// @return ContractAddress The wallet address of the performer.
-    fn get_performer_address(self: @TContractState, performer_id: u256) -> ContractAddress;
+    fn get_performer_address(
+        self: @TContractState, audition_id: u256, performer_id: u256,
+    ) -> ContractAddress;
 }

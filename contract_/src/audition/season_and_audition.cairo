@@ -3,7 +3,7 @@ pub mod SeasonAndAudition {
     use OwnableComponent::{HasComponent, InternalTrait};
     use contract_::audition::interfaces::iseason_and_audition::ISeasonAndAudition;
     use contract_::audition::types::season_and_audition::{
-        Appeal, Audition, Evaluation, Genre, Season, Vote,
+        Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
     };
     use contract_::errors::errors;
     use core::num::traits::Zero;
@@ -16,12 +16,13 @@ pub mod SeasonAndAudition {
     };
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
     use crate::events::{
-        AggregateScoreCalculated, AppealResolved, AppealSubmitted, AuditionCalculationCompleted,
-        AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-        AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved,
-        OracleAdded, OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, ResultSubmitted,
-        ResultsSubmitted, ResumedAll, SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused,
-        SeasonResumed, SeasonUpdated, VoteRecorded,
+        AggregateScoreCalculated, AppealResolved, AppealSubmitted, ArtistRegistered,
+        AuditionCalculationCompleted, AuditionCreated, AuditionDeleted, AuditionEnded,
+        AuditionPaused, AuditionResumed, AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet,
+        JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll, PriceDeposited,
+        PriceDistributed, RegistrationConfigSet, ResultSubmitted, ResultsSubmitted, ResumedAll,
+        SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed, SeasonUpdated,
+        VoteRecorded,
     };
 
     // Integrates OpenZeppelin ownership component
@@ -107,6 +108,16 @@ pub mod SeasonAndAudition {
         /// so that the aggregate score calculation can be tested
         enrolled_performers: Map<u256, Vec<u256>>,
         performer_enrollment_status: Map<(u256, u256), bool>,
+        registration_config: Map<u256, Option<RegistrationConfig>>,
+        /// @notice a Map of audition id to a bool of whether the registration has started or not.
+        /// once started, updating a config of this audition fails.
+        registration_started: Map<u256, bool>,
+        /// @notice a Map of a (Performer's address, audition_id) to the performer id, use for ease
+        /// of reading the id. Thus if the id is zero, the performer has not registered.
+        performer_has_registered: Map<(ContractAddress, u256), u256>,
+        /// @notice performer count per audition id.
+        performer_count: Map<u256, u256>,
+        registered_artists: Map<(ContractAddress, u256), ArtistRegistration>,
         appeals: Map<u256, Appeal>,
         /// @notice maps each audition and performer to a bool indicating if the performer has
         /// submitted the result @dev Map from (audition_id, performer_id) to bool indicating if the
@@ -121,9 +132,9 @@ pub mod SeasonAndAudition {
         /// @notice list of all results for a perfomer
         /// @dev List of (performer_id, result_uri)
         performer_results: Map<u256, Vec<ByteArray>>,
-        /// @notice maps a performer_id to performer address
-        /// @dev uint256 -> ContractAddress
-        performer_registry: Map<u256, ContractAddress>,
+        /// @notice maps a (auditon_id, performer_id) to performer address
+        /// @dev (u256, u256) -> ContractAddress
+        performer_registry: Map<(u256, u256), ContractAddress>,
         /// @notice a count of performer
         performers_count: u256,
     }
@@ -161,6 +172,8 @@ pub mod SeasonAndAudition {
         SeasonPaused: SeasonPaused,
         SeasonResumed: SeasonResumed,
         SeasonEnded: SeasonEnded,
+        RegistrationConfigSet: RegistrationConfigSet,
+        ArtistRegistered: ArtistRegistered,
         ResultSubmitted: ResultSubmitted,
     }
 
@@ -310,6 +323,79 @@ pub mod SeasonAndAudition {
                     ),
                 );
         }
+
+        fn update_registration_config(
+            ref self: ContractState, audition_id: u256, config: RegistrationConfig,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_ended(audition_id), 'Audition already ended');
+            assert(!self.registration_started.entry(audition_id).read(), 'Registration Started');
+            let prev = self.registration_config.entry(audition_id).read();
+            let mut new = prev.unwrap_or_default();
+
+            let RegistrationConfig {
+                fee_amount, fee_token, registration_open, max_participants,
+            } = config;
+            if fee_token.is_non_zero() {
+                new.fee_token = fee_token;
+                if fee_amount.is_non_zero() {
+                    new.fee_amount = fee_amount;
+                } else {
+                    new.fee_amount = 0;
+                }
+            }
+            new.registration_open = registration_open;
+            new.max_participants = max_participants;
+
+            self.registration_config.entry(audition_id).write(Option::Some(new));
+            let event = RegistrationConfigSet {
+                audition_id,
+                fee_amount,
+                fee_token: new.fee_token,
+                registration_open,
+                max_participants,
+            };
+            self.emit(event);
+        }
+
+        fn get_registration_config(
+            ref self: ContractState, audition_id: u256,
+        ) -> Option<RegistrationConfig> {
+            let config = self.registration_config.entry(audition_id).read();
+            if self.audition_exists(audition_id) {
+                return if config.is_some() {
+                    config
+                } else {
+                    let config: Option<RegistrationConfig> = Option::Some(Default::default());
+                    self.registration_config.entry(audition_id).write(config);
+                    config
+                };
+            }
+            Option::None
+        }
+
+        /// seems this function is no longer available in the upstream, so I'm just commenting it
+        /// out
+        // fn delete_audition(ref self: ContractState, audition_id: u256) {
+        //     self.ownable.assert_only_owner();
+        //     assert(!self.global_paused.read(), 'Contract is paused');
+        //     assert(!self.is_audition_paused(audition_id), 'Cannot delete paused audition');
+        //     assert(!self.is_audition_ended(audition_id), 'Cannot delete ended audition');
+
+        //     let default_audition: Audition = Default::default();
+        //     let audition = self.auditions.entry(audition_id).read();
+        //     self.assert_valid_season(audition.season_id);
+
+        //     self.auditions.entry(audition_id).write(default_audition);
+        //     self
+        //         .emit(
+        //             Event::AuditionDeleted(
+        //                 AuditionDeleted { audition_id, end_timestamp: get_block_timestamp() },
+        //             ),
+        //         );
+        // }
+
         /// @notice sets the weight of each evaluation for an audition
         /// @dev only the owner can set the weight of each evaluation
         /// @param audition_id the id of the audition to set the weight for
@@ -517,7 +603,7 @@ pub mod SeasonAndAudition {
             let mut new_evaluation_id = self.evaluation_count.read() + 1;
             self.evaluation_count.write(new_evaluation_id);
 
-            let performer = self.performer_registry.entry(performer_id).read();
+            let performer = self.performer_registry.entry((audition_id, performer_id)).read();
 
             self
                 .evaluations
@@ -607,7 +693,7 @@ pub mod SeasonAndAudition {
             self.performer_result.write((audition_id, performer_id), result_uri.clone());
             self.submitted_results.entry(audition_id).push(result_uri.clone());
             self.performer_results.entry(performer_id).push(result_uri.clone());
-            let performer = self.performer_registry.entry(performer_id).read();
+            let performer = self.performer_registry.entry((audition_id, performer_id)).read();
             self
                 .emit(
                     Event::ResultSubmitted(ResultSubmitted { audition_id, result_uri, performer }),
@@ -680,8 +766,8 @@ pub mod SeasonAndAudition {
             self.assert_valid_season(audition.season_id);
 
             let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
-            assert(
-                existing_token_address.is_zero() && existing_amount == 0, 'Prize already deposited',
+            assert!(
+                existing_token_address.is_zero() && existing_amount == 0, "Prize already deposited",
             );
             self._process_payment(amount, token_address);
             self.audition_prices.write(audition_id, (token_address, amount));
@@ -1002,15 +1088,85 @@ pub mod SeasonAndAudition {
         }
 
 
-        // dummy implementation to register a performer to an audition
-        fn register_performer(ref self: ContractState, audition_id: u256) {
-            let performer_id = self.performers_count.read();
-            self.performer_registry.entry(performer_id).write(get_caller_address());
-            self.enrolled_performers.entry(audition_id).push(performer_id);
+        /// @notice Registers a performer only if the registration is open and the caller
+        /// is not yet registered
+        fn register_performer(
+            ref self: ContractState,
+            audition_id: u256,
+            tiktok_id: felt252,
+            tiktok_username: felt252,
+            email_hash: felt252,
+        ) -> u256 {
+            let caller = get_caller_address();
+
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
+
+            let not_registered = self
+                .performer_has_registered
+                .entry((caller, audition_id))
+                .read() == 0;
+            assert(not_registered, 'Performer already registered');
+
+            let config_opt = self.registration_config.entry(audition_id).read();
+            let config = match config_opt {
+                Option::Some(val) => val,
+                _ => Default::default(),
+            };
+
+            assert(config.registration_open, 'Registration not open');
+            let count: u256 = self.performer_count.entry(audition_id).read();
+            assert(count.try_into().unwrap() < config.max_participants, 'Max participants reached');
+            // test this...
+            let amount = config.fee_amount;
+            let (_, prize_pool) = self.audition_prices.entry(audition_id).read();
+            if amount > 0 {
+                self._process_payment(amount, config.fee_token);
+                self
+                    .audition_prices
+                    .entry(audition_id)
+                    .write((config.fee_token, prize_pool + amount));
+            }
+
+            let registration_timestamp = get_block_timestamp();
+
+            let artist = ArtistRegistration {
+                wallet_address: caller,
+                audition_id,
+                tiktok_id,
+                tiktok_username,
+                email_hash,
+                registration_fee_paid: amount,
+                registration_timestamp,
+                is_active: true,
+            };
+
+            self.registered_artists.entry((caller, audition_id)).write(artist);
+            let performer_id: u256 = count + 1;
+            self.performer_count.entry(audition_id).write(performer_id);
+            self.performer_has_registered.entry((caller, audition_id)).write(performer_id);
+            self.registration_started.entry(audition_id).write(true);
+
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
-            self.performers_count.write(performer_id + 1);
+            self.enrolled_performers.entry(audition_id).push(performer_id);
+            self.performer_registry.entry((audition_id, performer_id)).write(caller);
+
+            let performers_count = self.performers_count.read() + 1;
+            self.performers_count.write(performers_count);
+
+            let pool_size = prize_pool + amount;
+
+            let event = ArtistRegistered {
+                artist_address: caller,
+                audition_id,
+                registration_timestamp,
+                fee: amount,
+                fee_token: config.fee_token,
+                pool_size,
+            };
+            self.emit(event);
+
+            performer_id
         }
 
         // dummy implementation to get the enrolled performers for an audition
@@ -1077,8 +1233,10 @@ pub mod SeasonAndAudition {
             self.performers_count.read()
         }
 
-        fn get_performer_address(self: @ContractState, performer_id: u256) -> ContractAddress {
-            self.performer_registry.entry(performer_id).read()
+        fn get_performer_address(
+            self: @ContractState, audition_id: u256, performer_id: u256,
+        ) -> ContractAddress {
+            self.performer_registry.entry((audition_id, performer_id)).read()
         }
     }
 

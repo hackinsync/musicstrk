@@ -12,7 +12,7 @@ pub struct Season {
     pub ended: bool,
 }
 
-#[derive(Drop, Serde, Default, starknet::Store, Copy)]
+#[derive(Drop, Serde, Default, Copy, starknet::Store)]
 pub struct Audition {
     pub audition_id: u256,
     pub season_id: u256,
@@ -21,6 +21,44 @@ pub struct Audition {
     pub start_timestamp: u64,
     pub end_timestamp: u64,
     pub paused: bool,
+}
+
+#[derive(Drop, Serde, Copy, PartialEq, starknet::Store)]
+pub struct RegistrationConfig {
+    pub fee_amount: u256,
+    pub fee_token: ContractAddress,
+    pub registration_open: bool,
+    pub max_participants: u32,
+}
+
+impl RegistrationConfigDefault of Default<RegistrationConfig> {
+    /// @notice update default if necessary. Initializes with default
+    /// values and first checks if RegistrationConfig is none
+    /// This allows for additional flexibility.
+    #[inline(always)]
+    fn default() -> RegistrationConfig {
+        RegistrationConfig {
+            fee_amount: 100_000_000, // 100 usdc to it's 6 decimals
+            // usdc on starknet mainnet.
+            fee_token: 0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8
+                .try_into()
+                .unwrap(),
+            registration_open: false,
+            max_participants: 25,
+        }
+    }
+}
+
+#[derive(Drop, Serde, Copy, starknet::Store)]
+pub struct ArtistRegistration {
+    pub wallet_address: ContractAddress,
+    pub audition_id: u256,
+    pub tiktok_id: felt252,
+    pub tiktok_username: felt252, // Pre-verified off-chain
+    pub email_hash: felt252, // Privacy hash
+    pub registration_fee_paid: u256,
+    pub registration_timestamp: u64,
+    pub is_active: bool,
 }
 
 #[derive(Drop, Serde, starknet::Store, Copy, Clone, PartialEq, Default)]
