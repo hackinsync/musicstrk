@@ -1,56 +1,19 @@
-use contract_::audition::season_and_audition::{
+use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
-    ISeasonAndAuditionSafeDispatcher, SeasonAndAudition,
-};
+    ISeasonAndAuditionSafeDispatcher,
+}; //
+use contract_::audition::season_and_audition::SeasonAndAudition;
+use contract_::audition::types::season_and_audition::Genre;
 use contract_::events::VoteRecorded;
+use core::num::traits::Zero;
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
     start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
-
-// Test accounts
-fn OWNER() -> ContractAddress {
-    'OWNER'.try_into().unwrap()
-}
-
-fn ORACLE() -> ContractAddress {
-    'ORACLE'.try_into().unwrap()
-}
-
-fn VOTER1() -> ContractAddress {
-    'VOTER1'.try_into().unwrap()
-}
-
-fn VOTER2() -> ContractAddress {
-    'VOTER2'.try_into().unwrap()
-}
-
-// Helper function to deploy the contract
-fn deploy_contract() -> (
-    ISeasonAndAuditionDispatcher, IOwnableDispatcher, ISeasonAndAuditionSafeDispatcher,
-) {
-    // declare the contract
-    let contract_class = declare("SeasonAndAudition")
-        .expect('Failed to declare contract')
-        .contract_class();
-
-    // serialize constructor
-    let mut calldata: Array<felt252> = array![];
-    OWNER().serialize(ref calldata);
-
-    // deploy the contract
-    let (contract_address, _) = contract_class
-        .deploy(@calldata)
-        .expect('Failed to deploy contract');
-
-    let contract = ISeasonAndAuditionDispatcher { contract_address };
-    let ownable = IOwnableDispatcher { contract_address };
-    let safe_dispatcher = ISeasonAndAuditionSafeDispatcher { contract_address };
-
-    (contract, ownable, safe_dispatcher)
-}
+use crate::test_season_and_audition::create_default_season;
+use crate::test_utils::*;
 
 // Helper function to setup contract with oracle
 fn setup_contract_with_oracle() -> ISeasonAndAuditionDispatcher {
@@ -65,18 +28,9 @@ fn setup_contract_with_oracle() -> ISeasonAndAuditionDispatcher {
 }
 
 // Helper function to create a default audition
-fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: felt252) {
+fn create_test_audition(contract: ISeasonAndAuditionDispatcher, audition_id: u256) {
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract
-        .create_audition(
-            audition_id,
-            1, // season_id
-            'Pop',
-            'Test Audition',
-            1672531200, // start_timestamp
-            1675123200, // end_timestamp
-            false // paused
-        );
+    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
     stop_cheat_caller_address(contract.contract_address);
 }
 
@@ -85,10 +39,14 @@ fn test_record_vote_success() {
     let contract = setup_contract_with_oracle();
     let mut spy = spy_events();
 
-    let audition_id: felt252 = 1;
-    let performer: felt252 = 'performer1';
-    let voter: felt252 = 'voter1';
+    let audition_id: u256 = 1;
+    let performer: ContractAddress = 'performer1'.try_into().unwrap();
+    let voter: ContractAddress = 'voter1'.try_into().unwrap();
     let weight: felt252 = 100;
+    let season_id: u256 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    stop_cheat_caller_address(contract.contract_address);
 
     // Create audition first
     create_test_audition(contract, audition_id);
@@ -122,14 +80,43 @@ fn test_record_vote_success() {
         );
 }
 
+
+#[test]
+#[should_panic(expected: 'Season is paused')]
+fn test_record_vote_should_panic_if_season_paused() {
+    let contract = setup_contract_with_oracle();
+    let mut spy = spy_events();
+
+    let audition_id: u256 = 1;
+    let performer: ContractAddress = 'performer1'.try_into().unwrap();
+    let voter: ContractAddress = 'voter1'.try_into().unwrap();
+    let weight: felt252 = 100;
+    let season_id: u256 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Create audition first
+    create_test_audition(contract, audition_id);
+
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_season(season_id);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Record vote as oracle
+    start_cheat_caller_address(contract.contract_address, ORACLE());
+    contract.record_vote(audition_id, performer, voter, weight);
+    stop_cheat_caller_address(contract.contract_address);
+}
+
 #[test]
 #[should_panic(expect: ('Vote already exists',))]
 fn test_record_vote_duplicate_should_fail() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id: felt252 = 1;
-    let performer: felt252 = 'performer1';
-    let voter: felt252 = 'voter1';
+    let audition_id: u256 = 1;
+    let performer: ContractAddress = 'performer1'.try_into().unwrap();
+    let voter: ContractAddress = 'voter1'.try_into().unwrap();
     let weight: felt252 = 100;
 
     // Create audition first
@@ -149,9 +136,9 @@ fn test_record_vote_duplicate_should_fail() {
 fn test_record_vote_unauthorized_should_fail() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id: felt252 = 1;
-    let performer: felt252 = 'performer1';
-    let voter: felt252 = 'voter1';
+    let audition_id: u256 = 1;
+    let performer: ContractAddress = 'performer1'.try_into().unwrap();
+    let voter: ContractAddress = 'voter1'.try_into().unwrap();
     let weight: felt252 = 100;
 
     // Create audition first
@@ -166,14 +153,17 @@ fn test_record_vote_unauthorized_should_fail() {
 #[test]
 fn test_record_multiple_votes_different_combinations() {
     let contract = setup_contract_with_oracle();
-
-    let audition_id: felt252 = 1;
-    let performer1: felt252 = 'performer1';
-    let performer2: felt252 = 'performer2';
-    let voter1: felt252 = 'voter1';
-    let voter2: felt252 = 'voter2';
+    let audition_id: u256 = 1;
+    let performer1: ContractAddress = 'performer1'.try_into().unwrap();
+    let performer2: ContractAddress = 'performer2'.try_into().unwrap();
+    let voter1: ContractAddress = 'voter1'.try_into().unwrap();
+    let voter2: ContractAddress = 'voter2'.try_into().unwrap();
     let weight: felt252 = 100;
 
+    let season_id: u256 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    stop_cheat_caller_address(contract.contract_address);
     // Create audition first
     create_test_audition(contract, audition_id);
 
@@ -209,12 +199,15 @@ fn test_record_multiple_votes_different_combinations() {
 fn test_record_votes_different_auditions() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id1: felt252 = 1;
-    let audition_id2: felt252 = 2;
-    let performer: felt252 = 'performer1';
-    let voter: felt252 = 'voter1';
+    let audition_id1: u256 = 1;
+    let audition_id2: u256 = 2;
+    let performer: ContractAddress = 'performer1'.try_into().unwrap();
+    let voter: ContractAddress = 'voter1'.try_into().unwrap();
     let weight: felt252 = 100;
-
+    let season_id: u256 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    stop_cheat_caller_address(contract.contract_address);
     // Create auditions first
     create_test_audition(contract, audition_id1);
     create_test_audition(contract, audition_id2);
@@ -245,12 +238,16 @@ fn test_record_votes_different_auditions() {
 fn test_get_vote_nonexistent_returns_default() {
     let contract = setup_contract_with_oracle();
 
-    let audition_id: felt252 = 1;
-    let performer: felt252 = 'performer1';
-    let voter: felt252 = 'voter1';
+    let audition_id: u256 = 1;
+    let performer: ContractAddress = 'performer1'.try_into().unwrap();
+    let voter: ContractAddress = 'voter1'.try_into().unwrap();
+    let season_id: u256 = 1;
+    start_cheat_caller_address(contract.contract_address, OWNER());
 
-    // Create audition first
+    default_contract_create_season(contract);
     create_test_audition(contract, audition_id);
+
+    stop_cheat_caller_address(contract.contract_address);
 
     // Try to get non-existent vote
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -259,7 +256,7 @@ fn test_get_vote_nonexistent_returns_default() {
 
     // Should return default vote (all zeros)
     assert!(vote.audition_id == 0, "Should return default vote");
-    assert!(vote.performer == 0, "Should return default vote");
-    assert!(vote.voter == 0, "Should return default vote");
+    assert!(vote.performer.is_zero(), "Should return default vote");
+    assert!(vote.voter.is_zero(), "Should return default vote");
     assert!(vote.weight == 0, "Should return default vote");
 }

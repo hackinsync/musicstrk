@@ -11,38 +11,9 @@ use snforge_std::{
     cheat_caller_address, declare, spy_events,
 };
 use starknet::ContractAddress;
-
-fn owner() -> ContractAddress {
-    'owner'.try_into().unwrap()
-}
-
-fn zero() -> ContractAddress {
-    0.try_into().unwrap()
-}
-
-fn kim() -> ContractAddress {
-    'kim'.try_into().unwrap()
-}
-
-fn thurston() -> ContractAddress {
-    'thurston'.try_into().unwrap()
-}
-
-fn lee() -> ContractAddress {
-    'lee'.try_into().unwrap()
-}
+use crate::test_utils::{OWNER, deploy_music_share_token, kim, zero};
 
 pub const TOTAL_SHARES: u256 = 100_u256;
-
-// Helper function to deploy the music share token contract
-fn deploy_music_share_token() -> ContractAddress {
-    let owner = owner();
-    let contract_class = declare("MusicStrk").unwrap().contract_class();
-    let mut calldata = array![];
-    calldata.append_serde(owner);
-    let (contract_address, _) = contract_class.deploy(@calldata).unwrap();
-    contract_address
-}
 
 
 #[test]
@@ -57,7 +28,7 @@ fn test_initialization_emits_events() {
     let mut spy = spy_events();
 
     // Initialize the token
-    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, OWNER(), CheatSpan::TargetCalls(1));
     share_token.initialize(recipient, metadata_uri.clone(), "RecordToken", "REC", 2);
 
     // Get emitted events
@@ -116,7 +87,7 @@ fn test_burn_emits_events() {
     let burn_amount: u256 = 20;
 
     // Initialize the token
-    cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(contract_address, OWNER(), CheatSpan::TargetCalls(1));
     share_token.initialize(recipient, metadata_uri.clone(), "RecordToken", "REC", 2);
 
     // Burn tokens (called by `mint` recipient)
@@ -188,7 +159,7 @@ fn test_burn_emits_events() {
 //     let mut spy = spy_events();
 
 //     // Initialize the token
-//     cheat_caller_address(contract_address, owner(), CheatSpan::TargetCalls(1));
+//     cheat_caller_address(contract_address, OWNER(), CheatSpan::TargetCalls(1));
 //     share_token.initialize(sender, metadata_uri.clone(), "RecordToken", "REC", 2);
 
 //     // Transfer zero tokens
