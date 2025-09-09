@@ -1,5 +1,6 @@
 use contract_::audition::types::season_and_audition::{
-    Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote, VoteType, UnifiedVote, VotingConfig, ArtistScore,
+    Appeal, ArtistRegistration, ArtistScore, Audition, Evaluation, Genre, RegistrationConfig,
+    Season, UnifiedVote, Vote, VoteType, VotingConfig,
 };
 use starknet::ContractAddress;
 
@@ -246,10 +247,7 @@ pub trait ISeasonAndAudition<TContractState> {
     /// @param artist_id The ID of the artist being voted for
     /// @param ipfs_content_hash Pre-validated IPFS hash containing vote commentary
     fn cast_vote(
-        ref self: TContractState,
-        audition_id: u256,
-        artist_id: u256,
-        ipfs_content_hash: felt252,
+        ref self: TContractState, audition_id: u256, artist_id: u256, ipfs_content_hash: felt252,
     );
 
     /// @notice Sets voting configuration for an audition

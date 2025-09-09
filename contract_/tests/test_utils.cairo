@@ -85,7 +85,7 @@ pub fn deploy_contract() -> (
 ) {
     // Deploy real staking contract first
     let staking_dispatcher = deploy_staking_contract();
-    
+
     // declare the audition contract
     let contract_class = declare("SeasonAndAudition")
         .expect('Failed to declare SAudition')
@@ -115,7 +115,7 @@ pub fn deploy_contracts_with_staking() -> (
 ) {
     // Deploy real staking contract first
     let staking_dispatcher = deploy_staking_contract();
-    
+
     // declare the audition contract
     let contract_class = declare("SeasonAndAudition")
         .expect('Failed to declare SAudition')
