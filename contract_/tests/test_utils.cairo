@@ -2,6 +2,9 @@ use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher,
 };
+use contract_::audition::interfaces::istake_to_vote::{
+    IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
+};
 use contract_::audition::types::season_and_audition::{
     Appeal, Audition, Evaluation, Genre, Season, Vote,
 };
@@ -58,19 +61,41 @@ pub fn VOTER2() -> ContractAddress {
     'VOTER2'.try_into().unwrap()
 }
 
+// Helper function to deploy staking contract
+pub fn deploy_staking_contract() -> IStakeToVoteDispatcher {
+    // Deploy staking contract
+    let staking_class = declare("StakeToVote")
+        .expect('Failed to declare StakeToVote')
+        .contract_class();
+
+    let mut staking_calldata: Array<felt252> = array![];
+    OWNER().serialize(ref staking_calldata);
+    zero().serialize(ref staking_calldata); // temporary audition address, will be updated
+
+    let (staking_address, _) = staking_class
+        .deploy(@staking_calldata)
+        .expect('Failed to deploy StakeToVote');
+
+    IStakeToVoteDispatcher { contract_address: staking_address }
+}
+
 // Helper function to deploy the contract
 pub fn deploy_contract() -> (
     ISeasonAndAuditionDispatcher, IOwnableDispatcher, ISeasonAndAuditionSafeDispatcher,
 ) {
-    // declare the contract
+    // Deploy real staking contract first
+    let staking_dispatcher = deploy_staking_contract();
+    
+    // declare the audition contract
     let contract_class = declare("SeasonAndAudition")
-        .expect('Failed to declare counter')
+        .expect('Failed to declare SAudition')
         .contract_class();
 
     // serialize constructor
     let mut calldata: Array<felt252> = array![];
 
     OWNER().serialize(ref calldata);
+    staking_dispatcher.contract_address.serialize(ref calldata);
 
     // deploy the contract
     let (contract_address, _) = contract_class
@@ -82,6 +107,35 @@ pub fn deploy_contract() -> (
     let safe_dispatcher = ISeasonAndAuditionSafeDispatcher { contract_address };
 
     (contract, ownable, safe_dispatcher)
+}
+
+// Helper function to deploy both contracts and return both
+pub fn deploy_contracts_with_staking() -> (
+    ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher, IOwnableDispatcher,
+) {
+    // Deploy real staking contract first
+    let staking_dispatcher = deploy_staking_contract();
+    
+    // declare the audition contract
+    let contract_class = declare("SeasonAndAudition")
+        .expect('Failed to declare SAudition')
+        .contract_class();
+
+    // serialize constructor
+    let mut calldata: Array<felt252> = array![];
+
+    OWNER().serialize(ref calldata);
+    staking_dispatcher.contract_address.serialize(ref calldata);
+
+    // deploy the contract
+    let (contract_address, _) = contract_class
+        .deploy(@calldata)
+        .expect('Failed to deploy contract');
+
+    let contract = ISeasonAndAuditionDispatcher { contract_address };
+    let ownable = IOwnableDispatcher { contract_address };
+
+    (contract, staking_dispatcher, ownable)
 }
 
 // Helper function to create a default Season struct

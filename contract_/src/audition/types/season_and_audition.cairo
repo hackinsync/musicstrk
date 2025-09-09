@@ -49,6 +49,42 @@ pub struct Vote {
     pub weight: felt252,
 }
 
+#[derive(Drop, Serde, starknet::Store, PartialEq, Clone, Copy)]
+#[allow(starknet::store_no_default_variant)]
+pub enum VoteType {
+    Judge,
+    Staker,
+}
+
+#[derive(Drop, Serde, Default, starknet::Store)]
+pub struct UnifiedVote {
+    pub voter: ContractAddress,
+    pub artist_id: u256,
+    pub audition_id: u256,
+    pub weight: u256,
+    pub vote_type: VoteType,
+    pub ipfs_content_hash: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, Serde, Default, starknet::Store, Copy)]
+pub struct VotingConfig {
+    pub voting_start_time: u64,
+    pub voting_end_time: u64,
+    pub staker_base_weight: u256,
+    pub judge_base_weight: u256,
+    pub celebrity_weight_multiplier: u256,
+}
+
+#[derive(Drop, Serde, Default, starknet::Store, Copy)]
+pub struct ArtistScore {
+    pub artist_id: u256,
+    pub total_score: u256,
+    pub judge_votes: u32,
+    pub staker_votes: u32,
+    pub last_updated: u64,
+}
+
 /// @notice Evaluation struct for storing performer evaluations
 /// @param audition_id The ID of the audition being evaluated
 /// @param performer The address of the performer being evaluated
@@ -69,6 +105,12 @@ pub struct Appeal {
     pub reason: felt252,
     pub resolved: bool,
     pub resolution_comment: felt252,
+}
+
+impl DefaultVoteType of Default<VoteType> {
+    fn default() -> VoteType {
+        VoteType::Staker
+    }
 }
 
 // Implement default for contract address type
