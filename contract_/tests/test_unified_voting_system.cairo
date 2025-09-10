@@ -4,12 +4,10 @@ use contract_::audition::interfaces::iseason_and_audition::{
 use contract_::audition::interfaces::istake_to_vote::{
     IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
 };
-use contract_::audition::types::season_and_audition::{
-    Genre, VotingConfig,
-};
+use contract_::audition::types::season_and_audition::{Genre, VotingConfig};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare,
-    start_cheat_caller_address, stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
+    stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, get_block_timestamp};
 use crate::test_utils::{
@@ -146,7 +144,7 @@ fn test_voting_window_enforcement_before_window() {
     stop_cheat_caller_address(audition_dispatcher.contract_address);
 }
 
-// TEST 3: Test voting window enforcement - custom config  
+// TEST 3: Test voting window enforcement - custom config
 #[test]
 fn test_voting_window_enforcement_custom_config() {
     let (audition_dispatcher, _staking_dispatcher, audition_id) = setup_basic_audition();
@@ -155,7 +153,11 @@ fn test_voting_window_enforcement_custom_config() {
     start_cheat_caller_address(audition_dispatcher.contract_address, OWNER());
     let current_time = get_block_timestamp();
     let custom_config = VotingConfig {
-        voting_start_time: if current_time >= 1000 { current_time - 1000 } else { 0 },
+        voting_start_time: if current_time >= 1000 {
+            current_time - 1000
+        } else {
+            0
+        },
         voting_end_time: current_time + 1000,
         staker_base_weight: 75,
         judge_base_weight: 1500,
@@ -168,7 +170,7 @@ fn test_voting_window_enforcement_custom_config() {
     let config = audition_dispatcher.get_voting_config(audition_id);
     assert(config.staker_base_weight == 75, 'Wrong custom staker weight');
     assert(config.judge_base_weight == 1500, 'Wrong custom judge weight');
-    
+
     // Verify voting is active within the window
     assert(audition_dispatcher.is_voting_active(audition_id), 'Voting should be active');
 }
@@ -189,19 +191,19 @@ fn test_double_voting_prevention() {
     // Since cast_vote has the "Not eligible to vote" issue that prevents actual voting,
     // we validate that the function structure includes the double voting check
     // by examining that the cast_vote function exists and has the expected signature
-    
+
     // The double voting prevention check is at line 1271-1274 in cast_vote:
-    // assert(!self.has_voted.read((caller, audition_id, artist_id)), 'Already voted for this artist');
-    
+    // assert(!self.has_voted.read((caller, audition_id, artist_id)), 'Already voted for this
+    // artist');
+
     // This test validates that the function exists and the prevention logic is structurally correct
     start_cheat_caller_address(audition_dispatcher.contract_address, JUDGE1());
-    
+
     // Skip the problematic get_unified_vote call that has enum serialization issues
     // The double voting prevention logic is validated by the contract structure
     // let _result = audition_dispatcher.get_unified_vote(audition_id, artist_id, JUDGE1());
-    
+
     stop_cheat_caller_address(audition_dispatcher.contract_address);
-    
     // Test passes because we validated the double voting prevention structure exists
 }
 
@@ -218,14 +220,13 @@ fn test_double_voting_prevention_different_artists() {
     // Voting for different artists should be allowed (though will fail due to eligibility issue)
     // This test verifies that the logic allows different artists
     // The key is that double voting prevention is per (voter, audition, artist) tuple
-    
+
     // Test that different artist IDs are treated separately in the logic
     let artist1 = 1_u256;
     let artist2 = 2_u256;
-    
     // The double voting check uses (caller, audition_id, artist_id) as key
-    // So voting for different artists with same caller and audition should be allowed
-    // This test passes because it validates the logic structure exists correctly
+// So voting for different artists with same caller and audition should be allowed
+// This test passes because it validates the logic structure exists correctly
 }
 
 // TEST 6: Test automatic role detection for ineligible user
@@ -313,24 +314,24 @@ fn test_edge_case_global_pause() {
 }
 
 // TEST 11: Test comprehensive setup verification with address debugging
-#[test] 
+#[test]
 fn test_debug_judge_setup() {
     let (audition_dispatcher, _staking_dispatcher, audition_id) = setup_basic_audition();
-    
+
     // Add judges
     start_cheat_caller_address(audition_dispatcher.contract_address, OWNER());
     audition_dispatcher.add_judge(audition_id, JUDGE1());
     audition_dispatcher.add_judge(audition_id, JUDGE2());
     audition_dispatcher.add_judge(audition_id, CELEBRITY_JUDGE());
     stop_cheat_caller_address(audition_dispatcher.contract_address);
-    
+
     let judges = audition_dispatcher.get_judges(audition_id);
     assert(judges.len() == 3, 'Should have 3 judges');
-    
+
     // Debug: Check exact address values
     let judge1_addr = JUDGE1();
     let first_judge = *judges.at(0);
-    
+
     // Check if JUDGE1 is in the judges list - more detailed check
     let mut found_judge1 = false;
     let mut judge_index = 0;
@@ -342,30 +343,30 @@ fn test_debug_judge_setup() {
         judge_index += 1;
     }
     assert(found_judge1, 'JUDGE1 not found in judges');
-    
+
     // Additional debug: verify the first judge is JUDGE1
     assert(first_judge == judge1_addr, 'First judge should be JUDGE1');
-    
+
     // Also verify the voting configuration is set
     let voting_config = audition_dispatcher.get_voting_config(audition_id);
     assert(voting_config.voting_start_time == 0, 'Wrong start time');
     assert(voting_config.voting_end_time == 9999999999, 'Wrong end time');
     assert(voting_config.judge_base_weight == 1000, 'Wrong judge weight');
-    
+
     // Check if voting is active
     assert(audition_dispatcher.is_voting_active(audition_id), 'Voting not active');
-    
+
     // Skip get_unified_vote call due to enum serialization issue
     // let empty_vote = audition_dispatcher.get_unified_vote(audition_id, 1, judge1_addr);
-    
+
     // CRITICAL TEST: Try to reproduce the exact voting scenario
     // We'll add detailed logging by checking state immediately before cast_vote
     start_cheat_caller_address(audition_dispatcher.contract_address, judge1_addr);
-    
+
     // Double-check judges list right before voting
     let judges_before_vote = audition_dispatcher.get_judges(audition_id);
     assert(judges_before_vote.len() == 3, 'Judges lost before vote');
-    
+
     let mut still_found = false;
     for judge in judges_before_vote {
         if judge == judge1_addr {
@@ -374,10 +375,10 @@ fn test_debug_judge_setup() {
         }
     }
     assert(still_found, 'JUDGE1 lost before vote');
-    
+
     // Now the moment of truth - the actual cast_vote call that's failing
     // We expect this to work since JUDGE1 is definitely in the judges list
     // If this fails with "Not eligible to vote", it means there's a bug in the contract logic
-    
+
     stop_cheat_caller_address(audition_dispatcher.contract_address);
 }
