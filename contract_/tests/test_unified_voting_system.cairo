@@ -8,14 +8,15 @@ use contract_::audition::types::season_and_audition::{
     ArtistScore, Genre, UnifiedVote, VoteType, VotingConfig,
 };
 use contract_::events::{ArtistScoreUpdated, CelebrityJudgeSet, UnifiedVoteCast, VotingConfigSet};
+use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
-    EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp, start_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, declare, EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp, start_cheat_caller_address,
     stop_cheat_block_timestamp, stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 use crate::test_utils::{
     NON_OWNER, OWNER, USER, default_contract_create_audition, default_contract_create_season,
-    deploy_contracts_with_staking,
+    deploy_contracts_with_staking as deploy_season_and_audition_contract, deploy_mock_erc20_contract, create_default_season, create_default_audition,
 };
 
 // Test helper functions for addresses
@@ -56,50 +57,87 @@ fn IPFS_HASH_3() -> felt252 {
     'QmT78zSuBmHaJ56dDQa'
 }
 
-// Helper function to setup audition with participants
+// Deploy contracts using the exact same pattern as working tests
+fn deploy_contracts() -> (ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher) {
+    // Use the working deploy_contracts_with_staking pattern which properly sets up both contracts
+    let (season_and_audition, stake_to_vote, _) = deploy_season_and_audition_contract();
+    (season_and_audition, stake_to_vote)
+}
+
+// Helper function to setup audition with participants - exact same pattern as test_stake_to_vote.cairo
 fn setup_audition_with_participants() -> (
     ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher, u256,
 ) {
-    let (audition_dispatcher, staking_dispatcher, _) = deploy_contracts_with_staking();
+    let (season_and_audition, stake_to_vote) = deploy_contracts();
+    let mock_token = deploy_mock_erc20_contract();
+    let audition_id: u256 = 1;
+    let season_id: u256 = 1;
 
-    start_cheat_caller_address(audition_dispatcher.contract_address, OWNER());
-    start_cheat_caller_address(staking_dispatcher.contract_address, OWNER());
-
-    // Create season and audition
-    default_contract_create_season(audition_dispatcher);
-    default_contract_create_audition(audition_dispatcher);
-
-    let audition_id = 1_u256;
+    // Create a new audition as the owner - exact same pattern
+    start_cheat_caller_address(season_and_audition.contract_address, OWNER());
+    let default_season = create_default_season(season_id);
+    season_and_audition
+        .create_season(
+            default_season.name, default_season.start_timestamp, default_season.end_timestamp,
+        );
+    let default_audition = create_default_audition(audition_id, season_id);
+    season_and_audition.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Add judges
-    audition_dispatcher.add_judge(audition_id, JUDGE1());
-    audition_dispatcher.add_judge(audition_id, JUDGE2());
-    audition_dispatcher.add_judge(audition_id, CELEBRITY_JUDGE());
+    season_and_audition.add_judge(audition_id, JUDGE1());
+    season_and_audition.add_judge(audition_id, JUDGE2());
+    season_and_audition.add_judge(audition_id, CELEBRITY_JUDGE());
 
     // Set celebrity judge with higher weight
-    audition_dispatcher.set_celebrity_judge(audition_id, CELEBRITY_JUDGE(), 200); // 2x multiplier
+    season_and_audition.set_celebrity_judge(audition_id, CELEBRITY_JUDGE(), 200); // 2x multiplier
+    
+    // Set voting configuration to enable voting
+    let voting_config = VotingConfig {
+        voting_start_time: 0,
+        voting_end_time: 9999999999, // Far future
+        staker_base_weight: 50,
+        judge_base_weight: 1000,
+        celebrity_weight_multiplier: 2,
+    };
+    season_and_audition.set_voting_config(audition_id, voting_config);
+    
+    stop_cheat_caller_address(season_and_audition.contract_address);
 
-    // Set up staking configuration for the audition
-    let stake_token_address = contract_address_const::<0x1234>();
-    staking_dispatcher
-        .set_staking_config(
-            audition_id, 1000, stake_token_address, 86400,
-        ); // 1 day withdrawal delay
+    // Set up staking - same as working test
+    start_cheat_caller_address(stake_to_vote.contract_address, OWNER());
+    stake_to_vote.set_staking_config(audition_id, 1000, mock_token.contract_address, 86400);
+    stop_cheat_caller_address(stake_to_vote.contract_address);
 
-    // Add eligible stakers by having them stake
-    start_cheat_caller_address(staking_dispatcher.contract_address, STAKER1());
-    staking_dispatcher.stake_to_vote(audition_id);
+    start_cheat_caller_address(mock_token.contract_address, OWNER());
+    // Mint some tokens to stakers for testing,
+    mock_token.transfer(STAKER1(), 1000000);
+    mock_token.transfer(STAKER2(), 1000000);
+    mock_token.transfer(STAKER3(), 1000000);
+    stop_cheat_caller_address(mock_token.contract_address);
 
-    start_cheat_caller_address(staking_dispatcher.contract_address, STAKER2());
-    staking_dispatcher.stake_to_vote(audition_id);
+    // Set up allowances and stake for each staker
+    start_cheat_caller_address(mock_token.contract_address, STAKER1());
+    mock_token.approve(stake_to_vote.contract_address, 1000);
+    stop_cheat_caller_address(mock_token.contract_address);
+    start_cheat_caller_address(stake_to_vote.contract_address, STAKER1());
+    stake_to_vote.stake_to_vote(audition_id);
+    stop_cheat_caller_address(stake_to_vote.contract_address);
+    
+    start_cheat_caller_address(mock_token.contract_address, STAKER2());
+    mock_token.approve(stake_to_vote.contract_address, 1000);
+    stop_cheat_caller_address(mock_token.contract_address);
+    start_cheat_caller_address(stake_to_vote.contract_address, STAKER2());
+    stake_to_vote.stake_to_vote(audition_id);
+    stop_cheat_caller_address(stake_to_vote.contract_address);
 
-    start_cheat_caller_address(staking_dispatcher.contract_address, STAKER3());
-    staking_dispatcher.stake_to_vote(audition_id);
+    start_cheat_caller_address(mock_token.contract_address, STAKER3());
+    mock_token.approve(stake_to_vote.contract_address, 1000);
+    stop_cheat_caller_address(mock_token.contract_address);
+    start_cheat_caller_address(stake_to_vote.contract_address, STAKER3());
+    stake_to_vote.stake_to_vote(audition_id);
+    stop_cheat_caller_address(stake_to_vote.contract_address);
 
-    stop_cheat_caller_address(audition_dispatcher.contract_address);
-    stop_cheat_caller_address(staking_dispatcher.contract_address);
-
-    (audition_dispatcher, staking_dispatcher, audition_id)
+    (season_and_audition, stake_to_vote, audition_id)
 }
 
 // TEST 1: Integration test with both judge and staker votes
