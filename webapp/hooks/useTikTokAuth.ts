@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-interface TikTokAuthResult {
+export interface TikTokAuthResult {
   accessToken: string;
   openId: string;
   userInfo: {

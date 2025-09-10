@@ -2,14 +2,16 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Music, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { useTikTokAuth } from "@/hooks/useTikTokAuth";
+import type { TikTokAuthResult } from "@/hooks/useTikTokAuth";
+import Image from "next/image";
 
 interface TikTokAuthStepProps {
-  onAuthSuccess: (authData: any) => void;
+  onAuthSuccess: (authData: TikTokAuthResult) => void;
   onNext: () => void;
-  isAuthenticated: boolean;
+  // Removed unused isAuthenticated prop
 }
 
-export function TikTokAuthStep({ onAuthSuccess, onNext, isAuthenticated }: TikTokAuthStepProps) {
+export function TikTokAuthStep({ onAuthSuccess, onNext }: Omit<TikTokAuthStepProps, 'isAuthenticated'>) {
   const { isAuthenticating, authResult, error, authenticateWithTikTok, reset } = useTikTokAuth();
 
   const handleTikTokAuth = async () => {
@@ -84,7 +86,7 @@ export function TikTokAuthStep({ onAuthSuccess, onNext, isAuthenticated }: TikTo
               
               <div className="bg-[#0f0f1f] border border-[#00f5d4]/30 rounded-md p-4 mt-4">
                 <div className="flex items-center justify-center space-x-4">
-                  <img 
+                  <Image
                     src={authResult.userInfo.avatarUrl} 
                     alt="TikTok Avatar" 
                     className="w-12 h-12 rounded-full border-2 border-[#00f5d4]/50"

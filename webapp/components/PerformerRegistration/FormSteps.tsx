@@ -7,20 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FormData, FormErrors } from "@/hooks/usePerformerForm"
 import { STEPS, MUSIC_GENRES } from "@/constants/formConstants"
 import { TikTokAuthStep } from "./TikTokAuthStep"
+import type { TikTokAuthResult } from "@/hooks/useTikTokAuth"
 
 interface FormStepProps {
-  currentStep: number
-  formData: FormData
-  errors: FormErrors
-  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  handleSelectChange: (name: string, value: string) => void
-  handleTikTokAuthSuccess: (authData: any) => void 
-  handleNext: () => void
-  handlePrevious: () => void
-  handleSubmit: () => void
-  isSubmitting: boolean
-  isConnecting: boolean
-  connectWallet: () => Promise<string>
+  currentStep: number;
+  formData: FormData;
+  errors: FormErrors;
+  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSelectChange: (name: string, value: string) => void;
+  handleTikTokAuthSuccess: (authData: TikTokAuthResult) => void;
+  handleNext: () => void;
+  handlePrevious: () => void;
+  handleSubmit: () => void;
+  isSubmitting: boolean;
+  isConnecting: boolean;
+  connectWallet: () => Promise<string>;
 }
 
 export function FormStepContent({ 
@@ -50,7 +51,6 @@ export function FormStepContent({
         return <TikTokAuthStep 
                  onAuthSuccess={handleTikTokAuthSuccess}
                  onNext={handleNext}
-                 isAuthenticated={!!formData.tiktokAuthData}
                />
       case STEPS.SOCIAL_MEDIA:
         return <SocialMediaStep 
@@ -173,7 +173,7 @@ function BasicInfoStep({
           }`}
         />
         {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-        <p className="text-xs text-white/50">We'll use this to contact you about your audition</p>
+        <p className="text-xs text-white/50">We&apos;ll use this to contact you about your audition</p>
       </div>
 
       <div className="space-y-2">

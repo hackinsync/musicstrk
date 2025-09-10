@@ -7,7 +7,7 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ConnectWalletButton } from './components/connect-wallet-button'
 import { WalletModal } from './components/wallet-modal'
-import { Check, ChevronLeft, Copy, RotateCcw } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { useAccount } from '@starknet-react/core'
 
 function CopyAddressButton() {
