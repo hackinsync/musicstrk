@@ -13,9 +13,9 @@ use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_block_timestamp,
-    start_cheat_caller_address, stop_cheat_block_timestamp, stop_cheat_caller_address,
+    start_cheat_caller_address, stop_cheat_caller_address,
 };
-use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
+use starknet::{ContractAddress, get_block_timestamp};
 
 // Test constants
 const AUDITION_ID: u256 = 1;
@@ -27,27 +27,27 @@ const INITIAL_TOKEN_SUPPLY: u256 = 1000000000000; // 1M tokens with 6 decimals
 
 // Test accounts
 fn OWNER() -> ContractAddress {
-    contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 fn STAKER1() -> ContractAddress {
-    contract_address_const::<'staker1'>()
+    'staker1'.try_into().unwrap()
 }
 
 fn STAKER2() -> ContractAddress {
-    contract_address_const::<'staker2'>()
+    'staker2'.try_into().unwrap()
 }
 
 fn STAKER3() -> ContractAddress {
-    contract_address_const::<'staker3'>()
+    'staker3'.try_into().unwrap()
 }
 
 fn NON_STAKER() -> ContractAddress {
-    contract_address_const::<'non_staker'>()
+    'non_staker'.try_into().unwrap()
 }
 
 fn UNAUTHORIZED_USER() -> ContractAddress {
-    contract_address_const::<'unauthorized'>()
+    'unauthorized'.try_into().unwrap()
 }
 
 // Deploy audition contract for integration testing
@@ -250,7 +250,7 @@ fn test_set_audition_contract() {
 
     start_cheat_caller_address(withdrawal_contract.contract_address, OWNER());
 
-    let new_audition_contract = contract_address_const::<'new_audition'>();
+    let new_audition_contract: ContractAddress = 'new_audition'.try_into().unwrap();
     withdrawal_contract.set_audition_contract(new_audition_contract);
 
     stop_cheat_caller_address(withdrawal_contract.contract_address);
@@ -263,7 +263,7 @@ fn test_set_audition_contract_unauthorized() {
 
     start_cheat_caller_address(withdrawal_contract.contract_address, UNAUTHORIZED_USER());
 
-    let new_audition_contract = contract_address_const::<'new_audition'>();
+    let new_audition_contract = 'new_audition'.try_into().unwrap();
     withdrawal_contract.set_audition_contract(new_audition_contract);
 
     stop_cheat_caller_address(withdrawal_contract.contract_address);
@@ -494,7 +494,7 @@ fn test_get_withdrawn_stakers_empty() {
 
 #[test]
 fn test_audition_contract_integration_no_contract() {
-    let zero_address = contract_address_const::<0>();
+    let zero_address = 0.try_into().unwrap();
     let withdrawal_contract = deploy_stake_withdrawal_contract(zero_address, zero_address);
 
     let results_finalized = withdrawal_contract.are_results_finalized(AUDITION_ID);
@@ -539,7 +539,7 @@ fn test_zero_address_staker() {
     let (withdrawal_contract, _, _, _) = setup();
 
     // Zero address should not be able to withdraw since no staker info exists
-    let zero_address = contract_address_const::<0>();
+    let zero_address = 0.try_into().unwrap();
     let can_withdraw = withdrawal_contract.can_withdraw_stake(zero_address, AUDITION_ID);
     assert!(!can_withdraw, "Should not be able to withdraw for zero address");
 }
@@ -642,7 +642,7 @@ fn test_large_audition_ids() {
 
 #[test]
 fn test_multiple_batch_operations() {
-    let (withdrawal_contract, _, audition_contract, _) = setup();
+    let (withdrawal_contract, _, _, _) = setup();
 
     // Create many audition IDs for batch testing
     let audition_ids = array![

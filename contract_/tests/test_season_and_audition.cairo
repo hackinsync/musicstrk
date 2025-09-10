@@ -2,36 +2,21 @@ use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcherTrait, ISeasonAndAuditionSafeDispatcherTrait,
 };
 use contract_::audition::season_and_audition::SeasonAndAudition;
-use contract_::audition::types::season_and_audition::{
-    Appeal, Audition, Evaluation, Genre, Season, Vote,
-};
+use contract_::audition::types::season_and_audition::Genre;
 use contract_::events::{
-    AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-    AuditionUpdated, PriceDeposited, PriceDistributed, ResultSubmitted, SeasonCreated,
-    SeasonDeleted, SeasonUpdated,
+    AuditionCalculationCompleted, AuditionCreated, AuditionEnded, AuditionPaused, AuditionResumed,
+    AuditionUpdated, JudgeAdded, JudgeRemoved, PriceDeposited, PriceDistributed, ResultSubmitted,
+    SeasonCreated, SeasonUpdated,
 };
-use openzeppelin::access::ownable::interface::IOwnableDispatcher;
-use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin::token::erc20::interface::IERC20DispatcherTrait;
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
-    start_cheat_block_timestamp, start_cheat_caller_address, stop_cheat_block_timestamp,
-    stop_cheat_caller_address,
+    EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp, start_cheat_caller_address,
+    stop_cheat_block_timestamp, stop_cheat_caller_address,
 };
-use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
+use starknet::{ContractAddress, get_block_timestamp};
 use crate::test_audition_registration::{feign_artists_registration, feign_update_config};
 use crate::test_utils::*;
 
-fn performer() -> ContractAddress {
-    'performerid'.try_into().unwrap()
-}
-
-fn performer2() -> ContractAddress {
-    'performerid2'.try_into().unwrap()
-}
-
-fn performer3() -> ContractAddress {
-    'performerid3'.try_into().unwrap()
-}
 
 #[test]
 fn test_create_season_successfully() {
@@ -49,7 +34,6 @@ fn test_create_season_successfully() {
     assert!(read_season.start_timestamp == 1672531200, "Failed to read season start timestamp");
     assert!(read_season.end_timestamp == 1675123200, "Failed to read season end timestamp");
     assert!(!read_season.paused, "Failed to read season paused");
-
     assert!(contract.get_active_season() == Some(season_id), "Failed to get active season");
 
     spy
@@ -279,13 +263,8 @@ fn test_create_audition() {
 #[should_panic(expected: 'Season is paused')]
 fn test_create_audition_should_panic_if_season_paused() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
-    // Define audition ID and season ID
-    let audition_id: u256 = 1;
     let season_id: u256 = 1;
-
-    // Create default audition
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -298,12 +277,10 @@ fn test_create_audition_should_panic_if_season_paused() {
 }
 
 #[test]
-// // #[ignore]
 fn test_audition_deposit_price_successful() {
     let (contract, _, _) = deploy_contract();
     let mut spy = spy_events();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -345,11 +322,9 @@ fn test_audition_deposit_price_successful() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Season is paused')]
 fn test_audition_deposit_price_should_panic_if_season_paused() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
 
@@ -373,12 +348,10 @@ fn test_audition_deposit_price_should_panic_if_season_paused() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Amount must be more than zero')]
 fn test_audition_deposit_price_should_panic_if_amount_is_zero() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -400,12 +373,10 @@ fn test_audition_deposit_price_should_panic_if_amount_is_zero() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Token address cannot be zero')]
 fn test_audition_deposit_price_should_panic_if_token_is_zero_address() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -413,22 +384,18 @@ fn test_audition_deposit_price_should_panic_if_token_is_zero_address() {
 
     stop_cheat_caller_address(contract.contract_address);
 
-    let zero_address = contract_address_const::<0>();
-
     start_cheat_caller_address(contract.contract_address, OWNER());
     // deposit the price into a prize pool of an audition
-    contract.deposit_prize(audition_id, zero_address, 10);
+    contract.deposit_prize(audition_id, zero(), 10);
     stop_cheat_caller_address(contract.contract_address);
 }
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: "Prize already deposited")]
 fn test_audition_deposit_price_should_panic_if_already_deposited() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -451,12 +418,10 @@ fn test_audition_deposit_price_should_panic_if_already_deposited() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Insufficient allowance')]
 fn test_audition_deposit_price_should_panic_if_insufficient_allowance() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -478,12 +443,10 @@ fn test_audition_deposit_price_should_panic_if_insufficient_allowance() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Insufficient balance')]
 fn test_audition_deposit_price_should_panic_if_insufficient_balance() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -493,7 +456,7 @@ fn test_audition_deposit_price_should_panic_if_insufficient_balance() {
 
     stop_cheat_caller_address(contract.contract_address);
 
-    let recipient = contract_address_const::<1234>();
+    let recipient: ContractAddress = 1234.try_into().unwrap();
     let owner_balance = mock_token_dispatcher.balance_of(OWNER().into());
     start_cheat_caller_address(mock_token_dispatcher.contract_address, OWNER());
     mock_token_dispatcher.transfer(recipient, owner_balance);
@@ -511,14 +474,12 @@ fn test_audition_deposit_price_should_panic_if_insufficient_balance() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Audition has already ended')]
 fn test_audition_deposit_price_should_panic_if_audition_ended_already() {
     let (contract, _, _) = deploy_contract();
     let mock_token_dispatcher = deploy_mock_erc20_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -542,7 +503,6 @@ fn test_audition_deposit_price_should_panic_if_audition_ended_already() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Audition does not exist')]
 fn test_audition_deposit_price_should_panic_if_invalid_audition_id() {
     let (contract, _, _) = deploy_contract();
@@ -564,12 +524,10 @@ fn test_audition_deposit_price_should_panic_if_invalid_audition_id() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Caller is not the owner')]
 fn test_audition_deposit_price_should_panic_if_called_by_non_owner() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -588,12 +546,10 @@ fn test_audition_deposit_price_should_panic_if_called_by_non_owner() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Contract is paused')]
 fn test_audition_deposit_price_should_panic_if_contract_is_paused() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -616,12 +572,10 @@ fn test_audition_deposit_price_should_panic_if_contract_is_paused() {
 }
 
 #[test]
-// #[ignore]
 fn test_audition_distribute_prize_successful() {
     let (contract, _, _) = deploy_contract();
     let mut spy = spy_events();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
@@ -660,18 +614,9 @@ fn test_audition_distribute_prize_successful() {
         .get_audition_winner_amounts(audition_id);
     let is_distributed_before = contract.is_prize_distributed(audition_id);
 
-    assert!(
-        w_addr1_before == contract_address_const::<0>(),
-        "Winner 1 address should be zero before distribution",
-    );
-    assert!(
-        w_addr2_before == contract_address_const::<0>(),
-        "Winner 2 address should be zero before distribution",
-    );
-    assert!(
-        w_addr3_before == contract_address_const::<0>(),
-        "Winner 3 address should be zero before distribution",
-    );
+    assert!(w_addr1_before == zero(), "Winner 1 address should be zero before distribution");
+    assert!(w_addr2_before == zero(), "Winner 2 address should be zero before distribution");
+    assert!(w_addr3_before == zero(), "Winner 3 address should be zero before distribution");
     assert!(w_amt1_before == 0, "Winner 1 amount should be zero before distribution");
     assert!(w_amt2_before == 0, "Winner 2 amount should be zero before distribution");
     assert!(w_amt3_before == 0, "Winner 3 amount should be zero before distribution");
@@ -684,9 +629,9 @@ fn test_audition_distribute_prize_successful() {
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     contract.end_audition(audition_id);
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // Check winners' balances before distribution
     let winner1_balance_before = mock_token_dispatcher.balance_of(winner1);
@@ -759,11 +704,9 @@ fn test_audition_distribute_prize_successful() {
 
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Season is paused')]
 fn test_audition_distribute_prize_should_panic_if_season_paused() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
 
@@ -804,9 +747,9 @@ fn test_audition_distribute_prize_should_panic_if_season_paused() {
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     contract.end_audition(audition_id);
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     contract.pause_season(season_id);
     // Distribute the prize
@@ -816,12 +759,10 @@ fn test_audition_distribute_prize_should_panic_if_season_paused() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Caller is not the owner')]
 fn test_audition_distribute_prize_should_panic_if_not_owner() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -837,9 +778,9 @@ fn test_audition_distribute_prize_should_panic_if_not_owner() {
     contract.deposit_prize(audition_id, mock_token_dispatcher.contract_address, 10);
     stop_cheat_caller_address(contract.contract_address);
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // Not owner
     start_cheat_caller_address(contract.contract_address, NON_OWNER());
@@ -847,12 +788,10 @@ fn test_audition_distribute_prize_should_panic_if_not_owner() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Contract is paused')]
 fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
@@ -883,9 +822,9 @@ fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
     // Pause the contract before distribution
     contract.pause_all();
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // This should panic because the contract is paused
     contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
@@ -895,13 +834,11 @@ fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Audition does not exist')]
 fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
     let invalid_audition_id: u256 = 999;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
@@ -927,9 +864,9 @@ fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
     // Prepare for distribution on a non-existent audition
     start_cheat_caller_address(contract.contract_address, OWNER());
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // This should panic because the audition ID does not exist
     contract.distribute_prize(invalid_audition_id, [winner1, winner2, winner3], [50, 30, 20]);
@@ -939,12 +876,10 @@ fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Audition must end first')]
 fn test_distribute_prize_should_panic_if_audition_not_ended() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
@@ -969,9 +904,9 @@ fn test_distribute_prize_should_panic_if_audition_not_ended() {
     // Prepare for distribution without ending the audition
     start_cheat_caller_address(contract.contract_address, OWNER());
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // This should panic because the audition has not ended yet
     contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
@@ -985,7 +920,6 @@ fn test_distribute_prize_should_panic_if_audition_not_ended() {
 fn test_distribute_prize_should_panic_if_no_prize_deposited() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     // Create audition as owner
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -998,21 +932,19 @@ fn test_distribute_prize_should_panic_if_no_prize_deposited() {
     contract.end_audition(audition_id);
 
     // Try to distribute prize without depositing any prize
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
     contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
 
     stop_cheat_caller_address(contract.contract_address);
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Prize already distributed')]
 fn test_distribute_prize_should_panic_if_already_distributed() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
@@ -1040,9 +972,9 @@ fn test_distribute_prize_should_panic_if_already_distributed() {
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     contract.end_audition(audition_id);
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // First distribution (should succeed)
     contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
@@ -1055,12 +987,10 @@ fn test_distribute_prize_should_panic_if_already_distributed() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'null contract address')]
 fn test_distribute_prize_should_panic_if_winner_is_zero_address() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
@@ -1087,9 +1017,9 @@ fn test_distribute_prize_should_panic_if_winner_is_zero_address() {
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     contract.end_audition(audition_id);
 
-    let winner1 = contract_address_const::<0>(); // Null address
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1 = zero();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // This should panic because winner1 is a zero address
     contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
@@ -1099,12 +1029,10 @@ fn test_distribute_prize_should_panic_if_winner_is_zero_address() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'total does not add up')]
 fn test_distribute_prize_should_panic_if_total_shares_not_100() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
@@ -1133,9 +1061,9 @@ fn test_distribute_prize_should_panic_if_total_shares_not_100() {
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     contract.end_audition(audition_id);
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // This should panic because shares do not add up to 100 (e.g., 40 + 30 + 20 = 90)
     contract.distribute_prize(audition_id, [winner1, winner2, winner3], [40, 30, 20]);
@@ -1145,12 +1073,10 @@ fn test_distribute_prize_should_panic_if_total_shares_not_100() {
 }
 
 #[test]
-// #[ignore]
 #[should_panic(expected: 'Insufficient balance')]
 fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     // Set up contract and audition
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -1173,7 +1099,7 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
     stop_cheat_caller_address(contract.contract_address);
 
     // Cheat: transfer all tokens from contract to a random address, draining contract balance
-    let random_address = contract_address_const::<9999>();
+    let random_address: ContractAddress = 9999.try_into().unwrap();
     let contract_balance = mock_token_dispatcher.balance_of(contract.contract_address);
     if contract_balance > 0 {
         start_cheat_caller_address(
@@ -1189,9 +1115,9 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     contract.end_audition(audition_id);
 
-    let winner1 = contract_address_const::<1111>();
-    let winner2 = contract_address_const::<2222>();
-    let winner3 = contract_address_const::<3333>();
+    let winner1: ContractAddress = 1111.try_into().unwrap();
+    let winner2: ContractAddress = 2222.try_into().unwrap();
+    let winner3: ContractAddress = 3333.try_into().unwrap();
 
     // This should panic because contract has no balance to distribute
     contract.distribute_prize(audition_id, [winner1, winner2, winner3], [50, 30, 20]);
@@ -1207,9 +1133,6 @@ fn test_update_audition() {
 
     // Define audition ID and season ID
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    // Create default audition
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -1254,13 +1177,10 @@ fn test_update_audition() {
 #[should_panic(expected: 'Season is paused')]
 fn test_update_audition_should_panic_if_season_is_paused() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define audition ID and season ID
     let audition_id: u256 = 1;
     let season_id: u256 = 1;
-
-    // Create default audition
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -1283,8 +1203,6 @@ fn test_all_crud_operations() {
     let season_id: u256 = 1;
     let audition_id: u256 = 1;
 
-    // Create default season and audition
-
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -1293,8 +1211,6 @@ fn test_all_crud_operations() {
 
     // READ Season
     let read_season = contract.read_season(season_id);
-
-    println!("Default season is {}", false);
 
     assert!(read_season.season_id == season_id, "Failed to read season");
 
@@ -1346,12 +1262,10 @@ fn test_safe_painc_only_owner_can_call_functions() {
 #[test]
 fn test_pause_audition() {
     let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
 
     // Define audition ID and season ID
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    // Create default audition
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -1360,49 +1274,12 @@ fn test_pause_audition() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // UPDATE Audition
-
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     stop_cheat_caller_address(contract.contract_address);
 
     // Pause audition
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.pause_audition(audition_id);
-
-    // check that the audition is paused
-    let is_audition_paused = contract.read_audition(audition_id);
-
-    assert(is_audition_paused.paused, 'Audition is stil not paused');
-
-    stop_cheat_caller_address(contract.contract_address);
-}
-
-
-#[test]
-fn test_emission_of_event_for_pause_audition() {
-    let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
-
-    // Define audition ID and season ID
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    // Create default audition
-
-    // Start prank to simulate the owner calling the contract
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    default_contract_create_season(contract);
-    // CREATE Audition
-    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-
-    contract.update_audition_details(audition_id, Some(1672617600), None, None);
-
-    // Pause audition
-    contract.pause_audition(audition_id);
-
-    // check that the audition is paused
-    let is_audition_paused = contract.read_audition(audition_id);
-
-    assert(is_audition_paused.paused, 'Audition is stil not paused');
 
     spy
         .assert_emitted(
@@ -1416,9 +1293,13 @@ fn test_emission_of_event_for_pause_audition() {
             ],
         );
 
+    // check that the audition is paused
+    let is_audition_paused = contract.read_audition(audition_id);
+
+    assert(is_audition_paused.paused, 'Audition is stil not paused');
+
     stop_cheat_caller_address(contract.contract_address);
 }
-
 
 #[test]
 #[should_panic(expected: 'Caller is not the owner')]
@@ -1427,9 +1308,6 @@ fn test_pause_audition_as_non_owner() {
 
     // Define audition ID and season ID
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    // Create default audition
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -1461,9 +1339,6 @@ fn test_pause_audition_twice_should_fail() {
 
     // Define audition ID and season ID
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    // Create default audition
 
     // Start prank to simulate the owner calling the contract
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -1497,7 +1372,7 @@ fn test_pause_audition_twice_should_fail() {
 #[test]
 fn test_resume_audition() {
     let (contract, _, _) = deploy_contract();
-
+    let mut spy = spy_events();
     // Define audition ID and season ID
     let audition_id: u256 = 1;
 
@@ -1508,89 +1383,6 @@ fn test_resume_audition() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // UPDATE Audition
-
-    contract.update_audition_details(audition_id, Some(1672617600), None, None);
-    stop_cheat_caller_address(contract.contract_address);
-
-    // Pause audition
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    contract.pause_audition(audition_id);
-
-    // check that the audition is paused
-    let is_audition_paused = contract.read_audition(audition_id);
-    assert(is_audition_paused.paused, 'Audition is stil not paused');
-
-    //resume_audition
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    contract.resume_audition(audition_id);
-
-    //check that contract is no longer paused
-    let is_audition_pausedv2 = contract.read_audition(audition_id);
-    assert(!is_audition_pausedv2.paused, 'Audition is still paused');
-
-    stop_cheat_caller_address(contract.contract_address);
-}
-
-
-#[test]
-#[should_panic(expected: 'Caller is not the owner')]
-fn test_attempt_resume_audition_as_non_owner() {
-    let (contract, _, _) = deploy_contract();
-
-    // Define audition ID and season ID
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    // Create default season
-    default_contract_create_season(contract);
-    // Create default audition
-
-    // Start prank to simulate the owner calling the contract
-    start_cheat_caller_address(contract.contract_address, OWNER());
-
-    // CREATE Audition
-    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-
-    contract.update_audition_details(audition_id, Some(1672617600), None, None);
-    stop_cheat_caller_address(contract.contract_address);
-
-    // Pause audition
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    contract.pause_audition(audition_id);
-
-    // check that the audition is paused
-    let is_audition_paused = contract.read_audition(audition_id);
-    assert(is_audition_paused.paused, 'Audition is stil not paused');
-
-    //resume_audition
-    start_cheat_caller_address(contract.contract_address, NON_OWNER());
-    contract.resume_audition(audition_id);
-
-    //check that contract is no longer paused
-    let is_audition_pausedv2 = contract.read_audition(audition_id);
-    assert(!is_audition_pausedv2.paused, 'Audition is still paused');
-
-    stop_cheat_caller_address(contract.contract_address);
-}
-
-
-#[test]
-fn test_emission_of_event_for_resume_audition() {
-    let (contract, _, _) = deploy_contract();
-
-    let mut spy = spy_events();
-
-    // Define audition ID and season ID
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    // Create default audition
-
-    // Start prank to simulate the owner calling the contract
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    default_contract_create_season(contract);
-    // CREATE Audition
-    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     contract.update_audition_details(audition_id, Some(1672617600), None, None);
     stop_cheat_caller_address(contract.contract_address);
@@ -1628,11 +1420,53 @@ fn test_emission_of_event_for_resume_audition() {
 
 
 #[test]
+#[should_panic(expected: 'Caller is not the owner')]
+fn test_attempt_resume_audition_as_non_owner() {
+    let (contract, _, _) = deploy_contract();
+
+    // Define audition ID and season ID
+    let audition_id: u256 = 1;
+
+    // Create default season
+    default_contract_create_season(contract);
+    // Create default audition
+
+    // Start prank to simulate the owner calling the contract
+    start_cheat_caller_address(contract.contract_address, OWNER());
+
+    // CREATE Audition
+    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
+
+    contract.update_audition_details(audition_id, Some(1672617600), None, None);
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Pause audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.pause_audition(audition_id);
+
+    // check that the audition is paused
+    let is_audition_paused = contract.read_audition(audition_id);
+    assert(is_audition_paused.paused, 'Audition is stil not paused');
+
+    //resume_audition
+    start_cheat_caller_address(contract.contract_address, NON_OWNER());
+    contract.resume_audition(audition_id);
+
+    //check that contract is no longer paused
+    let is_audition_pausedv2 = contract.read_audition(audition_id);
+    assert(!is_audition_pausedv2.paused, 'Audition is still paused');
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+
+#[test]
 fn test_end_audition() {
     let (contract, _, _) = deploy_contract();
 
+    let mut spy = spy_events();
+
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -1659,7 +1493,17 @@ fn test_end_audition() {
     // End the audition
     let end_result = contract.end_audition(audition_id);
     assert(end_result, 'End audition should succeed');
-
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::AuditionEnded(
+                        AuditionEnded { audition_id: audition_id, end_timestamp: 1672531200 },
+                    ),
+                ),
+            ],
+        );
     // Check that audition has ended properly
     let audition_has_ended = contract.read_audition(audition_id);
     assert(contract.is_audition_ended(audition_id), 'Audition should be ended');
@@ -1680,7 +1524,6 @@ fn test_end_audition_as_non_owner() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -1704,94 +1547,12 @@ fn test_end_audition_as_non_owner() {
 }
 
 #[test]
-fn test_emission_of_event_for_end_audition() {
-    let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
-    let audition_id: u256 = 1;
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    let initial_timestamp: u64 = 1672531200;
-    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
-    default_contract_create_season(contract);
-    // CREATE Audition
-    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    stop_cheat_block_timestamp(contract.contract_address);
-
-    start_cheat_block_timestamp(contract.contract_address, 1672617601);
-    let end_result = contract.end_audition(audition_id);
-    assert(end_result, 'End audition should succeed');
-    // Check that audition has ended properly
-    let audition_has_ended = contract.read_audition(audition_id);
-    assert(contract.is_audition_ended(audition_id), 'Audition should be ended');
-    assert(audition_has_ended.end_timestamp != 0, 'End timestamp should be set');
-
-    // Check event emission
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    contract.contract_address,
-                    SeasonAndAudition::Event::AuditionEnded(
-                        AuditionEnded { audition_id: audition_id, end_timestamp: 1672617601 },
-                    ),
-                ),
-            ],
-        );
-
-    stop_cheat_block_timestamp(contract.contract_address);
-    stop_cheat_caller_address(contract.contract_address);
-}
-
-
-#[test]
-fn test_end_audition_functionality() {
-    let (contract, _, _) = deploy_contract();
-
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
-    start_cheat_caller_address(contract.contract_address, OWNER());
-
-    // Set timestamp
-    let initial_timestamp: u64 = 1672531200;
-    start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
-
-    default_contract_create_season(contract);
-    // CREATE Audition
-    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-
-    contract.update_audition_details(audition_id, Some(1672617600), None, None);
-
-    // Verify audition is not ended initially
-    assert(!contract.is_audition_ended(audition_id), 'Should not be ended initially');
-
-    // End the audition
-    let end_result = contract.end_audition(audition_id);
-    assert(end_result, 'End audition should succeed');
-
-    // Check state after ending
-    let audition_after_end = contract.read_audition(audition_id);
-
-    // check that the audition has ended
-    assert(contract.is_audition_ended(audition_id), 'Audition should be ended');
-
-    assert(contract.is_audition_ended(audition_id), 'Audition should be ended');
-    assert(audition_after_end.end_timestamp != 0, 'End timestamp should be set');
-    assert(audition_after_end.end_timestamp != 1672617600, 'Should not be original end time');
-    assert(audition_after_end.end_timestamp != 0, 'End timestamp should not be 0');
-
-    println!("All tests passed!");
-
-    stop_cheat_block_timestamp(contract.contract_address);
-    stop_cheat_caller_address(contract.contract_address);
-}
-
-
-#[test]
 fn test_add_judge() {
     let (contract, _, _) = deploy_contract();
 
+    let mut spy = spy_events();
+
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -1805,8 +1566,18 @@ fn test_add_judge() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Add judge
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::JudgeAdded(JudgeAdded { audition_id, judge_address }),
+                ),
+            ],
+        );
 
     // Check that the judge has been added
     let judges = contract.get_judges(audition_id);
@@ -1839,7 +1610,7 @@ fn test_add_judge_should_panic_if_season_paused() {
 
     contract.pause_season(season_id);
     // Add judge
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 }
 
@@ -1848,7 +1619,6 @@ fn test_add_multiple_judge() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -1863,14 +1633,14 @@ fn test_add_multiple_judge() {
     let mut judges = contract.get_judges(audition_id);
     assert(judges.len() == 0, 'Judge should be empty');
     // Add judge
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     judges = contract.get_judges(audition_id);
     assert(judges.len() == 1, 'Judge should be added');
     assert(*judges.at(0) == judge_address, 'Judge should be added');
 
-    let judge_address2 = contract_address_const::<0x124>();
+    let judge_address2: ContractAddress = 0x124.try_into().unwrap();
     contract.add_judge(audition_id, judge_address2);
 
     judges = contract.get_judges(audition_id);
@@ -1878,7 +1648,7 @@ fn test_add_multiple_judge() {
     assert(*judges.at(0) == judge_address, 'Judge should be added');
     assert(*judges.at(1) == judge_address2, 'Judge should be added');
 
-    let judge_address3 = contract_address_const::<0x125>();
+    let judge_address3: ContractAddress = 0x125.try_into().unwrap();
     contract.add_judge(audition_id, judge_address3);
 
     judges = contract.get_judges(audition_id);
@@ -1897,7 +1667,6 @@ fn test_add_multiple_judge() {
 fn test_add_judges_should_panic_if_non_owner() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -1907,7 +1676,7 @@ fn test_add_judges_should_panic_if_non_owner() {
     stop_cheat_block_timestamp(contract.contract_address);
 
     start_cheat_caller_address(contract.contract_address, USER());
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
     stop_cheat_block_timestamp(contract.contract_address);
 }
@@ -1917,7 +1686,6 @@ fn test_add_judges_should_panic_if_non_owner() {
 fn test_add_judges_should_panic_if_contract_paused() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -1927,7 +1695,7 @@ fn test_add_judges_should_panic_if_contract_paused() {
 
     contract.pause_all();
 
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
     stop_cheat_block_timestamp(contract.contract_address);
 }
@@ -1938,7 +1706,7 @@ fn test_add_judges_should_panic_if_audition_does_not_exist() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
     stop_cheat_block_timestamp(contract.contract_address);
 }
@@ -1948,7 +1716,6 @@ fn test_add_judges_should_panic_if_audition_does_not_exist() {
 fn test_add_judges_should_panic_if_audition_has_ended() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -1958,7 +1725,7 @@ fn test_add_judges_should_panic_if_audition_has_ended() {
     stop_cheat_block_timestamp(contract.contract_address);
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp + 1675123200 + 10);
 
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
     stop_cheat_caller_address(contract.contract_address);
 }
@@ -1970,7 +1737,6 @@ fn test_add_judges_should_panic_if_judge_already_added() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -1985,7 +1751,7 @@ fn test_add_judges_should_panic_if_judge_already_added() {
     let mut judges = contract.get_judges(audition_id);
     assert(judges.len() == 0, 'Judge should be empty');
     // Add judge
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     judges = contract.get_judges(audition_id);
@@ -2001,31 +1767,40 @@ fn test_add_judges_should_panic_if_judge_already_added() {
 #[test]
 fn test_remove_judge() {
     let (contract, _, _) = deploy_contract();
+    let mut spy = spy_events();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
     default_contract_create_season(contract);
 
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    let judge_address = contract_address_const::<0x1777723>();
+    let judge_address: ContractAddress = 0x1777723.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 1, 'Judge should be added');
     assert(*judges.at(0) == judge_address, 'Judge should be added');
 
-    let judge_address2 = contract_address_const::<0x1777724>();
+    let judge_address2: ContractAddress = 0x1777724.try_into().unwrap();
     contract.add_judge(audition_id, judge_address2);
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 2, 'Second judge should be added');
     assert(*judges.at(1) == judge_address2, 'judge address dont match');
 
-    // print the judges
-    println!("judges: {:?}", judges);
-
     contract.remove_judge(audition_id, judge_address);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::JudgeRemoved(
+                        JudgeRemoved { audition_id, judge_address },
+                    ),
+                ),
+            ],
+        );
+
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 1, 'Judge should be removed');
     println!("judges: {:?}", judges);
@@ -2050,20 +1825,17 @@ fn test_remove_judge_should_panic_if_season_paused() {
     default_contract_create_season(contract);
 
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    let judge_address = contract_address_const::<0x1777723>();
+    let judge_address: ContractAddress = 0x1777723.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 1, 'Judge should be added');
     assert(*judges.at(0) == judge_address, 'Judge should be added');
 
-    let judge_address2 = contract_address_const::<0x1777724>();
+    let judge_address2: ContractAddress = 0x1777724.try_into().unwrap();
     contract.add_judge(audition_id, judge_address2);
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 2, 'Second judge should be added');
     assert(*judges.at(1) == judge_address2, 'judge address dont match');
-
-    // print the judges
-    println!("judges: {:?}", judges);
 
     contract.pause_season(season_id);
     contract.remove_judge(audition_id, judge_address);
@@ -2078,7 +1850,6 @@ fn test_judge_remove_can_remove_and_add_multiple_judges() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -2086,13 +1857,13 @@ fn test_judge_remove_can_remove_and_add_multiple_judges() {
     default_contract_create_season(contract);
 
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-    let judge_address = contract_address_const::<0x1777723>();
+    let judge_address: ContractAddress = 0x1777723.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 1, 'Judge should be added');
     assert(*judges.at(0) == judge_address, 'Judge should be added');
 
-    let judge_address2 = contract_address_const::<0x1777724>();
+    let judge_address2: ContractAddress = 0x1777724.try_into().unwrap();
     contract.add_judge(audition_id, judge_address2);
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 2, 'Second judge should be added');
@@ -2101,12 +1872,11 @@ fn test_judge_remove_can_remove_and_add_multiple_judges() {
     contract.remove_judge(audition_id, judge_address);
     let judges = contract.get_judges(audition_id);
     assert(judges.len() == 1, 'Judge should be removed');
-    println!("judges: {:?}", judges);
 
     assert(*judges.at(0) == judge_address2, 'Incorrect Judge removed');
     // Add two more judges
-    let judge_address3 = contract_address_const::<0x1777725>();
-    let judge_address4 = contract_address_const::<0x1777726>();
+    let judge_address3: ContractAddress = 0x1777725.try_into().unwrap();
+    let judge_address4: ContractAddress = 0x1777726.try_into().unwrap();
     contract.add_judge(audition_id, judge_address3);
     contract.add_judge(audition_id, judge_address4);
 
@@ -2124,9 +1894,9 @@ fn test_judge_remove_can_remove_and_add_multiple_judges() {
     assert(*judges.at(1) == judge_address4, 'judge4 pos1');
 
     // Add three more judges
-    let judge_address5 = contract_address_const::<0x1777727>();
-    let judge_address6 = contract_address_const::<0x1777728>();
-    let judge_address7 = contract_address_const::<0x1777729>();
+    let judge_address5: ContractAddress = 0x1777727.try_into().unwrap();
+    let judge_address6: ContractAddress = 0x1777728.try_into().unwrap();
+    let judge_address7: ContractAddress = 0x1777729.try_into().unwrap();
     contract.add_judge(audition_id, judge_address5);
     contract.add_judge(audition_id, judge_address6);
     contract.add_judge(audition_id, judge_address7);
@@ -2148,7 +1918,6 @@ fn test_judge_remove_can_remove_and_add_multiple_judges() {
 fn test_judge_remove_should_panic_if_contract_paused() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -2158,7 +1927,7 @@ fn test_judge_remove_should_panic_if_contract_paused() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Add a judge
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     // Pause the contract
@@ -2178,7 +1947,7 @@ fn test_remove_judge_should_panic_if_audition_doesnt_exist() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.remove_judge(audition_id, judge_address);
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
@@ -2189,7 +1958,6 @@ fn test_remove_judge_should_panic_if_audition_doesnt_exist() {
 fn test_remove_judge_should_panic_if_audition_has_ended() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -2199,7 +1967,7 @@ fn test_remove_judge_should_panic_if_audition_has_ended() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Add a judge
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     // Move time past the audition's end
@@ -2217,7 +1985,6 @@ fn test_remove_judge_should_panic_if_audition_has_ended() {
 fn test_remove_judge_should_panic_if_judge_not_found() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -2227,7 +1994,7 @@ fn test_remove_judge_should_panic_if_judge_not_found() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Try to remove a judge that was never added (should panic)
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.remove_judge(audition_id, judge_address);
 
     stop_cheat_block_timestamp(contract.contract_address);
@@ -2238,7 +2005,6 @@ fn test_remove_judge_should_panic_if_judge_not_found() {
 fn test_get_judges_returns_expected_judges() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
     start_cheat_caller_address(contract.contract_address, OWNER());
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
@@ -2248,9 +2014,9 @@ fn test_get_judges_returns_expected_judges() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Add judges
-    let judge1 = contract_address_const::<0x111>();
-    let judge2 = contract_address_const::<0x222>();
-    let judge3 = contract_address_const::<0x333>();
+    let judge1: ContractAddress = 0x111.try_into().unwrap();
+    let judge2: ContractAddress = 0x222.try_into().unwrap();
+    let judge3: ContractAddress = 0x333.try_into().unwrap();
     contract.add_judge(audition_id, judge1);
     contract.add_judge(audition_id, judge2);
     contract.add_judge(audition_id, judge3);
@@ -2283,11 +2049,11 @@ fn test_submit_evaluation_success() {
 
     let mut judges = contract.get_judges(audition_id);
     assert(judges.len() == 0, 'Judge should be empty');
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
-    let judge_address2 = contract_address_const::<0x124>();
+    let judge_address2: ContractAddress = 0x124.try_into().unwrap();
     contract.add_judge(audition_id, judge_address2);
-    let judge_address3 = contract_address_const::<0x125>();
+    let judge_address3: ContractAddress = 0x125.try_into().unwrap();
     contract.add_judge(audition_id, judge_address3);
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
@@ -2327,11 +2093,11 @@ fn test_submit_evaluation_should_panic_if_season_paused() {
 
     let mut judges = contract.get_judges(audition_id);
     assert(judges.len() == 0, 'Judge should be empty');
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
-    let judge_address2 = contract_address_const::<0x124>();
+    let judge_address2: ContractAddress = 0x124.try_into().unwrap();
     contract.add_judge(audition_id, judge_address2);
-    let judge_address3 = contract_address_const::<0x125>();
+    let judge_address3: ContractAddress = 0x125.try_into().unwrap();
     contract.add_judge(audition_id, judge_address3);
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
@@ -2359,9 +2125,9 @@ fn test_multiple_judges_submit_evaluation_for_same_performer() {
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
 
     // Add multiple judges
-    let judge_address1 = contract_address_const::<0x111>();
-    let judge_address2 = contract_address_const::<0x112>();
-    let judge_address3 = contract_address_const::<0x113>();
+    let judge_address1: ContractAddress = 0x111.try_into().unwrap();
+    let judge_address2: ContractAddress = 0x112.try_into().unwrap();
+    let judge_address3: ContractAddress = 0x113.try_into().unwrap();
     contract.add_judge(audition_id, judge_address1);
     contract.add_judge(audition_id, judge_address2);
     contract.add_judge(audition_id, judge_address3);
@@ -2419,15 +2185,11 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
-    // default_contract_create_season(contract);
-
-    // // CREATE Audition
-    // contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // Add multiple judges
-    let judge_address1 = contract_address_const::<0x211>();
-    let judge_address2 = contract_address_const::<0x212>();
-    let judge_address3 = contract_address_const::<0x213>();
+    let judge_address1: ContractAddress = 0x211.try_into().unwrap();
+    let judge_address2: ContractAddress = 0x212.try_into().unwrap();
+    let judge_address3: ContractAddress = 0x213.try_into().unwrap();
     contract.add_judge(audition_id, judge_address1);
     contract.add_judge(audition_id, judge_address2);
     contract.add_judge(audition_id, judge_address3);
@@ -2452,6 +2214,17 @@ fn test_multiple_judges_submit_evaluation_for_diffrent_performers() {
     start_cheat_caller_address(contract.contract_address, judge_address3);
     contract.submit_evaluation(audition_id, performer_id3, (7, 8, 9));
     stop_cheat_caller_address(contract.contract_address);
+
+    // spy.assert_emitted(
+    //     @array![(
+    //         contract.contract_address,
+    //         SeasonAndAudition::Event::EvaluationSubmitted (
+    //             EvaluationSubmitted {
+    //                 audition_id, performer_id: performer_id3, criteria: (7, 8, 9)
+    //             }
+    //         )
+    //     )]
+    // );
 
     // Get and check evaluation for performer 1
     let evals1 = contract.get_evaluation(audition_id, performer_id1);
@@ -2516,7 +2289,6 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -2528,7 +2300,7 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
     // CREATE Audition
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     stop_cheat_block_timestamp(contract.contract_address);
@@ -2548,9 +2320,6 @@ fn test_submit_evaluation_should_panic_when_judging_is_paused() {
 #[test]
 fn test_pause_judging_success() {
     let (contract, _, _) = deploy_contract();
-
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -2578,9 +2347,6 @@ fn test_pause_judging_success() {
 #[test]
 fn test_resume_judging_success() {
     let (contract, _, _) = deploy_contract();
-
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -2619,9 +2385,6 @@ fn test_resume_judging_success() {
 fn test_pause_judging_should_panic_when_caller_is_not_owner() {
     let (contract, _, _) = deploy_contract();
 
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
     start_cheat_caller_address(contract.contract_address, OWNER());
 
     // Set timestamp
@@ -2646,9 +2409,6 @@ fn test_pause_judging_should_panic_when_caller_is_not_owner() {
 #[should_panic(expected: 'Caller is not the owner')]
 fn test_resume_judging_should_panic_when_caller_is_not_owner() {
     let (contract, _, _) = deploy_contract();
-
-    let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -2683,7 +2443,6 @@ fn test_set_weight_for_audition_success() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
 
@@ -2695,7 +2454,7 @@ fn test_set_weight_for_audition_success() {
     // CREATE Audition
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     contract.set_evaluation_weight(audition_id, (10, 60, 30));
@@ -2725,7 +2484,7 @@ fn test_set_weight_for_audition_should_panic_if_season_paused() {
     // CREATE Audition
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     contract.pause_season(season_id);
@@ -2740,7 +2499,6 @@ fn test_set_weight_for_audition_should_panic_if_weight_doest_add_up_to_100() {
     let (contract, _, _) = deploy_contract();
 
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
 
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
@@ -2751,7 +2509,7 @@ fn test_set_weight_for_audition_should_panic_if_weight_doest_add_up_to_100() {
     // CREATE Audition
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
-    let judge_address = contract_address_const::<0x123>();
+    let judge_address: ContractAddress = 0x123.try_into().unwrap();
     contract.add_judge(audition_id, judge_address);
 
     contract.set_evaluation_weight(audition_id, (4, 60, 30));
@@ -2763,34 +2521,29 @@ fn test_set_weight_for_audition_should_panic_if_weight_doest_add_up_to_100() {
 
 #[test]
 fn test_perform_aggregate_score_calculation_successful() {
-    let (contract, _, _) = deploy_contract();
-
     let audition_id: u256 = 1;
-    let season_id: u256 = 1;
-
+    let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
+    let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
+        2, erc20, 100, contract,
+    );
+    let mut spy = spy_events();
     start_cheat_caller_address(contract.contract_address, OWNER());
 
     // Set timestamp
     let initial_timestamp: u64 = 1672531200;
     start_cheat_block_timestamp(contract.contract_address, initial_timestamp);
 
-    contract.create_season('Lfggg', 1672531200, 1675123200);
-
-    // CREATE Audition
-    contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
-
     // then add 2 judges
-    let judge_address1 = contract_address_const::<0x123>();
-    let judge_address2 = contract_address_const::<0x124>();
+    let judge_address1: ContractAddress = 0x123.try_into().unwrap();
+    let judge_address2: ContractAddress = 0x124.try_into().unwrap();
     contract.add_judge(audition_id, judge_address1);
     contract.add_judge(audition_id, judge_address2);
 
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
 
-    // then register 2 performers
-    let performer_id1 = 'performerA';
-    let performer_id2 = 'performerB';
+    let (_, performer_id1) = *artists.at(0);
+    let (_, performer_id2) = *artists.at(1);
 
     // then set weight
     start_cheat_caller_address(contract.contract_address, OWNER());
@@ -2802,6 +2555,7 @@ fn test_perform_aggregate_score_calculation_successful() {
     contract.submit_evaluation(audition_id, performer_id1, (4, 7, 3));
     contract.submit_evaluation(audition_id, performer_id2, (6, 7, 8));
     stop_cheat_caller_address(contract.contract_address);
+
     start_cheat_caller_address(contract.contract_address, judge_address2);
     contract.submit_evaluation(audition_id, performer_id1, (4, 9, 2));
     contract.submit_evaluation(audition_id, performer_id2, (4, 9, 6));
@@ -2818,16 +2572,29 @@ fn test_perform_aggregate_score_calculation_successful() {
     // get the aggregate score for each performer
     let aggregate_score1 = contract.get_aggregate_score_for_performer(audition_id, performer_id1);
     let aggregate_score2 = contract.get_aggregate_score_for_performer(audition_id, performer_id2);
-    println!("aggregate_score1: {:?}", aggregate_score1); // aggregate_score1: 4
-    println!("aggregate_score2: {:?}", aggregate_score2); // aggregate_score2: 6
 
-    // get the aggregate score for the audition
+    assert!(aggregate_score1 == 4, "Incorrect aggregated score");
+    assert!(aggregate_score2 == 6, "Incorrect aggregated score");
+
     let aggregate_score = contract.get_aggregate_score(audition_id);
-    println!(
-        "aggregate_score: {:?}", aggregate_score,
-    ); // aggregate_score: [(530776410631550129238593, 4), (530776410631550129238594, 6)]
-
+    assert!(
+        *aggregate_score.at(0) == (performer_id1, 4)
+            && *aggregate_score.at(1) == (performer_id2, 6),
+        "Invalid aggregate scores",
+    );
     stop_cheat_block_timestamp(contract.contract_address);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    contract.contract_address,
+                    SeasonAndAudition::Event::AuditionCalculationCompleted(
+                        AuditionCalculationCompleted { audition_id },
+                    ),
+                ),
+            ],
+        )
 }
 
 
@@ -2850,8 +2617,8 @@ fn test_perform_aggregate_score_calculation_should_panic_if_season_paused() {
     contract.create_audition('Summer Hits', Genre::Pop, 1675123200);
 
     // then add 2 judges
-    let judge_address1 = contract_address_const::<0x123>();
-    let judge_address2 = contract_address_const::<0x124>();
+    let judge_address1: ContractAddress = 0x123.try_into().unwrap();
+    let judge_address2: ContractAddress = 0x124.try_into().unwrap();
     contract.add_judge(audition_id, judge_address1);
     contract.add_judge(audition_id, judge_address2);
 
@@ -2921,7 +2688,6 @@ fn test_pause_season_success() {
 #[should_panic(expected: 'Caller is not the owner')]
 fn test_pause_season_should_panic_if_paused_by_non_owner() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define season ID
     let season_id: u256 = 1;
@@ -2940,7 +2706,6 @@ fn test_pause_season_should_panic_if_paused_by_non_owner() {
 #[should_panic(expected: 'Season is paused')]
 fn test_pause_season_should_panic_if_season_is_paused() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define season ID
     let season_id: u256 = 1;
@@ -2961,7 +2726,6 @@ fn test_pause_season_should_panic_if_season_is_paused() {
 #[should_panic(expected: 'Season does not exist')]
 fn test_pause_season_should_panic_if_season_doesnt_exist() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define season ID
     let season_id: u256 = 1;
@@ -2976,7 +2740,6 @@ fn test_pause_season_should_panic_if_season_doesnt_exist() {
 #[should_panic(expected: 'Season has already ended')]
 fn test_pause_season_should_panic_if_season_is_ended() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define season ID
     let season_id: u256 = 1;
@@ -3001,7 +2764,6 @@ fn test_pause_season_should_panic_if_season_is_ended() {
 #[test]
 fn test_resume_season_success() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define season ID
     let season_id: u256 = 1;
@@ -3032,7 +2794,6 @@ fn test_resume_season_success() {
 #[should_panic(expected: 'Caller is not the owner')]
 fn test_resume_season_should_panic_if_non_owner() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define season ID
     let season_id: u256 = 1;
@@ -3078,7 +2839,6 @@ fn test_resume_season_should_panic_if_season_doesnt_exist() {
 #[should_panic(expected: 'Season is not paused')]
 fn test_resume_season_should_panic_if_season_is_not_paused() {
     let (contract, _, _) = deploy_contract();
-    let mut spy = spy_events();
 
     // Define season ID
     let season_id: u256 = 1;

@@ -1,6 +1,6 @@
 #[starknet::contract]
 pub mod SeasonAndAudition {
-    use OwnableComponent::{HasComponent, InternalTrait};
+    use OwnableComponent::InternalTrait;
     use contract_::audition::interfaces::iseason_and_audition::ISeasonAndAudition;
     use contract_::audition::types::season_and_audition::{
         Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,

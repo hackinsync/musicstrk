@@ -5,12 +5,9 @@ use contract_::erc20::{
 };
 use core::array::ArrayTrait;
 use openzeppelin::token::erc20::ERC20Component::{Event as ERC20Event, Transfer as ERC20Transfer};
-use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{
-    CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, EventSpyTrait,
-    cheat_caller_address, declare, spy_events,
+    CheatSpan, EventSpyAssertionsTrait, EventSpyTrait, cheat_caller_address, spy_events,
 };
-use starknet::ContractAddress;
 use crate::test_utils::{OWNER, deploy_music_share_token, kim, zero};
 
 pub const TOTAL_SHARES: u256 = 100_u256;
