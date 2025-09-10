@@ -107,15 +107,15 @@ fn setup() -> (
     // Deploy in correct order with setter to solve circular dependency
     // 1. Deploy staking contract with zero address for audition contract
     let staking_contract = deploy_staking_contract();
-    
+
     // 2. Deploy audition contract with real staking contract address
     let audition_contract = deploy_audition_contract(staking_contract.contract_address);
-    
+
     // 3. Update staking contract with real audition contract address
     start_cheat_caller_address(staking_contract.contract_address, OWNER());
     staking_contract.set_audition_contract(audition_contract.contract_address);
     stop_cheat_caller_address(staking_contract.contract_address);
-    
+
     // 4. Deploy withdrawal contract with both real addresses
     let withdrawal_contract = deploy_stake_withdrawal_contract(
         audition_contract.contract_address, staking_contract.contract_address,
@@ -630,7 +630,7 @@ fn test_config_update_scenarios() {
 #[test]
 fn test_large_audition_ids() {
     let (withdrawal_contract, _, _, _) = setup();
-    
+
     // Use audition contract from setup for audition_exists check
     let staking_contract = deploy_staking_contract();
     let audition_contract = deploy_audition_contract(staking_contract.contract_address);

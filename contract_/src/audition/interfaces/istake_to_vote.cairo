@@ -43,7 +43,7 @@ pub trait IStakeToVote<TContractState> {
     // Withdrawal management functions (called only by authorized withdrawal contract)
     fn clear_staker_data(ref self: TContractState, staker: ContractAddress, audition_id: u256);
     fn set_withdrawal_contract(ref self: TContractState, withdrawal_contract: ContractAddress);
-    
+
     // Admin function to set audition contract address (solves circular dependency)
     fn set_audition_contract(ref self: TContractState, audition_contract: ContractAddress);
 }
