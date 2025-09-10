@@ -1,13 +1,12 @@
 use contract_::audition::interfaces::iseason_and_audition::{
-    ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait
+    ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
 }; //
 use contract_::audition::season_and_audition::SeasonAndAudition;
 use contract_::audition::types::season_and_audition::Genre;
 use contract_::events::VoteRecorded;
 use core::num::traits::Zero;
 use snforge_std::{
-     EventSpyAssertionsTrait, spy_events,
-    start_cheat_caller_address, stop_cheat_caller_address,
+    EventSpyAssertionsTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 use crate::test_utils::*;
