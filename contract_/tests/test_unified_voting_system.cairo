@@ -10,13 +10,16 @@ use contract_::audition::types::season_and_audition::{
 use contract_::events::{ArtistScoreUpdated, CelebrityJudgeSet, UnifiedVoteCast, VotingConfigSet};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare, EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp, start_cheat_caller_address,
-    stop_cheat_block_timestamp, stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
+    start_cheat_block_timestamp, start_cheat_caller_address, stop_cheat_block_timestamp,
+    stop_cheat_caller_address,
 };
 use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
 use crate::test_utils::{
-    NON_OWNER, OWNER, USER, default_contract_create_audition, default_contract_create_season,
-    deploy_contracts_with_staking as deploy_season_and_audition_contract, deploy_mock_erc20_contract, create_default_season, create_default_audition,
+    NON_OWNER, OWNER, USER, create_default_audition, create_default_season,
+    default_contract_create_audition, default_contract_create_season,
+    deploy_contracts_with_staking as deploy_season_and_audition_contract,
+    deploy_mock_erc20_contract,
 };
 
 // Test helper functions for addresses
@@ -64,7 +67,8 @@ fn deploy_contracts() -> (ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher) 
     (season_and_audition, stake_to_vote)
 }
 
-// Helper function to setup audition with participants - exact same pattern as test_stake_to_vote.cairo
+// Helper function to setup audition with participants - exact same pattern as
+// test_stake_to_vote.cairo
 fn setup_audition_with_participants() -> (
     ISeasonAndAuditionDispatcher, IStakeToVoteDispatcher, u256,
 ) {
@@ -90,7 +94,7 @@ fn setup_audition_with_participants() -> (
 
     // Set celebrity judge with higher weight
     season_and_audition.set_celebrity_judge(audition_id, CELEBRITY_JUDGE(), 200); // 2x multiplier
-    
+
     // Set voting configuration to enable voting
     let voting_config = VotingConfig {
         voting_start_time: 0,
@@ -100,7 +104,7 @@ fn setup_audition_with_participants() -> (
         celebrity_weight_multiplier: 2,
     };
     season_and_audition.set_voting_config(audition_id, voting_config);
-    
+
     stop_cheat_caller_address(season_and_audition.contract_address);
 
     // Set up staking - same as working test
@@ -122,7 +126,7 @@ fn setup_audition_with_participants() -> (
     start_cheat_caller_address(stake_to_vote.contract_address, STAKER1());
     stake_to_vote.stake_to_vote(audition_id);
     stop_cheat_caller_address(stake_to_vote.contract_address);
-    
+
     start_cheat_caller_address(mock_token.contract_address, STAKER2());
     mock_token.approve(stake_to_vote.contract_address, 1000);
     stop_cheat_caller_address(mock_token.contract_address);
