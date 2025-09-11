@@ -96,6 +96,8 @@ fn test_successful_music_share_token_deployment() {
     let artist_1 = artist_1();
     let owner = owner();
 
+    let mut event_spy = spy_events();
+
     // Deploy music share token factory as owner
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
 
@@ -130,52 +132,40 @@ fn test_successful_music_share_token_deployment() {
 
     // Verify 100 tokens were minted to the deployer
     assert(erc20_token.balance_of(artist_1.into()) == TOTAL_SHARES, 'Balance should be 100 tokens');
+
+    event_spy
+    .assert_emitted(
+        @array![
+            (
+                factory_address,
+                MusicShareTokenFactory::Event::TokenDeployedEvent(
+                    TokenDeployedEvent {
+                        deployer: artist_1,
+                        token_address,
+                        name: name.into(),
+                        symbol: symbol.into(),
+                        metadata_uri: metadata_uri.into(),
+                        timestamp: get_block_timestamp(),
+                    },
+                ),
+            ),
+        ],
+    );
 }
 
 #[test]
-fn test_deploy_music_share_token_event() {
-    // Setup test accounts from address constants
-    let owner = owner();
-    let artist_1 = artist_1();
+#[should_panic(expect: 'Result::unwrap failed.')]
+fn test_deploy_factory_with_zero_owner() {
 
-    // Deploy music share token factory as owner
-    let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
+    let (_, music_token_class_hash) = deploy_music_share_token(owner());
 
-    // Grant artist role before token deployment
-    cheat_caller_address(factory_address, owner, CheatSpan::TargetCalls(1));
-    factory_dispatcher.grant_artist_role(artist_1);
+    let factory_class = declare("MusicShareTokenFactory").unwrap().contract_class();
+    let mut calldata = array![];
 
-    // Setup test data
-    let (name, symbol, decimals, metadata_uri) = setup_token_data();
+    calldata.append(zero().into());
+    calldata.append(music_token_class_hash.into());
 
-    // Start calls as the deployer (artist)
-    cheat_caller_address(factory_address, artist_1, CheatSpan::TargetCalls(1));
-
-    // Spy on events
-    let mut event_spy = spy_events();
-
-    // Deploy a token through the factory
-    let token_address = factory_dispatcher
-        .deploy_music_token(name.clone(), symbol.clone(), decimals, metadata_uri.clone());
-
-    event_spy
-        .assert_emitted(
-            @array![
-                (
-                    factory_address,
-                    MusicShareTokenFactory::Event::TokenDeployedEvent(
-                        TokenDeployedEvent {
-                            deployer: artist_1,
-                            token_address,
-                            name: name.into(),
-                            symbol: symbol.into(),
-                            metadata_uri: metadata_uri.into(),
-                            timestamp: get_block_timestamp(),
-                        },
-                    ),
-                ),
-            ],
-        );
+    let (_, _) = factory_class.deploy(@calldata).unwrap();
 }
 
 #[test]
@@ -446,23 +436,4 @@ fn test_update_token_class_hash_unauthorized() {
 
     // This should fail because only owner can update class hash
     factory_dispatcher.update_token_class_hash(MUSICSTRK_HASH());
-}
-
-#[test]
-#[should_panic(expect: 'Result::unwrap failed.')]
-fn test_deploy_factory_with_zero_owner() {
-    // For this test, we need to modify the deploy function to handle zero address directly
-    // Get the token class hash
-    let (_, music_token_class_hash) = deploy_music_share_token(owner());
-
-    // Set up factory constructor calldata with zero address as owner
-    let factory_class = declare("MusicShareTokenFactory").unwrap().contract_class();
-    let mut calldata = array![];
-
-    // Use zero address as owner
-    calldata.append(zero().into());
-    calldata.append(music_token_class_hash.into());
-
-    // Attempt to deploy with zero address owner - should fail
-    let (_, _) = factory_class.deploy(@calldata).unwrap();
 }
