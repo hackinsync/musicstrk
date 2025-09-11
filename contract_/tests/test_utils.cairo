@@ -1,3 +1,5 @@
+use contract_::erc20::MusicStrk;
+use starknet::ClassHash;
 use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher,
@@ -55,17 +57,40 @@ pub fn VOTER2() -> ContractAddress {
     'VOTER2'.try_into().unwrap()
 }
 
-fn performer() -> ContractAddress {
+pub fn performer() -> ContractAddress {
     'performerid'.try_into().unwrap()
 }
 
-fn performer2() -> ContractAddress {
+pub fn performer2() -> ContractAddress {
     'performerid2'.try_into().unwrap()
 }
 
-fn performer3() -> ContractAddress {
+pub fn performer3() -> ContractAddress {
     'performerid3'.try_into().unwrap()
 }
+
+// Address constants for testing
+pub fn artist_1() -> ContractAddress {
+    'artist_1'.try_into().unwrap()
+}
+
+pub fn artist_2() -> ContractAddress {
+    'artist_2'.try_into().unwrap()
+}
+
+pub fn non_auth() -> ContractAddress {
+    'non-auth'.try_into().unwrap()
+}
+
+pub fn owner() -> ContractAddress {
+    'owner'.try_into().unwrap()
+}
+
+// Constants
+pub fn MUSICSTRK_HASH() -> ClassHash {
+    MusicStrk::TEST_CLASS_HASH.try_into().unwrap()
+}
+
 
 // Helper function to deploy the contract
 pub fn deploy_contract() -> (
