@@ -58,8 +58,11 @@ pub mod VotingMechanism {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
-    use starknet::{contract_address_const, get_block_timestamp, get_caller_address};
+    use starknet::{get_block_timestamp, get_caller_address};
     use super::*;
+
+    const zero_address: ContractAddress = 0.try_into().unwrap();
+
 
     #[storage]
     struct Storage {
@@ -128,7 +131,7 @@ pub mod VotingMechanism {
             assert(!self.completed_votings.read(proposal_id), 'Voting has already ended');
 
             // Check if user has already voted
-            assert(self.has_voted(proposal_id, caller) == false, 'Already voted');
+            assert(!self.has_voted(proposal_id, caller), 'Already voted');
 
             // Ensure the vote type is valid
             assert(vote_type != VoteType::None, 'Invalid vote type');
@@ -140,8 +143,7 @@ pub mod VotingMechanism {
             }
             // Check if the user has delegated their vote
             let delegation = self.delegations.read(caller);
-            if delegation != contract_address_const::<0>()
-                && self.delegation_weights.read(delegation) > 0 {
+            if delegation != zero_address && self.delegation_weights.read(delegation) > 0 {
                 // If caller already delegated, revert the vote
                 assert(self.has_voted(proposal_id, caller), 'Cannot vote after delegation');
             }
@@ -226,9 +228,7 @@ pub mod VotingMechanism {
         ) {
             let caller = get_caller_address();
             assert(caller != delegate, 'Cannot delegate to self');
-            assert(
-                self.delegations.read(caller) == contract_address_const::<0>(), 'Already delegated',
-            );
+            assert(self.delegations.read(caller) == zero_address, 'Already delegated');
 
             // Ensure delegator has token balance
             let token = IERC20Dispatcher { contract_address: token_address };
@@ -290,7 +290,7 @@ pub mod VotingMechanism {
             ref self: ContractState, proposal_id: u64, token_contract: ContractAddress,
         ) -> u8 {
             assert(self._verify_proposal_id(proposal_id), 'Invalid proposal ID');
-            assert(self.is_voting_active(proposal_id) == false, 'Voting period is still active');
+            assert(!self.is_voting_active(proposal_id), 'Voting period is still active');
 
             let proposal_system_dispatcher = IProposalSystemDispatcher {
                 contract_address: self.proposal_system.read(),
@@ -387,13 +387,13 @@ pub mod VotingMechanism {
             let delegation_from_sender = self.delegations.read(from);
             let delegation_to_receiver = self.delegations.read(to);
 
-            if delegation_from_sender != contract_address_const::<0>() {
+            if delegation_from_sender != zero_address {
                 // Sender has delegated - update delegate's effective voting power
                 self._update_delegated_weight(proposal_id, delegation_from_sender, amount, false);
                 delegation_affected = true;
             }
 
-            if delegation_to_receiver != contract_address_const::<0>() {
+            if delegation_to_receiver != zero_address {
                 // Receiver has delegated - update delegate's effective voting power
                 self._update_delegated_weight(proposal_id, delegation_to_receiver, amount, true);
                 delegation_affected = true;

@@ -65,10 +65,10 @@ pub mod ProposalSystem {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
-    use starknet::{
-        ContractAddress, contract_address_const, get_block_timestamp, get_caller_address,
-    };
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
     use super::*;
+
+    const zero_address: ContractAddress = 0.try_into().unwrap();
 
     #[storage]
     struct Storage {
@@ -237,7 +237,7 @@ pub mod ProposalSystem {
                 let proposal = self.proposals.read(current_id);
 
                 // Apply filters
-                let matches_token = token_contract == contract_address_const::<0>()
+                let matches_token = token_contract == zero_address
                     || proposal.token_contract == token_contract;
                 let matches_status = status == 255_u8 || proposal.status == status;
                 let matches_category = category == 'ALL' || proposal.category == category;
@@ -475,7 +475,7 @@ pub mod ProposalSystem {
             let current_artist = self.artists.read(token_contract);
 
             // If no registered artist, register artist linked to token in factory contract
-            if current_artist == contract_address_const::<0>() {
+            if current_artist == zero_address {
                 let factory_dispatcher = IMusicShareTokenFactoryDispatcher {
                     contract_address: self.factory_contract.read(),
                 };

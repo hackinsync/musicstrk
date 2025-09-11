@@ -1,5 +1,5 @@
 use contract_::audition::types::season_and_audition::{
-    Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
+    Appeal, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
 };
 use starknet::ContractAddress;
 

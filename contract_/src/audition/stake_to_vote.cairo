@@ -5,7 +5,6 @@ pub mod StakeToVote {
         ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     };
     use contract_::audition::interfaces::istake_to_vote::IStakeToVote;
-    use contract_::audition::types::season_and_audition::Audition;
     use contract_::audition::types::stake_to_vote::*;
     use contract_::errors::errors;
     use core::num::traits::Zero;
