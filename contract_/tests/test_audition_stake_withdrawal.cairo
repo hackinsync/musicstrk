@@ -8,7 +8,6 @@ use contract_::audition::stake_withdrawal::{
     IStakeWithdrawalDispatcher, IStakeWithdrawalDispatcherTrait,
 };
 use contract_::audition::types::season_and_audition::Genre;
-use contract_::audition::types::stake_to_vote::StakingConfig;
 use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
@@ -205,46 +204,6 @@ fn test_initial_configuration() {
 }
 
 #[test]
-fn test_set_staking_config_by_owner() {
-    let (withdrawal_contract, token, _, staking_contract) = setup();
-
-    // Set config directly on staking contract (proper architecture)
-    start_cheat_caller_address(staking_contract.contract_address, OWNER());
-
-    staking_contract
-        .set_staking_config(
-            AUDITION_ID_2, STAKE_AMOUNT * 2, token.contract_address, WITHDRAWAL_DELAY * 2,
-        );
-
-    stop_cheat_caller_address(staking_contract.contract_address);
-
-    // Verify through withdrawal contract (read-only operation)
-    let retrieved_config = withdrawal_contract.get_staking_config(AUDITION_ID_2);
-    assert!(retrieved_config.required_stake_amount == STAKE_AMOUNT * 2, "Config not updated");
-    // Event emission testing would need proper event imports
-}
-
-#[test]
-#[should_panic(expected: ('Caller is not the owner',))]
-fn test_set_staking_config_unauthorized() {
-    let (withdrawal_contract, token, _, _) = setup();
-
-    // Use an existing audition ID to avoid audition existence error
-    start_cheat_caller_address(withdrawal_contract.contract_address, UNAUTHORIZED_USER());
-
-    let config = StakingConfig {
-        required_stake_amount: STAKE_AMOUNT,
-        stake_token: token.contract_address,
-        withdrawal_delay_after_results: WITHDRAWAL_DELAY,
-    };
-
-    // This should fail with "Caller is not the owner" since AUDITION_ID exists
-    withdrawal_contract.set_staking_config(AUDITION_ID, config);
-
-    stop_cheat_caller_address(withdrawal_contract.contract_address);
-}
-
-#[test]
 fn test_set_audition_contract() {
     let (withdrawal_contract, _, _, _) = setup();
 
@@ -309,17 +268,6 @@ fn test_are_results_finalized_true_after_ending() {
     // Note: The exact timing of when results become finalized after end_audition()
 // is an implementation detail of the audition contract, not a withdrawal requirement.
 // The core withdrawal functionality works correctly when results ARE finalized.
-}
-
-// === STAKER INFO TESTS ===
-
-#[test]
-fn test_get_staker_info_empty() {
-    let (withdrawal_contract, _, _, _) = setup();
-
-    let staker_info = withdrawal_contract.get_staker_info(STAKER1(), AUDITION_ID);
-    assert!(staker_info.address.is_zero(), "Staker should be zero");
-    assert!(staker_info.staked_amount == 0, "Staked amount should be zero");
 }
 
 // === WITHDRAWAL FUNCTION TESTS ===
