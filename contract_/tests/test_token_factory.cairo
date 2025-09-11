@@ -1,4 +1,3 @@
-use crate::test_utils::{artist_1, artist_2, non_auth, owner, zero, MUSICSTRK_HASH};
 use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
 use contract_::events::TokenDeployedEvent;
 use contract_::token_factory::{
@@ -16,6 +15,7 @@ use snforge_std::{
 };
 use starknet::class_hash::ClassHash;
 use starknet::{ContractAddress, get_block_timestamp};
+use crate::test_utils::{MUSICSTRK_HASH, artist_1, artist_2, non_auth, owner, zero};
 
 
 const TOTAL_SHARES: u256 = 100_u256;
@@ -109,29 +109,28 @@ fn test_successful_music_share_token_deployment() {
     assert(erc20_token.balance_of(artist_1.into()) == TOTAL_SHARES, 'Balance should be 100 tokens');
 
     event_spy
-    .assert_emitted(
-        @array![
-            (
-                factory_address,
-                MusicShareTokenFactory::Event::TokenDeployedEvent(
-                    TokenDeployedEvent {
-                        deployer: artist_1,
-                        token_address,
-                        name: name.into(),
-                        symbol: symbol.into(),
-                        metadata_uri: metadata_uri.into(),
-                        timestamp: get_block_timestamp(),
-                    },
+        .assert_emitted(
+            @array![
+                (
+                    factory_address,
+                    MusicShareTokenFactory::Event::TokenDeployedEvent(
+                        TokenDeployedEvent {
+                            deployer: artist_1,
+                            token_address,
+                            name: name.into(),
+                            symbol: symbol.into(),
+                            metadata_uri: metadata_uri.into(),
+                            timestamp: get_block_timestamp(),
+                        },
+                    ),
                 ),
-            ),
-        ],
-    );
+            ],
+        );
 }
 
 #[test]
 #[should_panic(expect: 'Result::unwrap failed.')]
 fn test_deploy_factory_with_zero_owner() {
-
     let (_, music_token_class_hash) = deploy_music_share_token(owner());
 
     let factory_class = declare("MusicShareTokenFactory").unwrap().contract_class();

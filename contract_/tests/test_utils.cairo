@@ -1,14 +1,13 @@
-use contract_::erc20::MusicStrk;
-use starknet::ClassHash;
 use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
     ISeasonAndAuditionSafeDispatcher,
 };
 use contract_::audition::types::season_and_audition::{Audition, Genre, Season};
+use contract_::erc20::MusicStrk;
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
 use openzeppelin::token::erc20::interface::IERC20Dispatcher;
 use snforge_std::{ContractClassTrait, DeclareResultTrait, declare};
-use starknet::ContractAddress;
+use starknet::{ClassHash, ContractAddress};
 
 // Test account -> Owner
 pub fn OWNER() -> ContractAddress {
