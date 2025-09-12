@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
 import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { createRoot } from "react-dom/client"
 import GitHubButton from "react-github-btn"
 import { FileText, Mail, Zap, Music, Headphones, Disc, Guitar, Mic, type LucideIcon } from "lucide-react"
@@ -28,13 +28,13 @@ export default function HeroSection() {
     const particlesRef = useRef<HTMLDivElement>(null)
 
     // Musical icons configuration with synthwave colors
-    const musicalIcons: MusicalIconEntry[] = [
+    const musicalIcons: MusicalIconEntry[] = useMemo(() => [
         { Icon: Music, color: "text-[#00f5d4]" },
         { Icon: Headphones, color: "text-[#ff6b6b]" },
         { Icon: Disc, color: "text-[#00f5d4]" },
         { Icon: Guitar, color: "text-[#ff6b6b]" },
         { Icon: Mic, color: "text-[#00f5d4]" },
-    ]
+    ], [])
 
     // Enhanced email validation
     const validateEmail = (email: string): boolean => {
@@ -43,47 +43,47 @@ export default function HeroSection() {
     }
 
     // Dynamic musical icon animation effect
-    useEffect(() => {
-        if (typeof window !== "undefined" && particlesRef.current) {
-            const createMusicalIcon = () => {
-                const iconContainer = document.createElement("div")
-                const { Icon, color } = musicalIcons[Math.floor(Math.random() * musicalIcons.length)]
+        useEffect(() => {
+            if (typeof window !== "undefined" && particlesRef.current) {
+                const createMusicalIcon = () => {
+                    const iconContainer = document.createElement("div")
+                    const { Icon, color } = musicalIcons[Math.floor(Math.random() * musicalIcons.length)]
 
-                // Configure icon container with dynamic properties
-                iconContainer.classList.add(
-                    "absolute",
-                    "musical-icon",
-                    "animate-musical-fall",
-                    "opacity-50",
-                    "hover:opacity-100",
-                    "transition-opacity",
-                    "pointer-events-none",
-                    color,
-                )
+                    // Configure icon container with dynamic properties
+                    iconContainer.classList.add(
+                        "absolute",
+                        "musical-icon",
+                        "animate-musical-fall",
+                        "opacity-50",
+                        "hover:opacity-100",
+                        "transition-opacity",
+                        "pointer-events-none",
+                        color,
+                    )
 
-                // Randomize position and animation
-                iconContainer.style.left = `${Math.random() * 100}%`
-                iconContainer.style.fontSize = `${Math.random() * 2 + 1}rem`
-                iconContainer.style.animationDuration = `${Math.random() * 10 + 5}s`
+                    // Randomize position and animation
+                    iconContainer.style.left = `${Math.random() * 100}%`
+                    iconContainer.style.fontSize = `${Math.random() * 2 + 1}rem`
+                    iconContainer.style.animationDuration = `${Math.random() * 10 + 5}s`
 
-                // Create React wrapper for icon
-                const iconWrapper = document.createElement("div")
-                const root = createRoot(iconWrapper)
-                root.render(<Icon className="w-full h-full" />)
+                    // Create React wrapper for icon
+                    const iconWrapper = document.createElement("div")
+                    const root = createRoot(iconWrapper)
+                    root.render(<Icon className="w-full h-full" />)
 
-                iconContainer.appendChild(iconWrapper)
-                particlesRef.current?.appendChild(iconContainer)
+                    iconContainer.appendChild(iconWrapper)
+                    particlesRef.current?.appendChild(iconContainer)
 
-                // Clean up after animation
-                setTimeout(() => {
-                    iconContainer.remove()
-                }, 15000)
+                    // Clean up after animation
+                    setTimeout(() => {
+                        iconContainer.remove()
+                    }, 15000)
+                }
+
+                const iconInterval = setInterval(createMusicalIcon, 1000)
+                return () => clearInterval(iconInterval)
             }
-
-            const iconInterval = setInterval(createMusicalIcon, 1000)
-            return () => clearInterval(iconInterval)
-        }
-    }, [])
+        }, [musicalIcons])
 
     // Handle waitlist form submission
     const handleSubmit = async () => {

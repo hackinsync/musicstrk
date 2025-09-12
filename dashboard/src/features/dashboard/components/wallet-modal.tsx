@@ -52,7 +52,6 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
       setError(null);
       await signIn(connectorId);
     } catch (err) {
-      console.error('Sign in error caught in modal:', err);
       const errorMessage =
         err instanceof Error && err.message === 'Wallet connection was cancelled'
           ? 'Connection cancelled. Please try again.'
