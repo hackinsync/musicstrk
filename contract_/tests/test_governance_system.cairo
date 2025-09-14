@@ -1,6 +1,6 @@
 use contract_::events::{
-    ArtistRegistered, CommentAdded, ProposalCreated, ProposalStatusChanged, RoleGranted,
-    TokenTransferDuringVoting, VoteCast, VoteDelegated, VotingPeriodEnded, VotingPeriodStarted,
+    CommentAdded, ProposalCreated, ProposalStatusChanged, RoleGranted, VoteCast, VoteDelegated,
+    VotingPeriodEnded, VotingPeriodStarted,
 };
 use contract_::governance::GovernanceToken::{
     GovernanceToken, IERC20ExtensionDispatcher, IERC20ExtensionDispatcherTrait,
@@ -27,35 +27,36 @@ use snforge_std::{
     cheat_block_timestamp, cheat_caller_address, declare, spy_events,
 };
 use starknet::class_hash::ClassHash;
-use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
+use starknet::{ContractAddress, get_block_timestamp};
+use crate::test_utils::zero;
 
 // Address constants for testing
 fn ARTIST_1() -> ContractAddress {
-    contract_address_const::<'artist_1'>()
+    'artist_1'.try_into().unwrap()
 }
 
 fn ARTIST_2() -> ContractAddress {
-    contract_address_const::<'artist_2'>()
+    'artist_2'.try_into().unwrap()
 }
 
 fn OWNER() -> ContractAddress {
-    contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 fn SHAREHOLDER_1() -> ContractAddress {
-    contract_address_const::<'shareholder_1'>()
+    'shareholder_1'.try_into().unwrap()
 }
 
 fn SHAREHOLDER_2() -> ContractAddress {
-    contract_address_const::<'shareholder_2'>()
+    'shareholder_2'.try_into().unwrap()
 }
 
 fn SHAREHOLDER_3() -> ContractAddress {
-    contract_address_const::<'shareholder_3'>()
+    'shareholder_3'.try_into().unwrap()
 }
 
 fn ZERO_ADDRESS() -> ContractAddress {
-    contract_address_const::<0>()
+    0.try_into().unwrap()
 }
 
 const TOTAL_SHARES: u256 = 100_u256;
@@ -759,10 +760,7 @@ fn test_artist_management() {
 
     // Test artist retrieval
     assert(proposal_system.get_artist_for_token(token1) == artist1, 'Artist 1 mismatch');
-    assert(
-        proposal_system.get_artist_for_token(token2) == contract_address_const::<0>(),
-        'Artist 2 mismatch',
-    );
+    assert(proposal_system.get_artist_for_token(token2) == zero(), 'Artist 2 mismatch');
     assert(
         proposal_system.get_artist_for_token(ZERO_ADDRESS()) == ZERO_ADDRESS(),
         'Unregistered should be zero',
@@ -2001,7 +1999,6 @@ fn test_governance_token_transfer_during_voting() {
     ) =
         setup_governance_environment();
     let shareholder1 = SHAREHOLDER_1();
-    let mut spy = spy_events();
     let shareholder2 = SHAREHOLDER_2();
     let owner = OWNER();
 
