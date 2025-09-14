@@ -59,7 +59,7 @@ fn test_create_season_successfully() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_create_season_should_panic_of_called_by_non_owner() {
     let (contract, _, _) = deploy_contract();
     start_cheat_caller_address(contract.contract_address, USER());
@@ -153,7 +153,7 @@ fn test_update_season_successfully() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_update_season_should_panic_if_caller_not_owner() {
     let (contract, _, _) = deploy_contract();
     let season_id: u256 = 1;
@@ -524,7 +524,7 @@ fn test_audition_deposit_price_should_panic_if_invalid_audition_id() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_audition_deposit_price_should_panic_if_called_by_non_owner() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
@@ -759,7 +759,7 @@ fn test_audition_distribute_prize_should_panic_if_season_paused() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_audition_distribute_prize_should_panic_if_not_owner() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
@@ -1254,7 +1254,7 @@ fn test_safe_painc_only_owner_can_call_functions() {
     // Attempt to create a season
     match safe_dispatcher.create_season('Lfggg', 1672531200, 1675123200) {
         Result::Ok(_) => panic!("Expected panic, but got success"),
-        Result::Err(e) => assert(*e.at(0) == 'Caller is not the owner', *e.at(0)),
+        Result::Err(e) => assert(*e.at(0) == 'Caller is missing role', *e.at(0)),
     }
 }
 
@@ -1302,7 +1302,7 @@ fn test_pause_audition() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_pause_audition_as_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -1420,7 +1420,7 @@ fn test_resume_audition() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_attempt_resume_audition_as_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -1519,7 +1519,7 @@ fn test_end_audition() {
 }
 
 #[test]
-#[should_panic(expect: 'Caller is not the owner')]
+#[should_panic(expect: 'Caller is missing role')]
 fn test_end_audition_as_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -1663,7 +1663,7 @@ fn test_add_multiple_judge() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_add_judges_should_panic_if_non_owner() {
     let (contract, _, _) = deploy_contract();
     let audition_id: u256 = 1;
@@ -2381,7 +2381,7 @@ fn test_resume_judging_success() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_pause_judging_should_panic_when_caller_is_not_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -2406,7 +2406,7 @@ fn test_pause_judging_should_panic_when_caller_is_not_owner() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_resume_judging_should_panic_when_caller_is_not_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -2685,7 +2685,7 @@ fn test_pause_season_success() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_pause_season_should_panic_if_paused_by_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -2791,7 +2791,7 @@ fn test_resume_season_success() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_resume_season_should_panic_if_non_owner() {
     let (contract, _, _) = deploy_contract();
 
@@ -2889,7 +2889,7 @@ fn test_submit_result_success() {
 
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_submit_result_should_panic_if_non_owner() {
     let (contract, _, _) = deploy_contract();
 

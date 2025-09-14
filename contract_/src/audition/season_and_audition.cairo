@@ -7,7 +7,9 @@ pub mod SeasonAndAudition {
     };
     use contract_::errors::errors;
     use core::num::traits::Zero;
+    use openzeppelin::access::accesscontrol::{AccessControlComponent, DEFAULT_ADMIN_ROLE};
     use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::event::EventEmitter;
     use starknet::storage::{
@@ -27,17 +29,36 @@ pub mod SeasonAndAudition {
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
+    component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
     // @notice the precision for the score
     const PRECISION: u256 = 100;
+
+    const ADMIN_ROLE: felt252 = selector!("ADMIN_ROLE");
+    const SEASON_MAINTAINER_ROLE: felt252 = selector!("SEASON_MAINTAINER_ROLE");
+    const AUDITION_MAINTAINER_ROLE: felt252 = selector!("AUDITION_MAINTAINER_ROLE");
+    const REVIEWER_ROLE: felt252 = selector!("REVIEWER_ROLE");
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
     impl OwnableTwoStepImpl = OwnableComponent::OwnableTwoStepImpl<ContractState>;
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
 
+    #[abi(embed_v0)]
+    impl AccessControlImpl =
+        AccessControlComponent::AccessControlImpl<ContractState>;
+    impl AccessControlInternalImpl = AccessControlComponent::InternalImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl SRC5Impl = SRC5Component::SRC5Impl<ContractState>;
+
     #[storage]
     struct Storage {
+        #[substorage(v0)]
+        accesscontrol: AccessControlComponent::Storage,
+        #[substorage(v0)]
+        src5: SRC5Component::Storage,
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<u256, Season>,
         season_count: u256,
@@ -159,6 +180,10 @@ pub mod SeasonAndAudition {
         ResumedAll: ResumedAll,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        AccessControlEvent: AccessControlComponent::Event,
+        #[flat]
+        SRC5Event: SRC5Component::Event,
         PriceDeposited: PriceDeposited,
         PriceDistributed: PriceDistributed,
         JudgeAdded: JudgeAdded,
@@ -182,12 +207,21 @@ pub mod SeasonAndAudition {
         self.ownable.initializer(owner);
         self.global_paused.write(false);
         self.judging_paused.write(false);
+        self.accesscontrol.initializer();
+        self.accesscontrol.set_role_admin(SEASON_MAINTAINER_ROLE, ADMIN_ROLE);
+        self.accesscontrol.set_role_admin(AUDITION_MAINTAINER_ROLE, ADMIN_ROLE);
+        self.accesscontrol.set_role_admin(REVIEWER_ROLE, ADMIN_ROLE);
+        self.accesscontrol._grant_role(ADMIN_ROLE, owner);
+        self.accesscontrol._grant_role(DEFAULT_ADMIN_ROLE, owner);
+        self.accesscontrol._grant_role(SEASON_MAINTAINER_ROLE, owner);
+        self.accesscontrol._grant_role(AUDITION_MAINTAINER_ROLE, owner);
+        self.accesscontrol._grant_role(REVIEWER_ROLE, owner);
     }
 
     #[abi(embed_v0)]
     impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
         fn create_season(ref self: ContractState, name: felt252, start_time: u64, end_time: u64) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             self.assert_all_seasons_closed();
             self.assert_valid_time(start_time, end_time);
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -225,7 +259,7 @@ pub mod SeasonAndAudition {
         fn update_season(
             ref self: ContractState, season_id: u256, name: Option<felt252>, end_time: Option<u64>,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             self.assert_valid_season(season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
 
@@ -253,7 +287,7 @@ pub mod SeasonAndAudition {
         fn create_audition(
             ref self: ContractState, name: felt252, genre: Genre, end_timestamp: u64,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             let season_id = self.active_season.read().expect('No active season');
             self.assert_valid_season(season_id);
@@ -293,7 +327,7 @@ pub mod SeasonAndAudition {
             name: Option<felt252>,
             genre: Option<Genre>,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             self.assert_valid_audition(audition_id);
             let mut audition = self.auditions.entry(audition_id).read();
@@ -327,7 +361,7 @@ pub mod SeasonAndAudition {
         fn update_registration_config(
             ref self: ContractState, audition_id: u256, config: RegistrationConfig,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition already ended');
             assert(!self.registration_started.entry(audition_id).read(), 'Registration Started');
@@ -403,7 +437,7 @@ pub mod SeasonAndAudition {
         fn set_evaluation_weight(
             ref self: ContractState, audition_id: u256, weight: (u256, u256, u256),
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
@@ -432,7 +466,7 @@ pub mod SeasonAndAudition {
         }
 
         fn perform_aggregate_score_calculation(ref self: ContractState, audition_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition has not ended');
@@ -516,7 +550,7 @@ pub mod SeasonAndAudition {
         /// @param audition_id the id of the audition to add the judge to
         /// @param judge_address the address of the judge to add
         fn add_judge(ref self: ContractState, audition_id: u256, judge_address: ContractAddress) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
@@ -538,7 +572,7 @@ pub mod SeasonAndAudition {
         fn remove_judge(
             ref self: ContractState, audition_id: u256, judge_address: ContractAddress,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
@@ -658,12 +692,12 @@ pub mod SeasonAndAudition {
 
 
         fn pause_judging(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             self.judging_paused.write(true);
         }
 
         fn resume_judging(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             self.judging_paused.write(false);
         }
 
@@ -675,7 +709,7 @@ pub mod SeasonAndAudition {
         fn submit_result(
             ref self: ContractState, audition_id: u256, result_uri: ByteArray, performer_id: u256,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(REVIEWER_ROLE);
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -756,7 +790,7 @@ pub mod SeasonAndAudition {
             token_address: ContractAddress,
             amount: u256,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
@@ -911,13 +945,13 @@ pub mod SeasonAndAudition {
         }
 
         fn pause_all(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             self.global_paused.write(true);
             self.emit(Event::PausedAll(PausedAll { timestamp: get_block_timestamp() }));
         }
 
         fn resume_all(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             self.global_paused.write(false);
             self.emit(Event::ResumedAll(ResumedAll { timestamp: get_block_timestamp() }));
         }
@@ -927,7 +961,7 @@ pub mod SeasonAndAudition {
         }
 
         fn pause_audition(ref self: ContractState, audition_id: u256) -> bool {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
@@ -947,7 +981,7 @@ pub mod SeasonAndAudition {
         }
 
         fn resume_audition(ref self: ContractState, audition_id: u256) -> bool {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_paused(audition_id), 'Audition is not paused');
@@ -966,7 +1000,7 @@ pub mod SeasonAndAudition {
         }
 
         fn end_audition(ref self: ContractState, audition_id: u256) -> bool {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
 
             assert(self.audition_exists(audition_id), 'Audition does not exist');
@@ -1014,7 +1048,7 @@ pub mod SeasonAndAudition {
 
 
         fn pause_season(ref self: ContractState, season_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             self.assert_valid_season(season_id);
             let mut season = self.seasons.entry(season_id).read();
@@ -1029,7 +1063,7 @@ pub mod SeasonAndAudition {
                 );
         }
         fn resume_season(ref self: ContractState, season_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.season_exists(season_id), 'Season does not exist');
             let mut season = self.seasons.entry(season_id).read();
@@ -1069,7 +1103,7 @@ pub mod SeasonAndAudition {
         }
 
         fn end_season(ref self: ContractState, season_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.season_exists(season_id), 'Season does not exist');
             assert(self.is_season_ended(season_id), 'Season has not ended');
@@ -1201,7 +1235,7 @@ pub mod SeasonAndAudition {
             // Only owner or judge can resolve
             let evaluation = self.evaluations.entry(evaluation_id).read();
             let audition_id = evaluation.audition_id;
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             let mut is_judge = false;
             let judges = self.get_judges(audition_id);
             for judge in judges {
@@ -1315,19 +1349,13 @@ pub mod SeasonAndAudition {
         /// @param winners An array of 3 contract addresses representing the winners.
         /// @param shares An array of 3 u256 values representing the share percentages for each
         /// winner.
-        /// @custom:reverts If called by anyone other than the owner.
-        /// @custom:reverts If the contract is paused.
-        /// @custom:reverts If the audition does not exist or has not ended.
-        /// @custom:reverts If there is no prize for the audition.
-        /// @custom:reverts If any winner address is zero.
-        /// @custom:reverts If the total shares do not add up to 100.
         fn assert_distributed(
             ref self: ContractState,
             audition_id: u256,
             winners: [ContractAddress; 3],
             shares: [u256; 3],
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition must end first');
