@@ -394,11 +394,8 @@ fn test_audition_deposit_price_should_panic_if_token_is_zero_address() {
 #[test]
 #[should_panic(expected: "Prize already deposited")]
 fn test_audition_deposit_price_should_panic_if_already_deposited() {
-  let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
-    let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
-        2, erc20, 100, contract,
-    );
     start_cheat_caller_address(contract.contract_address, OWNER());
 
     // Set timestamp
@@ -414,56 +411,20 @@ fn test_audition_deposit_price_should_panic_if_already_deposited() {
     stop_cheat_block_timestamp(contract.contract_address);
     stop_cheat_caller_address(contract.contract_address);
 
-    let (_, performer_id1) = *artists.at(0);
-    let (_, performer_id2) = *artists.at(1);
-
     // then set weight
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
 
-    // Check contract balance before deposit
-    let contract_balance_before = erc20.balance_of(contract.contract_address);
-
     // Deposit the prize into the prize pool of an audition
     start_cheat_caller_address(contract.contract_address, OWNER());
-    contract.deposit_prize(audition_id, erc20.contract_address, 10);
-    stop_cheat_caller_address(contract.contract_address);
-
-    // Check contract balance after deposit
-    let contract_balance_after = erc20.balance_of(contract.contract_address);
-    assert!(
-        contract_balance_after == contract_balance_before + 10,
-        "Contract balance did not increase after deposit",
-    );
-
-    // then submit evaluation for each performer
-    start_cheat_caller_address(contract.contract_address, judge_address1);
-    contract.submit_evaluation(audition_id, performer_id1, (4, 7, 3));
-    contract.submit_evaluation(audition_id, performer_id2, (6, 7, 8));
-    stop_cheat_caller_address(contract.contract_address);
-
-    start_cheat_caller_address(contract.contract_address, judge_address2);
-    contract.submit_evaluation(audition_id, performer_id1, (4, 9, 2));
-    contract.submit_evaluation(audition_id, performer_id2, (4, 9, 6));
-    stop_cheat_caller_address(contract.contract_address);
-
-    // move the timestamp to the end of the audition
-    start_cheat_block_timestamp(contract.contract_address, initial_timestamp + 1675123200);
-
-    // then perform aggregate score calculation
-    start_cheat_caller_address(contract.contract_address, OWNER());
-    contract.perform_aggregate_score_calculation(audition_id);
-
-    // Distribute the prize
-    contract.distribute_prize(audition_id, array![70, 30]);
-    contract.distribute_prize(audition_id, array![70, 30]);
-
+    contract.deposit_prize(audition_id, erc20.contract_address, 5);
+    contract.deposit_prize(audition_id, erc20.contract_address, 5);
     stop_cheat_caller_address(contract.contract_address);
 }
 
@@ -653,7 +614,7 @@ fn test_audition_distribute_prize_successful() {
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -691,7 +652,7 @@ fn test_audition_distribute_prize_successful() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.perform_aggregate_score_calculation(audition_id);
     stop_cheat_caller_address(contract.contract_address);
-   
+
     // Assert winner addresses and amounts are zero before distribution
     let w_addr_before = contract.get_audition_winner_addresses(audition_id);
     let w_amt_before = contract.get_audition_winner_amounts(audition_id);
@@ -738,7 +699,6 @@ fn test_audition_distribute_prize_successful() {
         "Winner 2 did not receive correct amount",
     );
 
-
     // Assert winner addresses and amounts after distribution
     let w_addr_after = contract.get_audition_winner_addresses(audition_id);
     let w_amt_after = contract.get_audition_winner_amounts(audition_id);
@@ -781,7 +741,7 @@ fn test_audition_distribute_prize_successful() {
 #[test]
 #[should_panic(expected: 'Caller is missing role')]
 fn test_audition_distribute_prize_should_panic_if_not_owner() {
-  let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
     let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
         2, erc20, 100, contract,
@@ -809,7 +769,7 @@ fn test_audition_distribute_prize_should_panic_if_not_owner() {
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -883,7 +843,7 @@ fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -933,7 +893,7 @@ fn test_audition_distribute_prize_should_panic_if_contract_is_paused() {
 #[test]
 #[should_panic(expected: 'Audition does not exist')]
 fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
-     let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
     let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
         2, erc20, 100, contract,
@@ -961,7 +921,7 @@ fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -999,7 +959,7 @@ fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.perform_aggregate_score_calculation(audition_id);
     stop_cheat_caller_address(contract.contract_address);
-   
+
     contract.distribute_prize(99, array![70, 30]);
 
     stop_cheat_caller_address(contract.contract_address);
@@ -1008,7 +968,7 @@ fn test_audition_distribute_prize_should_panic_if_invalid_audition_id() {
 #[test]
 #[should_panic(expected: 'Audition has not ended')]
 fn test_distribute_prize_should_panic_if_audition_not_ended() {
-  let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
     let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
         2, erc20, 100, contract,
@@ -1036,7 +996,7 @@ fn test_distribute_prize_should_panic_if_audition_not_ended() {
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -1080,7 +1040,7 @@ fn test_distribute_prize_should_panic_if_audition_not_ended() {
 #[test]
 #[should_panic(expected: 'No prize for this audition')]
 fn test_distribute_prize_should_panic_if_no_prize_deposited() {
-   let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
     let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
         2, erc20, 100, contract,
@@ -1108,7 +1068,7 @@ fn test_distribute_prize_should_panic_if_no_prize_deposited() {
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -1140,7 +1100,7 @@ fn test_distribute_prize_should_panic_if_no_prize_deposited() {
 #[test]
 #[should_panic(expected: 'Prize already distributed')]
 fn test_distribute_prize_should_panic_if_already_distributed() {
-let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
     let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
         2, erc20, 100, contract,
@@ -1168,7 +1128,7 @@ let audition_id: u256 = 1;
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -1217,7 +1177,7 @@ let audition_id: u256 = 1;
 #[test]
 #[should_panic(expected: 'total does not add up')]
 fn test_distribute_prize_should_panic_if_total_shares_not_100() {
-   let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
     let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
         2, erc20, 100, contract,
@@ -1245,7 +1205,7 @@ fn test_distribute_prize_should_panic_if_total_shares_not_100() {
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -1292,7 +1252,7 @@ fn test_distribute_prize_should_panic_if_total_shares_not_100() {
 #[test]
 #[should_panic(expected: 'Insufficient balance')]
 fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient() {
-      let audition_id: u256 = 1;
+    let audition_id: u256 = 1;
     let (contract, erc20) = feign_update_config(OWNER(), audition_id, 100);
     let artists: Array<(ContractAddress, u256)> = feign_artists_registration(
         2, erc20, 100, contract,
@@ -1321,7 +1281,7 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
     contract.set_evaluation_weight(audition_id, (40, 30, 30));
     stop_cheat_caller_address(contract.contract_address);
 
-     // Approve contract to spend tokens
+    // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
     stop_cheat_caller_address(erc20.contract_address);
@@ -1359,7 +1319,7 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.perform_aggregate_score_calculation(audition_id);
     stop_cheat_caller_address(contract.contract_address);
-   
+
     // Approve contract to spend tokens
     start_cheat_caller_address(erc20.contract_address, OWNER());
     erc20.approve(contract.contract_address, 10);
@@ -1369,9 +1329,7 @@ fn test_audition_distribute_prize_should_panic_if_contract_balance_insufficient(
     let random_address: ContractAddress = 9999.try_into().unwrap();
     let contract_balance = erc20.balance_of(contract.contract_address);
     if contract_balance > 0 {
-        start_cheat_caller_address(
-            erc20.contract_address, contract.contract_address,
-        );
+        start_cheat_caller_address(erc20.contract_address, contract.contract_address);
         erc20.transfer(random_address, contract_balance);
         stop_cheat_caller_address(erc20.contract_address);
     }

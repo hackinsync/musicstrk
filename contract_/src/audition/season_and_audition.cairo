@@ -160,6 +160,8 @@ pub mod SeasonAndAudition {
         performer_registry: Map<(u256, u256), ContractAddress>,
         /// @notice a count of performer
         performers_count: u256,
+        /// @notice mapping to know weather price has been deposited for an audition
+        audition_price_deposited: Map<u256, bool>,
     }
 
     #[event]
@@ -801,12 +803,12 @@ pub mod SeasonAndAudition {
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
 
-            let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
             assert!(
-                existing_token_address.is_zero() && existing_amount == 0, "Prize already deposited",
+                !self.audition_price_deposited.entry(audition_id).read(), "Prize already deposited",
             );
             self._process_payment(amount, token_address);
             self.audition_prices.write(audition_id, (token_address, amount));
+            self.audition_price_deposited.entry(audition_id).write(true);
             self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
         }
 
@@ -839,10 +841,14 @@ pub mod SeasonAndAudition {
             self.assert_distributed(audition_id, winners.clone(), shares.clone());
             let audition = self.auditions.entry(audition_id).read();
             assert(self.season_exists(audition.season_id), 'Season does not exist');
-            assert(!self.is_season_paused(audition.season_id), 'Season is paused');            
+            assert(!self.is_season_paused(audition.season_id), 'Season is paused');
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
+            assert(
+                self.audition_price_deposited.entry(audition_id).read(),
+                'No prize for this audition',
+            );
             let winners_span: Span<ContractAddress> = winners.into();
             let shares_span = shares.span();
             let mut distributed_amounts = ArrayTrait::new();
@@ -1351,11 +1357,7 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition must end first');
-            let (token_contract_address, price_pool): (ContractAddress, u256) = self
-                .audition_prices
-                .read(audition_id);
-            assert(!token_contract_address.is_zero(), 'No prize for this audition');
-            assert(price_pool > 0, 'No prize for this audition');
+
             assert(!self.is_prize_distributed(audition_id), 'Prize already distributed');
 
             let winners_span = winners.span();
