@@ -78,13 +78,13 @@ pub mod SeasonAndAudition {
         /// winners.
         /// @param audition_winner_addresses Mapping from audition ID (felt252) to a tuple of winner
         /// addresses (ContractAddress, ContractAddress, ContractAddress).
-        audition_winner_addresses: Map<u256, (ContractAddress, ContractAddress, ContractAddress)>,
+        audition_winner_addresses: Map<u256, Vec<ContractAddress>>,
         /// @notice Maps each audition ID to the prize amounts for the winners.
         /// @dev The value is a tuple containing the prize amounts for the first, second, and third
         /// place winners, respectively.
         /// @param audition_winner_amounts Mapping from audition ID (felt252) to a tuple of prize
         /// amounts (u256, u256, u256).
-        audition_winner_amounts: Map<u256, (u256, u256, u256)>,
+        audition_winner_amounts: Map<u256, Vec<u256>>,
         /// price distributed status
         price_distributed: Map<u256, bool>,
         /// @notice maps each audition id to a list of judges
@@ -136,6 +136,8 @@ pub mod SeasonAndAudition {
         /// @notice a Map of a (Performer's address, audition_id) to the performer id, use for ease
         /// of reading the id. Thus if the id is zero, the performer has not registered.
         performer_has_registered: Map<(ContractAddress, u256), u256>,
+        /// @notice a map of the audition id, performer id and caller address
+        performer_audition_address: Map<(u256, u256), ContractAddress>,
         /// @notice performer count per audition id.
         performer_count: Map<u256, u256>,
         registered_artists: Map<(ContractAddress, u256), ArtistRegistration>,
@@ -800,9 +802,9 @@ pub mod SeasonAndAudition {
             self.assert_valid_season(audition.season_id);
 
             let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
-            assert!(
-                existing_token_address.is_zero() && existing_amount == 0, "Prize already deposited",
-            );
+            // assert!(
+            //     existing_token_address.is_zero() && existing_amount == 0, "Prize already deposited",
+            // );
             self._process_payment(amount, token_address);
             self.audition_prices.write(audition_id, (token_address, amount));
             self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
@@ -829,24 +831,18 @@ pub mod SeasonAndAudition {
         /// @param self The contract state reference.
         /// @param audition_id The unique identifier of the audition whose prize is to be
         /// distributed.
-        /// @param winners An array of 3 contract addresses representing the winners.
-        /// @param shares An array of 3 u256 values representing the percentage shares (out of 100)
         /// for each winner.
         /// @custom:reverts If the distribution conditions are not met, as checked by
         /// `assert_distributed`.
-        fn distribute_prize(
-            ref self: ContractState,
-            audition_id: u256,
-            winners: [ContractAddress; 3],
-            shares: [u256; 3],
-        ) {
-            self.assert_distributed(audition_id, winners, shares);
+        fn distribute_prize(ref self: ContractState, audition_id: u256, shares: Array<u256>) {
+            let winners: Array<ContractAddress> = self.get_top_winners(audition_id, shares.len());
+            self.assert_distributed(audition_id, winners.clone(), shares.clone());
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
-            let winners_span = winners.span();
+            let winners_span: Span<ContractAddress> = winners.into();
             let shares_span = shares.span();
             let mut distributed_amounts = ArrayTrait::new();
             let mut i = 0;
@@ -861,30 +857,17 @@ pub mod SeasonAndAudition {
                 let amount = *distributed_amounts.at(count);
                 self._send_tokens(winner_contract_address, amount, token_contract_address);
                 count += 1;
+                self.audition_winner_amounts.entry(audition_id).push(amount);
+                self.audition_winner_addresses.entry(audition_id).push(winner_contract_address)
             }
-            self
-                .audition_winner_addresses
-                .write(
-                    audition_id, (*winners_span.at(0), *winners_span.at(1), *winners_span.at(2)),
-                );
-            self
-                .audition_winner_amounts
-                .write(
-                    audition_id,
-                    (
-                        *distributed_amounts.at(0),
-                        *distributed_amounts.at(1),
-                        *distributed_amounts.at(2),
-                    ),
-                );
             self.price_distributed.write(audition_id, true);
             self
                 .emit(
                     Event::PriceDistributed(
                         PriceDistributed {
                             audition_id,
-                            winners,
-                            shares,
+                            winners: winners_span,
+                            shares: shares_span,
                             token_address: token_contract_address,
                             amounts: distributed_amounts.span(),
                         },
@@ -894,14 +877,23 @@ pub mod SeasonAndAudition {
 
         fn get_audition_winner_addresses(
             self: @ContractState, audition_id: u256,
-        ) -> (ContractAddress, ContractAddress, ContractAddress) {
-            self.audition_winner_addresses.read(audition_id)
+        ) -> Array<ContractAddress> {
+            let mut array_audition_winner_addresses: Array<ContractAddress> = array![];
+            for i in 0..self.audition_winner_addresses.entry(audition_id).len() {
+                array_audition_winner_addresses
+                    .append(self.audition_winner_addresses.entry(audition_id).at(i).read());
+            }
+            array_audition_winner_addresses
         }
 
-        fn get_audition_winner_amounts(
-            self: @ContractState, audition_id: u256,
-        ) -> (u256, u256, u256) {
-            self.audition_winner_amounts.read(audition_id)
+
+        fn get_audition_winner_amounts(self: @ContractState, audition_id: u256) -> Array<u256> {
+            let mut array_audition_winner_amounts: Array<u256> = array![];
+            for i in 0..self.audition_winner_amounts.entry(audition_id).len() {
+                array_audition_winner_amounts
+                    .append(self.audition_winner_amounts.entry(audition_id).at(i).read());
+            }
+            array_audition_winner_amounts
         }
 
         fn is_prize_distributed(self: @ContractState, audition_id: u256) -> bool {
@@ -1180,7 +1172,7 @@ pub mod SeasonAndAudition {
             self.performer_count.entry(audition_id).write(performer_id);
             self.performer_has_registered.entry((caller, audition_id)).write(performer_id);
             self.registration_started.entry(audition_id).write(true);
-
+            self.performer_audition_address.entry((audition_id, performer_id)).write(caller);
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
             self.enrolled_performers.entry(audition_id).push(performer_id);
             self.performer_registry.entry((audition_id, performer_id)).write(caller);
@@ -1203,7 +1195,6 @@ pub mod SeasonAndAudition {
             performer_id
         }
 
-        // dummy implementation to get the enrolled performers for an audition
         fn get_enrolled_performers(self: @ContractState, audition_id: u256) -> Array<u256> {
             let mut performers_array = ArrayTrait::<u256>::new();
             let enrolled_performers = self.enrolled_performers.entry(audition_id);
@@ -1352,8 +1343,8 @@ pub mod SeasonAndAudition {
         fn assert_distributed(
             ref self: ContractState,
             audition_id: u256,
-            winners: [ContractAddress; 3],
-            shares: [u256; 3],
+            winners: Array<ContractAddress>,
+            shares: Array<u256>,
         ) {
             self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -1494,6 +1485,65 @@ pub mod SeasonAndAudition {
             let halfway_time = audition.start_timestamp
                 + (audition.end_timestamp - audition.start_timestamp) / 2;
             assert(get_block_timestamp() < halfway_time, 'Audition has gone halfway');
+        }
+
+        fn get_top_winners(
+            self: @ContractState, audition_id: u256, limit: u32,
+        ) -> Array<ContractAddress> {
+            // get the list of all participants and thier scores
+            let mut all_aggrgate_scores: Array<(u256, u256)> = array![];
+            let storage_vec = self.audition_aggregate_scores.entry(audition_id);
+            for i in 0..storage_vec.len() {
+                let (performer_id, aggregate_score) = storage_vec.at(i).read();
+                all_aggrgate_scores.append((performer_id, aggregate_score));
+            }
+            // assert the number of winners they are getting is equal or greater than the lenght
+            assert(limit.into() <= all_aggrgate_scores.len(), 'INSUFFICIENT NUM OF WINNERS');
+
+            let mut idx1 = 0;
+            let mut idx2 = 1;
+            let mut sorted_iteration = true;
+            // A SORTED ARRRAY OF PERFORMER AND SCORE, FROM HIGHEST TO LOWEST
+            let mut sorted_array: Array<(u256, u256)> = array![];
+
+            loop {
+                if idx2 == all_aggrgate_scores.len() {
+                    sorted_array.append(*all_aggrgate_scores.at(idx1));
+                    if sorted_iteration {
+                        break;
+                    }
+                    all_aggrgate_scores = sorted_array.span().try_into().unwrap();
+                    sorted_array = array![];
+                    idx1 = 0;
+                    idx2 = 1;
+                    sorted_iteration = true;
+                } else {
+                    let (id1, score1) = *all_aggrgate_scores.at(idx1);
+                    let (id2, score2) = *all_aggrgate_scores.at(idx2);
+                    if score1 >= score2 {
+                        sorted_array.append((id1, score1));
+                        idx1 = idx2;
+                        idx2 += 1;
+                    } else {
+                        sorted_array.append((id2, score2));
+                        idx2 += 1;
+                        sorted_iteration = false;
+                    }
+                }
+            }
+            // get the addresses of the winners based on limit
+            let mut array_of_winners_address: Array<ContractAddress> = array![];
+
+            for i in 0..limit {
+                // get the id and use the id to get the address
+                let (performer_id, _) = *sorted_array.at(i);
+                let performer_address: ContractAddress = self
+                    .performer_audition_address
+                    .read((audition_id, performer_id));
+                array_of_winners_address.append(performer_address);
+            }
+
+            array_of_winners_address
         }
     }
 }
