@@ -1,5 +1,5 @@
 use contract_::audition::types::season_and_audition::{
-    Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
+    Appeal, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
 };
 use starknet::ContractAddress;
 
@@ -59,26 +59,19 @@ pub trait ISeasonAndAudition<TContractState> {
         ref self: TContractState, audition_id: u256, token_address: ContractAddress, amount: u256,
     );
 
-    fn distribute_prize(
-        ref self: TContractState,
-        audition_id: u256,
-        winners: [ContractAddress; 3],
-        shares: [u256; 3],
-    );
+    fn distribute_prize(ref self: TContractState, audition_id: u256, shares: Array<u256>);
 
     fn get_audition_prices(self: @TContractState, audition_id: u256) -> (ContractAddress, u256);
 
     /// @notice Returns the winner addresses for a given audition.
     /// @param audition_id The unique identifier of the audition.
-    /// @return (ContractAddress, ContractAddress, ContractAddress) Tuple of winner addresses.
     fn get_audition_winner_addresses(
         self: @TContractState, audition_id: u256,
-    ) -> (ContractAddress, ContractAddress, ContractAddress);
+    ) -> Array<ContractAddress>;
 
     /// @notice Returns the winner prize amounts for a given audition.
     /// @param audition_id The unique identifier of the audition.
-    /// @return (u256, u256, u256) Tuple of winner prize amounts.
-    fn get_audition_winner_amounts(self: @TContractState, audition_id: u256) -> (u256, u256, u256);
+    fn get_audition_winner_amounts(self: @TContractState, audition_id: u256) -> Array<u256>;
 
     /// @notice Returns whether the prize has been distributed for a given audition.
     /// @param audition_id The unique identifier of the audition.

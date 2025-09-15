@@ -1,4 +1,4 @@
-use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait, MusicStrk};
+use contract_::erc20::{IMusicShareTokenDispatcher, IMusicShareTokenDispatcherTrait};
 use contract_::events::TokenDeployedEvent;
 use contract_::token_factory::{
     IMusicShareTokenFactoryDispatcher, IMusicShareTokenFactoryDispatcherTrait,
@@ -15,33 +15,8 @@ use snforge_std::{
 };
 use starknet::class_hash::ClassHash;
 use starknet::{ContractAddress, get_block_timestamp};
+use crate::test_utils::{MUSICSTRK_HASH, artist_1, artist_2, non_auth, owner, zero};
 
-
-// Address constants for testing
-fn artist_1() -> ContractAddress {
-    'artist_1'.try_into().unwrap()
-}
-
-fn artist_2() -> ContractAddress {
-    'artist_2'.try_into().unwrap()
-}
-
-fn non_auth() -> ContractAddress {
-    'non-auth'.try_into().unwrap()
-}
-
-fn owner() -> ContractAddress {
-    'owner'.try_into().unwrap()
-}
-
-fn zero() -> ContractAddress {
-    0.try_into().unwrap()
-}
-
-// Constants
-fn MUSICSTRK_HASH() -> ClassHash {
-    MusicStrk::TEST_CLASS_HASH.try_into().unwrap()
-}
 
 const TOTAL_SHARES: u256 = 100_u256;
 
@@ -96,6 +71,8 @@ fn test_successful_music_share_token_deployment() {
     let artist_1 = artist_1();
     let owner = owner();
 
+    let mut event_spy = spy_events();
+
     // Deploy music share token factory as owner
     let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
 
@@ -120,43 +97,16 @@ fn test_successful_music_share_token_deployment() {
 
     // Verify token properties using ERC20 interface
     let erc20_token = IERC20MixinDispatcher { contract_address: token_address };
-    assert(erc20_token.name() == name.into(), 'Name mismatch');
-    assert(erc20_token.symbol() == symbol.into(), 'Symbol mismatch');
+    assert(erc20_token.name() == name.clone().into(), 'Name mismatch');
+    assert(erc20_token.symbol() == symbol.clone().into(), 'Symbol mismatch');
 
     // Get token through the music token interface
     let music_token = IMusicShareTokenDispatcher { contract_address: token_address };
     assert(music_token.get_decimals() == decimals, 'Decimals mismatch');
-    assert(music_token.get_metadata_uri() == metadata_uri.into(), 'Metadata URI mismatch');
+    assert(music_token.get_metadata_uri() == metadata_uri.clone().into(), 'Metadata URI mismatch');
 
     // Verify 100 tokens were minted to the deployer
     assert(erc20_token.balance_of(artist_1.into()) == TOTAL_SHARES, 'Balance should be 100 tokens');
-}
-
-#[test]
-fn test_deploy_music_share_token_event() {
-    // Setup test accounts from address constants
-    let owner = owner();
-    let artist_1 = artist_1();
-
-    // Deploy music share token factory as owner
-    let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
-
-    // Grant artist role before token deployment
-    cheat_caller_address(factory_address, owner, CheatSpan::TargetCalls(1));
-    factory_dispatcher.grant_artist_role(artist_1);
-
-    // Setup test data
-    let (name, symbol, decimals, metadata_uri) = setup_token_data();
-
-    // Start calls as the deployer (artist)
-    cheat_caller_address(factory_address, artist_1, CheatSpan::TargetCalls(1));
-
-    // Spy on events
-    let mut event_spy = spy_events();
-
-    // Deploy a token through the factory
-    let token_address = factory_dispatcher
-        .deploy_music_token(name.clone(), symbol.clone(), decimals, metadata_uri.clone());
 
     event_spy
         .assert_emitted(
@@ -176,6 +126,20 @@ fn test_deploy_music_share_token_event() {
                 ),
             ],
         );
+}
+
+#[test]
+#[should_panic(expect: 'Result::unwrap failed.')]
+fn test_deploy_factory_with_zero_owner() {
+    let (_, music_token_class_hash) = deploy_music_share_token(owner());
+
+    let factory_class = declare("MusicShareTokenFactory").unwrap().contract_class();
+    let mut calldata = array![];
+
+    calldata.append(zero().into());
+    calldata.append(music_token_class_hash.into());
+
+    let (_, _) = factory_class.deploy(@calldata).unwrap();
 }
 
 #[test]
@@ -272,53 +236,7 @@ fn test_multiple_artists() {
     assert(token2.balance_of(artist_2) == TOTAL_SHARES, 'Artist 2 should have 100 tokens');
 }
 
-#[test]
-fn test_token_functionality() {
-    // Setup test accounts from address constants
-    let owner = owner();
-    let artist_1 = artist_1();
-    let artist_2 = artist_2();
-
-    // Deploy music share token factory as owner
-    let (factory_address, factory_dispatcher) = deploy_music_share_token_factory(owner);
-
-    // Grant artist role before token deployment
-    cheat_caller_address(factory_address, owner, CheatSpan::TargetCalls(2));
-    factory_dispatcher.grant_artist_role(artist_1);
-    factory_dispatcher.grant_artist_role(artist_2);
-
-    // Setup test data
-    let (name, symbol, decimals, metadata_uri) = setup_token_data();
-
-    // Start calls as the deployer (artist_1)
-    cheat_caller_address(factory_address, artist_1, CheatSpan::TargetCalls(1));
-
-    // Deploy a token through the factory
-    let token_address = factory_dispatcher
-        .deploy_music_token(name.clone(), symbol.clone(), decimals, metadata_uri.clone());
-
-    // Get ERC20 interface
-    let token = IERC20MixinDispatcher { contract_address: token_address };
-
-    // Test transfer functionality
-    cheat_caller_address(token_address, artist_1, CheatSpan::TargetCalls(1));
-    token.transfer(artist_2, 10_u256);
-
-    // Verify balances after transfer
-    assert(token.balance_of(artist_1) == 90_u256, 'Artist 1 should have 90 tokens');
-    assert(token.balance_of(artist_2) == 10_u256, 'Artist 2 should have 10 tokens');
-
-    // Test approval and transferFrom with artist_2
-    cheat_caller_address(token_address, artist_2, CheatSpan::TargetCalls(1));
-    token.approve(artist_1, 5_u256);
-
-    cheat_caller_address(token_address, artist_1, CheatSpan::TargetCalls(1));
-    token.transfer_from(artist_2, artist_1, 5_u256);
-
-    // Verify balances after transferFrom
-    assert(token.balance_of(artist_1) == 95_u256, 'Artist 1 should have 95 tokens');
-    assert(token.balance_of(artist_2) == 5_u256, 'Artist 2 should have 5 tokens');
-}
+// Removed ERC20 behavior checks from factory tests; covered in token tests
 
 #[test]
 #[should_panic(expect: 'Index out of bounds;')]
@@ -446,23 +364,4 @@ fn test_update_token_class_hash_unauthorized() {
 
     // This should fail because only owner can update class hash
     factory_dispatcher.update_token_class_hash(MUSICSTRK_HASH());
-}
-
-#[test]
-#[should_panic(expect: 'Result::unwrap failed.')]
-fn test_deploy_factory_with_zero_owner() {
-    // For this test, we need to modify the deploy function to handle zero address directly
-    // Get the token class hash
-    let (_, music_token_class_hash) = deploy_music_share_token(owner());
-
-    // Set up factory constructor calldata with zero address as owner
-    let factory_class = declare("MusicShareTokenFactory").unwrap().contract_class();
-    let mut calldata = array![];
-
-    // Use zero address as owner
-    calldata.append(zero().into());
-    calldata.append(music_token_class_hash.into());
-
-    // Attempt to deploy with zero address owner - should fail
-    let (_, _) = factory_class.deploy(@calldata).unwrap();
 }

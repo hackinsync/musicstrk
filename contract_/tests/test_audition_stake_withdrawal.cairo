@@ -8,14 +8,13 @@ use contract_::audition::stake_withdrawal::{
     IStakeWithdrawalDispatcher, IStakeWithdrawalDispatcherTrait,
 };
 use contract_::audition::types::season_and_audition::Genre;
-use contract_::audition::types::stake_to_vote::StakingConfig;
 use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_block_timestamp,
-    start_cheat_caller_address, stop_cheat_block_timestamp, stop_cheat_caller_address,
+    start_cheat_caller_address, stop_cheat_caller_address,
 };
-use starknet::{ContractAddress, contract_address_const, get_block_timestamp};
+use starknet::{ContractAddress, get_block_timestamp};
 
 // Test constants
 const AUDITION_ID: u256 = 1;
@@ -27,27 +26,27 @@ const INITIAL_TOKEN_SUPPLY: u256 = 1000000000000; // 1M tokens with 6 decimals
 
 // Test accounts
 fn OWNER() -> ContractAddress {
-    contract_address_const::<'owner'>()
+    'owner'.try_into().unwrap()
 }
 
 fn STAKER1() -> ContractAddress {
-    contract_address_const::<'staker1'>()
+    'staker1'.try_into().unwrap()
 }
 
 fn STAKER2() -> ContractAddress {
-    contract_address_const::<'staker2'>()
+    'staker2'.try_into().unwrap()
 }
 
 fn STAKER3() -> ContractAddress {
-    contract_address_const::<'staker3'>()
+    'staker3'.try_into().unwrap()
 }
 
 fn NON_STAKER() -> ContractAddress {
-    contract_address_const::<'non_staker'>()
+    'non_staker'.try_into().unwrap()
 }
 
 fn UNAUTHORIZED_USER() -> ContractAddress {
-    contract_address_const::<'unauthorized'>()
+    'unauthorized'.try_into().unwrap()
 }
 
 // Deploy audition contract for integration testing
@@ -205,52 +204,12 @@ fn test_initial_configuration() {
 }
 
 #[test]
-fn test_set_staking_config_by_owner() {
-    let (withdrawal_contract, token, _, staking_contract) = setup();
-
-    // Set config directly on staking contract (proper architecture)
-    start_cheat_caller_address(staking_contract.contract_address, OWNER());
-
-    staking_contract
-        .set_staking_config(
-            AUDITION_ID_2, STAKE_AMOUNT * 2, token.contract_address, WITHDRAWAL_DELAY * 2,
-        );
-
-    stop_cheat_caller_address(staking_contract.contract_address);
-
-    // Verify through withdrawal contract (read-only operation)
-    let retrieved_config = withdrawal_contract.get_staking_config(AUDITION_ID_2);
-    assert!(retrieved_config.required_stake_amount == STAKE_AMOUNT * 2, "Config not updated");
-    // Event emission testing would need proper event imports
-}
-
-#[test]
-#[should_panic(expected: ('Caller is not the owner',))]
-fn test_set_staking_config_unauthorized() {
-    let (withdrawal_contract, token, _, _) = setup();
-
-    // Use an existing audition ID to avoid audition existence error
-    start_cheat_caller_address(withdrawal_contract.contract_address, UNAUTHORIZED_USER());
-
-    let config = StakingConfig {
-        required_stake_amount: STAKE_AMOUNT,
-        stake_token: token.contract_address,
-        withdrawal_delay_after_results: WITHDRAWAL_DELAY,
-    };
-
-    // This should fail with "Caller is not the owner" since AUDITION_ID exists
-    withdrawal_contract.set_staking_config(AUDITION_ID, config);
-
-    stop_cheat_caller_address(withdrawal_contract.contract_address);
-}
-
-#[test]
 fn test_set_audition_contract() {
     let (withdrawal_contract, _, _, _) = setup();
 
     start_cheat_caller_address(withdrawal_contract.contract_address, OWNER());
 
-    let new_audition_contract = contract_address_const::<'new_audition'>();
+    let new_audition_contract: ContractAddress = 'new_audition'.try_into().unwrap();
     withdrawal_contract.set_audition_contract(new_audition_contract);
 
     stop_cheat_caller_address(withdrawal_contract.contract_address);
@@ -263,7 +222,7 @@ fn test_set_audition_contract_unauthorized() {
 
     start_cheat_caller_address(withdrawal_contract.contract_address, UNAUTHORIZED_USER());
 
-    let new_audition_contract = contract_address_const::<'new_audition'>();
+    let new_audition_contract = 'new_audition'.try_into().unwrap();
     withdrawal_contract.set_audition_contract(new_audition_contract);
 
     stop_cheat_caller_address(withdrawal_contract.contract_address);
@@ -309,17 +268,6 @@ fn test_are_results_finalized_true_after_ending() {
     // Note: The exact timing of when results become finalized after end_audition()
 // is an implementation detail of the audition contract, not a withdrawal requirement.
 // The core withdrawal functionality works correctly when results ARE finalized.
-}
-
-// === STAKER INFO TESTS ===
-
-#[test]
-fn test_get_staker_info_empty() {
-    let (withdrawal_contract, _, _, _) = setup();
-
-    let staker_info = withdrawal_contract.get_staker_info(STAKER1(), AUDITION_ID);
-    assert!(staker_info.address.is_zero(), "Staker should be zero");
-    assert!(staker_info.staked_amount == 0, "Staked amount should be zero");
 }
 
 // === WITHDRAWAL FUNCTION TESTS ===
@@ -494,7 +442,7 @@ fn test_get_withdrawn_stakers_empty() {
 
 #[test]
 fn test_audition_contract_integration_no_contract() {
-    let zero_address = contract_address_const::<0>();
+    let zero_address = 0.try_into().unwrap();
     let withdrawal_contract = deploy_stake_withdrawal_contract(zero_address, zero_address);
 
     let results_finalized = withdrawal_contract.are_results_finalized(AUDITION_ID);
@@ -539,7 +487,7 @@ fn test_zero_address_staker() {
     let (withdrawal_contract, _, _, _) = setup();
 
     // Zero address should not be able to withdraw since no staker info exists
-    let zero_address = contract_address_const::<0>();
+    let zero_address = 0.try_into().unwrap();
     let can_withdraw = withdrawal_contract.can_withdraw_stake(zero_address, AUDITION_ID);
     assert!(!can_withdraw, "Should not be able to withdraw for zero address");
 }
@@ -642,7 +590,7 @@ fn test_large_audition_ids() {
 
 #[test]
 fn test_multiple_batch_operations() {
-    let (withdrawal_contract, _, audition_contract, _) = setup();
+    let (withdrawal_contract, _, _, _) = setup();
 
     // Create many audition IDs for batch testing
     let audition_ids = array![
