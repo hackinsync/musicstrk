@@ -802,9 +802,9 @@ pub mod SeasonAndAudition {
             self.assert_valid_season(audition.season_id);
 
             let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
-            // assert!(
-            //     existing_token_address.is_zero() && existing_amount == 0, "Prize already deposited",
-            // );
+            assert!(
+                existing_token_address.is_zero() && existing_amount == 0, "Prize already deposited",
+            );
             self._process_payment(amount, token_address);
             self.audition_prices.write(audition_id, (token_address, amount));
             self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
@@ -838,7 +838,8 @@ pub mod SeasonAndAudition {
             let winners: Array<ContractAddress> = self.get_top_winners(audition_id, shares.len());
             self.assert_distributed(audition_id, winners.clone(), shares.clone());
             let audition = self.auditions.entry(audition_id).read();
-            self.assert_valid_season(audition.season_id);
+            assert(self.season_exists(audition.season_id), 'Season does not exist');
+            assert(!self.is_season_paused(audition.season_id), 'Season is paused');            
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
@@ -1350,11 +1351,11 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition must end first');
-            let (token_contract_address, _): (ContractAddress, u256) = self
+            let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
-
             assert(!token_contract_address.is_zero(), 'No prize for this audition');
+            assert(price_pool > 0, 'No prize for this audition');
             assert(!self.is_prize_distributed(audition_id), 'Prize already distributed');
 
             let winners_span = winners.span();
@@ -1491,6 +1492,8 @@ pub mod SeasonAndAudition {
             self: @ContractState, audition_id: u256, limit: u32,
         ) -> Array<ContractAddress> {
             // get the list of all participants and thier scores
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.is_audition_ended(audition_id), 'Audition must end first');
             let mut all_aggrgate_scores: Array<(u256, u256)> = array![];
             let storage_vec = self.audition_aggregate_scores.entry(audition_id);
             for i in 0..storage_vec.len() {
