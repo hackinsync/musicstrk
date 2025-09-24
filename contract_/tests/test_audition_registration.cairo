@@ -153,7 +153,7 @@ fn test_audition_registration_config_update_flow() {
 }
 
 #[test]
-#[should_panic(expected: 'Caller is not the owner')]
+#[should_panic(expected: 'Caller is missing role')]
 fn test_audition_registration_config_update_should_panic_on_non_owner() {
     let non_owner = test_address();
     feign_update_config(non_owner, 1, 10000);

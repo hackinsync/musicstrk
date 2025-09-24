@@ -1,13 +1,15 @@
 #[starknet::contract]
 pub mod SeasonAndAudition {
-    use OwnableComponent::{HasComponent, InternalTrait};
+    use OwnableComponent::InternalTrait;
     use contract_::audition::interfaces::iseason_and_audition::ISeasonAndAudition;
     use contract_::audition::types::season_and_audition::{
         Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
     };
     use contract_::errors::errors;
     use core::num::traits::Zero;
+    use openzeppelin::access::accesscontrol::{AccessControlComponent, DEFAULT_ADMIN_ROLE};
     use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::event::EventEmitter;
     use starknet::storage::{
@@ -27,17 +29,36 @@ pub mod SeasonAndAudition {
 
     // Integrates OpenZeppelin ownership component
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    component!(path: AccessControlComponent, storage: accesscontrol, event: AccessControlEvent);
+    component!(path: SRC5Component, storage: src5, event: SRC5Event);
 
     // @notice the precision for the score
     const PRECISION: u256 = 100;
+
+    const ADMIN_ROLE: felt252 = selector!("ADMIN_ROLE");
+    const SEASON_MAINTAINER_ROLE: felt252 = selector!("SEASON_MAINTAINER_ROLE");
+    const AUDITION_MAINTAINER_ROLE: felt252 = selector!("AUDITION_MAINTAINER_ROLE");
+    const REVIEWER_ROLE: felt252 = selector!("REVIEWER_ROLE");
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
     impl OwnableTwoStepImpl = OwnableComponent::OwnableTwoStepImpl<ContractState>;
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
 
+    #[abi(embed_v0)]
+    impl AccessControlImpl =
+        AccessControlComponent::AccessControlImpl<ContractState>;
+    impl AccessControlInternalImpl = AccessControlComponent::InternalImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl SRC5Impl = SRC5Component::SRC5Impl<ContractState>;
+
     #[storage]
     struct Storage {
+        #[substorage(v0)]
+        accesscontrol: AccessControlComponent::Storage,
+        #[substorage(v0)]
+        src5: SRC5Component::Storage,
         whitelisted_oracles: Map<ContractAddress, bool>,
         seasons: Map<u256, Season>,
         season_count: u256,
@@ -57,13 +78,13 @@ pub mod SeasonAndAudition {
         /// winners.
         /// @param audition_winner_addresses Mapping from audition ID (felt252) to a tuple of winner
         /// addresses (ContractAddress, ContractAddress, ContractAddress).
-        audition_winner_addresses: Map<u256, (ContractAddress, ContractAddress, ContractAddress)>,
+        audition_winner_addresses: Map<u256, Vec<ContractAddress>>,
         /// @notice Maps each audition ID to the prize amounts for the winners.
         /// @dev The value is a tuple containing the prize amounts for the first, second, and third
         /// place winners, respectively.
         /// @param audition_winner_amounts Mapping from audition ID (felt252) to a tuple of prize
         /// amounts (u256, u256, u256).
-        audition_winner_amounts: Map<u256, (u256, u256, u256)>,
+        audition_winner_amounts: Map<u256, Vec<u256>>,
         /// price distributed status
         price_distributed: Map<u256, bool>,
         /// @notice maps each audition id to a list of judges
@@ -115,6 +136,8 @@ pub mod SeasonAndAudition {
         /// @notice a Map of a (Performer's address, audition_id) to the performer id, use for ease
         /// of reading the id. Thus if the id is zero, the performer has not registered.
         performer_has_registered: Map<(ContractAddress, u256), u256>,
+        /// @notice a map of the audition id, performer id and caller address
+        performer_audition_address: Map<(u256, u256), ContractAddress>,
         /// @notice performer count per audition id.
         performer_count: Map<u256, u256>,
         registered_artists: Map<(ContractAddress, u256), ArtistRegistration>,
@@ -137,6 +160,8 @@ pub mod SeasonAndAudition {
         performer_registry: Map<(u256, u256), ContractAddress>,
         /// @notice a count of performer
         performers_count: u256,
+        /// @notice mapping to know weather price has been deposited for an audition
+        audition_price_deposited: Map<u256, bool>,
     }
 
     #[event]
@@ -159,6 +184,10 @@ pub mod SeasonAndAudition {
         ResumedAll: ResumedAll,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        AccessControlEvent: AccessControlComponent::Event,
+        #[flat]
+        SRC5Event: SRC5Component::Event,
         PriceDeposited: PriceDeposited,
         PriceDistributed: PriceDistributed,
         JudgeAdded: JudgeAdded,
@@ -182,12 +211,21 @@ pub mod SeasonAndAudition {
         self.ownable.initializer(owner);
         self.global_paused.write(false);
         self.judging_paused.write(false);
+        self.accesscontrol.initializer();
+        self.accesscontrol.set_role_admin(SEASON_MAINTAINER_ROLE, ADMIN_ROLE);
+        self.accesscontrol.set_role_admin(AUDITION_MAINTAINER_ROLE, ADMIN_ROLE);
+        self.accesscontrol.set_role_admin(REVIEWER_ROLE, ADMIN_ROLE);
+        self.accesscontrol._grant_role(ADMIN_ROLE, owner);
+        self.accesscontrol._grant_role(DEFAULT_ADMIN_ROLE, owner);
+        self.accesscontrol._grant_role(SEASON_MAINTAINER_ROLE, owner);
+        self.accesscontrol._grant_role(AUDITION_MAINTAINER_ROLE, owner);
+        self.accesscontrol._grant_role(REVIEWER_ROLE, owner);
     }
 
     #[abi(embed_v0)]
     impl ISeasonAndAuditionImpl of ISeasonAndAudition<ContractState> {
         fn create_season(ref self: ContractState, name: felt252, start_time: u64, end_time: u64) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             self.assert_all_seasons_closed();
             self.assert_valid_time(start_time, end_time);
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -225,7 +263,7 @@ pub mod SeasonAndAudition {
         fn update_season(
             ref self: ContractState, season_id: u256, name: Option<felt252>, end_time: Option<u64>,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             self.assert_valid_season(season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
 
@@ -253,7 +291,7 @@ pub mod SeasonAndAudition {
         fn create_audition(
             ref self: ContractState, name: felt252, genre: Genre, end_timestamp: u64,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             let season_id = self.active_season.read().expect('No active season');
             self.assert_valid_season(season_id);
@@ -293,7 +331,7 @@ pub mod SeasonAndAudition {
             name: Option<felt252>,
             genre: Option<Genre>,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             self.assert_valid_audition(audition_id);
             let mut audition = self.auditions.entry(audition_id).read();
@@ -327,7 +365,7 @@ pub mod SeasonAndAudition {
         fn update_registration_config(
             ref self: ContractState, audition_id: u256, config: RegistrationConfig,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition already ended');
             assert(!self.registration_started.entry(audition_id).read(), 'Registration Started');
@@ -403,7 +441,7 @@ pub mod SeasonAndAudition {
         fn set_evaluation_weight(
             ref self: ContractState, audition_id: u256, weight: (u256, u256, u256),
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
@@ -432,7 +470,7 @@ pub mod SeasonAndAudition {
         }
 
         fn perform_aggregate_score_calculation(ref self: ContractState, audition_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition has not ended');
@@ -516,7 +554,7 @@ pub mod SeasonAndAudition {
         /// @param audition_id the id of the audition to add the judge to
         /// @param judge_address the address of the judge to add
         fn add_judge(ref self: ContractState, audition_id: u256, judge_address: ContractAddress) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
@@ -538,7 +576,7 @@ pub mod SeasonAndAudition {
         fn remove_judge(
             ref self: ContractState, audition_id: u256, judge_address: ContractAddress,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has ended');
@@ -658,12 +696,12 @@ pub mod SeasonAndAudition {
 
 
         fn pause_judging(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             self.judging_paused.write(true);
         }
 
         fn resume_judging(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             self.judging_paused.write(false);
         }
 
@@ -675,7 +713,7 @@ pub mod SeasonAndAudition {
         fn submit_result(
             ref self: ContractState, audition_id: u256, result_uri: ByteArray, performer_id: u256,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(REVIEWER_ROLE);
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
             assert(!self.global_paused.read(), 'Contract is paused');
@@ -756,7 +794,7 @@ pub mod SeasonAndAudition {
             token_address: ContractAddress,
             amount: u256,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.is_audition_ended(audition_id), 'Audition has already ended');
@@ -765,12 +803,12 @@ pub mod SeasonAndAudition {
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
 
-            let (existing_token_address, existing_amount) = self.audition_prices.read(audition_id);
             assert!(
-                existing_token_address.is_zero() && existing_amount == 0, "Prize already deposited",
+                !self.audition_price_deposited.entry(audition_id).read(), "Prize already deposited",
             );
             self._process_payment(amount, token_address);
             self.audition_prices.write(audition_id, (token_address, amount));
+            self.audition_price_deposited.entry(audition_id).write(true);
             self.emit(Event::PriceDeposited(PriceDeposited { audition_id, token_address, amount }));
         }
 
@@ -795,24 +833,23 @@ pub mod SeasonAndAudition {
         /// @param self The contract state reference.
         /// @param audition_id The unique identifier of the audition whose prize is to be
         /// distributed.
-        /// @param winners An array of 3 contract addresses representing the winners.
-        /// @param shares An array of 3 u256 values representing the percentage shares (out of 100)
         /// for each winner.
         /// @custom:reverts If the distribution conditions are not met, as checked by
         /// `assert_distributed`.
-        fn distribute_prize(
-            ref self: ContractState,
-            audition_id: u256,
-            winners: [ContractAddress; 3],
-            shares: [u256; 3],
-        ) {
-            self.assert_distributed(audition_id, winners, shares);
+        fn distribute_prize(ref self: ContractState, audition_id: u256, shares: Array<u256>) {
+            let winners: Array<ContractAddress> = self.get_top_winners(audition_id, shares.len());
+            self.assert_distributed(audition_id, winners.clone(), shares.clone());
             let audition = self.auditions.entry(audition_id).read();
-            self.assert_valid_season(audition.season_id);
+            assert(self.season_exists(audition.season_id), 'Season does not exist');
+            assert(!self.is_season_paused(audition.season_id), 'Season is paused');
             let (token_contract_address, price_pool): (ContractAddress, u256) = self
                 .audition_prices
                 .read(audition_id);
-            let winners_span = winners.span();
+            assert(
+                self.audition_price_deposited.entry(audition_id).read(),
+                'No prize for this audition',
+            );
+            let winners_span: Span<ContractAddress> = winners.into();
             let shares_span = shares.span();
             let mut distributed_amounts = ArrayTrait::new();
             let mut i = 0;
@@ -827,30 +864,17 @@ pub mod SeasonAndAudition {
                 let amount = *distributed_amounts.at(count);
                 self._send_tokens(winner_contract_address, amount, token_contract_address);
                 count += 1;
+                self.audition_winner_amounts.entry(audition_id).push(amount);
+                self.audition_winner_addresses.entry(audition_id).push(winner_contract_address)
             }
-            self
-                .audition_winner_addresses
-                .write(
-                    audition_id, (*winners_span.at(0), *winners_span.at(1), *winners_span.at(2)),
-                );
-            self
-                .audition_winner_amounts
-                .write(
-                    audition_id,
-                    (
-                        *distributed_amounts.at(0),
-                        *distributed_amounts.at(1),
-                        *distributed_amounts.at(2),
-                    ),
-                );
             self.price_distributed.write(audition_id, true);
             self
                 .emit(
                     Event::PriceDistributed(
                         PriceDistributed {
                             audition_id,
-                            winners,
-                            shares,
+                            winners: winners_span,
+                            shares: shares_span,
                             token_address: token_contract_address,
                             amounts: distributed_amounts.span(),
                         },
@@ -860,14 +884,23 @@ pub mod SeasonAndAudition {
 
         fn get_audition_winner_addresses(
             self: @ContractState, audition_id: u256,
-        ) -> (ContractAddress, ContractAddress, ContractAddress) {
-            self.audition_winner_addresses.read(audition_id)
+        ) -> Array<ContractAddress> {
+            let mut array_audition_winner_addresses: Array<ContractAddress> = array![];
+            for i in 0..self.audition_winner_addresses.entry(audition_id).len() {
+                array_audition_winner_addresses
+                    .append(self.audition_winner_addresses.entry(audition_id).at(i).read());
+            }
+            array_audition_winner_addresses
         }
 
-        fn get_audition_winner_amounts(
-            self: @ContractState, audition_id: u256,
-        ) -> (u256, u256, u256) {
-            self.audition_winner_amounts.read(audition_id)
+
+        fn get_audition_winner_amounts(self: @ContractState, audition_id: u256) -> Array<u256> {
+            let mut array_audition_winner_amounts: Array<u256> = array![];
+            for i in 0..self.audition_winner_amounts.entry(audition_id).len() {
+                array_audition_winner_amounts
+                    .append(self.audition_winner_amounts.entry(audition_id).at(i).read());
+            }
+            array_audition_winner_amounts
         }
 
         fn is_prize_distributed(self: @ContractState, audition_id: u256) -> bool {
@@ -911,13 +944,13 @@ pub mod SeasonAndAudition {
         }
 
         fn pause_all(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             self.global_paused.write(true);
             self.emit(Event::PausedAll(PausedAll { timestamp: get_block_timestamp() }));
         }
 
         fn resume_all(ref self: ContractState) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             self.global_paused.write(false);
             self.emit(Event::ResumedAll(ResumedAll { timestamp: get_block_timestamp() }));
         }
@@ -927,7 +960,7 @@ pub mod SeasonAndAudition {
         }
 
         fn pause_audition(ref self: ContractState, audition_id: u256) -> bool {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             let audition = self.auditions.entry(audition_id).read();
             self.assert_valid_season(audition.season_id);
@@ -947,7 +980,7 @@ pub mod SeasonAndAudition {
         }
 
         fn resume_audition(ref self: ContractState, audition_id: u256) -> bool {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_paused(audition_id), 'Audition is not paused');
@@ -966,7 +999,7 @@ pub mod SeasonAndAudition {
         }
 
         fn end_audition(ref self: ContractState, audition_id: u256) -> bool {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(ADMIN_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
 
             assert(self.audition_exists(audition_id), 'Audition does not exist');
@@ -1014,7 +1047,7 @@ pub mod SeasonAndAudition {
 
 
         fn pause_season(ref self: ContractState, season_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             self.assert_valid_season(season_id);
             let mut season = self.seasons.entry(season_id).read();
@@ -1029,7 +1062,7 @@ pub mod SeasonAndAudition {
                 );
         }
         fn resume_season(ref self: ContractState, season_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.season_exists(season_id), 'Season does not exist');
             let mut season = self.seasons.entry(season_id).read();
@@ -1069,7 +1102,7 @@ pub mod SeasonAndAudition {
         }
 
         fn end_season(ref self: ContractState, season_id: u256) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(SEASON_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.season_exists(season_id), 'Season does not exist');
             assert(self.is_season_ended(season_id), 'Season has not ended');
@@ -1146,7 +1179,7 @@ pub mod SeasonAndAudition {
             self.performer_count.entry(audition_id).write(performer_id);
             self.performer_has_registered.entry((caller, audition_id)).write(performer_id);
             self.registration_started.entry(audition_id).write(true);
-
+            self.performer_audition_address.entry((audition_id, performer_id)).write(caller);
             self.performer_enrollment_status.entry((audition_id, performer_id)).write(true);
             self.enrolled_performers.entry(audition_id).push(performer_id);
             self.performer_registry.entry((audition_id, performer_id)).write(caller);
@@ -1169,7 +1202,6 @@ pub mod SeasonAndAudition {
             performer_id
         }
 
-        // dummy implementation to get the enrolled performers for an audition
         fn get_enrolled_performers(self: @ContractState, audition_id: u256) -> Array<u256> {
             let mut performers_array = ArrayTrait::<u256>::new();
             let enrolled_performers = self.enrolled_performers.entry(audition_id);
@@ -1201,7 +1233,7 @@ pub mod SeasonAndAudition {
             // Only owner or judge can resolve
             let evaluation = self.evaluations.entry(evaluation_id).read();
             let audition_id = evaluation.audition_id;
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             let mut is_judge = false;
             let judges = self.get_judges(audition_id);
             for judge in judges {
@@ -1315,27 +1347,17 @@ pub mod SeasonAndAudition {
         /// @param winners An array of 3 contract addresses representing the winners.
         /// @param shares An array of 3 u256 values representing the share percentages for each
         /// winner.
-        /// @custom:reverts If called by anyone other than the owner.
-        /// @custom:reverts If the contract is paused.
-        /// @custom:reverts If the audition does not exist or has not ended.
-        /// @custom:reverts If there is no prize for the audition.
-        /// @custom:reverts If any winner address is zero.
-        /// @custom:reverts If the total shares do not add up to 100.
         fn assert_distributed(
             ref self: ContractState,
             audition_id: u256,
-            winners: [ContractAddress; 3],
-            shares: [u256; 3],
+            winners: Array<ContractAddress>,
+            shares: Array<u256>,
         ) {
-            self.ownable.assert_only_owner();
+            self.accesscontrol.assert_only_role(AUDITION_MAINTAINER_ROLE);
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(self.is_audition_ended(audition_id), 'Audition must end first');
-            let (token_contract_address, _): (ContractAddress, u256) = self
-                .audition_prices
-                .read(audition_id);
 
-            assert(!token_contract_address.is_zero(), 'No prize for this audition');
             assert(!self.is_prize_distributed(audition_id), 'Prize already distributed');
 
             let winners_span = winners.span();
@@ -1466,6 +1488,67 @@ pub mod SeasonAndAudition {
             let halfway_time = audition.start_timestamp
                 + (audition.end_timestamp - audition.start_timestamp) / 2;
             assert(get_block_timestamp() < halfway_time, 'Audition has gone halfway');
+        }
+
+        fn get_top_winners(
+            self: @ContractState, audition_id: u256, limit: u32,
+        ) -> Array<ContractAddress> {
+            // get the list of all participants and thier scores
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(self.is_audition_ended(audition_id), 'Audition must end first');
+            let mut all_aggrgate_scores: Array<(u256, u256)> = array![];
+            let storage_vec = self.audition_aggregate_scores.entry(audition_id);
+            for i in 0..storage_vec.len() {
+                let (performer_id, aggregate_score) = storage_vec.at(i).read();
+                all_aggrgate_scores.append((performer_id, aggregate_score));
+            }
+            // assert the number of winners they are getting is equal or greater than the lenght
+            assert(limit.into() <= all_aggrgate_scores.len(), 'INSUFFICIENT NUM OF WINNERS');
+
+            let mut idx1 = 0;
+            let mut idx2 = 1;
+            let mut sorted_iteration = true;
+            // A SORTED ARRRAY OF PERFORMER AND SCORE, FROM HIGHEST TO LOWEST
+            let mut sorted_array: Array<(u256, u256)> = array![];
+
+            loop {
+                if idx2 == all_aggrgate_scores.len() {
+                    sorted_array.append(*all_aggrgate_scores.at(idx1));
+                    if sorted_iteration {
+                        break;
+                    }
+                    all_aggrgate_scores = sorted_array.span().try_into().unwrap();
+                    sorted_array = array![];
+                    idx1 = 0;
+                    idx2 = 1;
+                    sorted_iteration = true;
+                } else {
+                    let (id1, score1) = *all_aggrgate_scores.at(idx1);
+                    let (id2, score2) = *all_aggrgate_scores.at(idx2);
+                    if score1 >= score2 {
+                        sorted_array.append((id1, score1));
+                        idx1 = idx2;
+                        idx2 += 1;
+                    } else {
+                        sorted_array.append((id2, score2));
+                        idx2 += 1;
+                        sorted_iteration = false;
+                    }
+                }
+            }
+            // get the addresses of the winners based on limit
+            let mut array_of_winners_address: Array<ContractAddress> = array![];
+
+            for i in 0..limit {
+                // get the id and use the id to get the address
+                let (performer_id, _) = *sorted_array.at(i);
+                let performer_address: ContractAddress = self
+                    .performer_audition_address
+                    .read((audition_id, performer_id));
+                array_of_winners_address.append(performer_address);
+            }
+
+            array_of_winners_address
         }
     }
 }
