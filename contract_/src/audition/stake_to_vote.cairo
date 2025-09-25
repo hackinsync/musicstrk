@@ -176,6 +176,11 @@ pub mod StakeToVote {
             self.ownable.assert_only_owner();
             self.withdrawal_contract.write(withdrawal_contract);
         }
+
+        fn set_audition_contract(ref self: ContractState, audition_contract: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.season_and_audition_contract_address.write(audition_contract);
+        }
     }
 
     #[generate_trait]

@@ -1,5 +1,6 @@
 use contract_::audition::types::season_and_audition::{
-    Appeal, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
+    Appeal, ArtistRegistration, ArtistScore, Audition, Evaluation, Genre, RegistrationConfig,
+    Season, UnifiedVote, Vote, VoteType, VotingConfig,
 };
 use starknet::ContractAddress;
 
@@ -232,4 +233,54 @@ pub trait ISeasonAndAudition<TContractState> {
     fn get_performer_address(
         self: @TContractState, audition_id: u256, performer_id: u256,
     ) -> ContractAddress;
+
+    // Unified voting system functions
+    /// @notice Casts a unified vote that automatically detects voter role
+    /// @param audition_id The ID of the audition
+    /// @param artist_id The ID of the artist being voted for
+    /// @param ipfs_content_hash Pre-validated IPFS hash containing vote commentary
+    fn cast_vote(
+        ref self: TContractState, audition_id: u256, artist_id: u256, ipfs_content_hash: felt252,
+    );
+
+    /// @notice Sets voting configuration for an audition
+    /// @param audition_id The ID of the audition
+    /// @param config Voting configuration parameters
+    fn set_voting_config(ref self: TContractState, audition_id: u256, config: VotingConfig);
+
+    /// @notice Gets voting configuration for an audition
+    /// @param audition_id The ID of the audition
+    /// @return VotingConfig The voting configuration
+    fn get_voting_config(self: @TContractState, audition_id: u256) -> VotingConfig;
+
+    /// @notice Sets a celebrity judge with higher voting weight
+    /// @param audition_id The ID of the audition
+    /// @param celebrity_judge The address of the celebrity judge
+    /// @param weight_multiplier The weight multiplier for the celebrity judge
+    fn set_celebrity_judge(
+        ref self: TContractState,
+        audition_id: u256,
+        celebrity_judge: ContractAddress,
+        weight_multiplier: u256,
+    );
+
+    /// @notice Gets the current score for an artist in an audition
+    /// @param audition_id The ID of the audition
+    /// @param artist_id The ID of the artist
+    /// @return ArtistScore The current score information
+    fn get_artist_score(self: @TContractState, audition_id: u256, artist_id: u256) -> ArtistScore;
+
+    /// @notice Checks if voting is currently active for an audition
+    /// @param audition_id The ID of the audition
+    /// @return bool True if voting is active
+    fn is_voting_active(self: @TContractState, audition_id: u256) -> bool;
+
+    /// @notice Gets a unified vote
+    /// @param audition_id The ID of the audition
+    /// @param artist_id The ID of the artist
+    /// @param voter The address of the voter
+    /// @return UnifiedVote The vote information
+    fn get_unified_vote(
+        self: @TContractState, audition_id: u256, artist_id: u256, voter: ContractAddress,
+    ) -> UnifiedVote;
 }

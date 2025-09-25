@@ -50,10 +50,12 @@ fn UNAUTHORIZED_USER() -> ContractAddress {
 }
 
 // Deploy audition contract for integration testing
-fn deploy_audition_contract() -> ISeasonAndAuditionDispatcher {
+fn deploy_audition_contract(staking_contract: ContractAddress) -> ISeasonAndAuditionDispatcher {
     let contract_class = declare("SeasonAndAudition").unwrap().contract_class();
     let mut calldata: Array<felt252> = array![];
     OWNER().serialize(ref calldata);
+    // SeasonAndAudition constructor expects (owner, staking_contract)
+    staking_contract.serialize(ref calldata);
     let (contract_address, _) = contract_class.deploy(@calldata).unwrap();
     ISeasonAndAuditionDispatcher { contract_address }
 }
@@ -66,12 +68,15 @@ fn deploy_mock_erc20() -> IERC20Dispatcher {
     IERC20Dispatcher { contract_address }
 }
 
-// Deploy staking contract
-fn deploy_staking_contract(audition_contract: ContractAddress) -> IStakeToVoteDispatcher {
+// Deploy staking contract with temporary zero address for audition contract
+fn deploy_staking_contract() -> IStakeToVoteDispatcher {
     let contract_class = declare("StakeToVote").unwrap().contract_class();
     let mut calldata: Array<felt252> = array![];
     OWNER().serialize(ref calldata);
-    audition_contract.serialize(ref calldata);
+    // StakeToVote constructor expects (owner, season_and_audition_contract_address)
+    // Use zero address initially, will be updated later
+    let zero_address: ContractAddress = Zero::zero();
+    zero_address.serialize(ref calldata);
     let (contract_address, _) = contract_class.deploy(@calldata).unwrap();
 
     IStakeToVoteDispatcher { contract_address }
@@ -98,8 +103,19 @@ fn setup() -> (
     ISeasonAndAuditionDispatcher,
     IStakeToVoteDispatcher,
 ) {
-    let audition_contract = deploy_audition_contract();
-    let staking_contract = deploy_staking_contract(audition_contract.contract_address);
+    // Deploy in correct order with setter to solve circular dependency
+    // 1. Deploy staking contract with zero address for audition contract
+    let staking_contract = deploy_staking_contract();
+
+    // 2. Deploy audition contract with real staking contract address
+    let audition_contract = deploy_audition_contract(staking_contract.contract_address);
+
+    // 3. Update staking contract with real audition contract address
+    start_cheat_caller_address(staking_contract.contract_address, OWNER());
+    staking_contract.set_audition_contract(audition_contract.contract_address);
+    stop_cheat_caller_address(staking_contract.contract_address);
+
+    // 4. Deploy withdrawal contract with both real addresses
     let withdrawal_contract = deploy_stake_withdrawal_contract(
         audition_contract.contract_address, staking_contract.contract_address,
     );
@@ -120,7 +136,7 @@ fn setup() -> (
     audition_contract.create_audition('Test Audition 3', Genre::Jazz, future_end);
     stop_cheat_caller_address(audition_contract.contract_address);
 
-    // NOW setup staking config for multiple auditions via staking contract
+    // 5. Now setup staking config for multiple auditions via staking contract
     start_cheat_caller_address(staking_contract.contract_address, OWNER());
 
     staking_contract
@@ -183,11 +199,7 @@ fn finalize_audition_results(audition_contract: ISeasonAndAuditionDispatcher, au
 
 #[test]
 fn test_deployment_success() {
-    let audition_contract = deploy_audition_contract();
-    let staking_contract = deploy_staking_contract(audition_contract.contract_address);
-    let withdrawal_contract = deploy_stake_withdrawal_contract(
-        audition_contract.contract_address, staking_contract.contract_address,
-    );
+    let (withdrawal_contract, _, _, _) = setup();
 
     // Verify contract deployed successfully
     assert!(withdrawal_contract.contract_address.is_non_zero(), "Contract should be deployed");
@@ -565,8 +577,11 @@ fn test_config_update_scenarios() {
 
 #[test]
 fn test_large_audition_ids() {
-    // Deploy just the audition contract first to test the audition_exists call
-    let audition_contract = deploy_audition_contract();
+    let (withdrawal_contract, _, _, _) = setup();
+
+    // Use audition contract from setup for audition_exists check
+    let staking_contract = deploy_staking_contract();
+    let audition_contract = deploy_audition_contract(staking_contract.contract_address);
 
     // Check if audition exists - this should return false without error
     let exists = audition_contract.audition_exists(999999);
