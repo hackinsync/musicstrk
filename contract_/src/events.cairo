@@ -105,8 +105,8 @@ pub struct VoteRecorded {
 #[derive(Drop, starknet::Event)]
 pub struct PriceDistributed {
     pub audition_id: u256,
-    pub winners: [ContractAddress; 3],
-    pub shares: [u256; 3],
+    pub winners: Span<ContractAddress>,
+    pub shares: Span<u256>,
     pub token_address: ContractAddress,
     pub amounts: Span<u256>,
 }

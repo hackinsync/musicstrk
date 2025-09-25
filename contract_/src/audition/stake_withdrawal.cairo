@@ -46,7 +46,6 @@ pub mod StakeWithdrawal {
     use contract_::audition::interfaces::istake_to_vote::{
         IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
     };
-    use contract_::audition::types::season_and_audition::Audition;
     use contract_::audition::types::stake_to_vote::{StakerInfo, StakingConfig};
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;

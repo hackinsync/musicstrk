@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
   ReactNode,
 } from 'react'
 import { useAccount, useConnect, useDisconnect } from '@starknet-react/core'
@@ -43,23 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [isConnected, status])
 
-  // Handle the completion or failure of a wallet connection
-  useEffect(() => {
-    if (connectingWallet) {
-      if (status === 'connected' && account && address) {
-        // Proceed with authentication
-        completeAuthentication()
-      } else if (status === 'disconnected' && !isLoading) {
-        // Connection failed or cancelled
-        console.log('Connection failed or cancelled')
-        setConnectingWallet(false)
-        setError('Wallet connection was cancelled or failed')
-        setIsLoading(false)
-      }
-    }
-  }, [status, connectingWallet, account, address])
-
-  const completeAuthentication = async () => {
+  const completeAuthentication = useCallback(async () => {
     try {
       setConnectingWallet(false)
       if (isConnected && account && address) {
@@ -72,14 +57,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null)
       }
     } catch (err) {
-      console.error('Authentication error:', err)
+      // Removed console.error for lint compliance
       const errorMessage =
         err instanceof Error ? err.message : 'Authentication failed'
       setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isConnected, account, address])
+
+  // Handle the completion or failure of a wallet connection
+  useEffect(() => {
+    if (connectingWallet) {
+      if (status === 'connected' && account && address) {
+        // Proceed with authentication
+        completeAuthentication()
+      } else if (status === 'disconnected' && !isLoading) {
+        // Connection failed or cancelled
+        setConnectingWallet(false)
+        setError('Wallet connection was cancelled or failed')
+        setIsLoading(false)
+      }
+    }
+  }, [status, connectingWallet, account, address, completeAuthentication, isLoading])
 
   const signIn = async (connectorId: string) => {
     try {
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Wallet not found')
       }
 
-      if (typeof window === 'undefined' || !(window as any).starknet) {
+      if (typeof window === 'undefined' || !(window as { starknet?: unknown }).starknet) {
         throw new Error(
           'Wallet provider not detected. Please install Argent X or Braavos.'
         )
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setConnectingWallet(true)
       connect({ connector })
     } catch (err) {
-      console.error('Connection error:', err)
+  // Removed console.error for lint compliance
       setConnectingWallet(false)
       setIsLoading(false)
       const errorMessage =
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(false)
       setError(null)
     } catch (err) {
-      console.error('Sign out error:', err)
+  // Removed console.error for lint compliance
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to sign out'
       setError(errorMessage)

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 
 import PerformanceCriteriaChart from "@/components/analytics/PerformanceCriteriaChart";
 import PerformerLeaderboard from "@/components/analytics/PerformerLeaderboard";
 import VoterStatistics from "@/components/analytics/VoterStatistics";
 import CriteriaBreakdown from "@/components/analytics/CriteriaBreakdown";
-import { getMockVotes } from "@/utils/mockVotes";
+import { fetchVoteAnalytics, fetchCommentaryWeights } from "@/utils/fetchAnalytics";
 
 export default function AnalyticsPage() {
   const params = useParams();
@@ -17,7 +17,27 @@ export default function AnalyticsPage() {
     null
   );
 
-  const votes = getMockVotes(auditionId || "1");
+  const [analytics, setAnalytics] = useState<any>(null);
+const [comments, setComments] = useState<any[]>([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  if (!auditionId) return;
+  setLoading(true);
+ 
+
+  Promise.all([
+    fetchVoteAnalytics(auditionId),
+    fetchCommentaryWeights(auditionId),
+  ])
+    .then(([analyticsData, commentsData]) => {
+      setAnalytics(analyticsData);
+      setComments(commentsData);
+    })
+    .finally(() => setLoading(false));
+}, [auditionId]);
+
+const votes = analytics?.performers || [];
 
   const handlePerformerSelect = (performerId: string) => {
     setSelectedPerformerId(
@@ -25,13 +45,22 @@ export default function AnalyticsPage() {
     );
   };
 
+if (loading) {
+  return <div className="text-center text-white py-20">Loading analytics...</div>;
+}
+
+if (!analytics) {
+  return <div className="text-center text-red-400 py-20">Failed to load analytics.</div>;
+}
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a2a] via-[#1a1a3a] to-[#2a2a4a] text-slate-100">
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8">
           <h1 className="text-2xl font-bold text-white">Audition Analytics</h1>
           <p className="mt-2 text-lg text-slate-300">
-            Detailed voting analysis for audition #[auditionId]
+            Detailed voting analysis for audition #{auditionId}
           </p>
         </header>
 

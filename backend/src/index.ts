@@ -10,9 +10,13 @@ import AuthRoutes from "./routes/v1/auth.js"
 import UserRoutes from "routes/v1/user.js"
 import PerformerRoutes from "./routes/v1/performer.js"
 import VotesRoutes from "./routes/v1/votes.js"
+import auditionsRouter from "./routes/v1/auditions";
+
 
 // Load environment variables
-process.loadEnvFile(".env")
+import dotenv from "dotenv"
+dotenv.config()
+
 console.log(process.env.NODE_ENV)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -62,6 +66,8 @@ app.use("/api/v1/auth", AuthRoutes)
 app.use("/api/v1/user", UserRoutes)
 app.use("/api/v1/performers", PerformerRoutes)
 app.use("/api/v1/votes", VotesRoutes)
+app.use("/api/v1/auditions", auditionsRouter);
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)

@@ -1,24 +1,19 @@
 use contract_::audition::interfaces::iseason_and_audition::{
     ISeasonAndAuditionDispatcher, ISeasonAndAuditionDispatcherTrait,
-    ISeasonAndAuditionSafeDispatcher,
 };
 use contract_::audition::interfaces::istake_to_vote::{
     IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
 };
-use contract_::audition::types::season_and_audition::{Genre, Season};
-use contract_::events::{
-    AuditionCreated, AuditionDeleted, AuditionEnded, AuditionPaused, AuditionResumed,
-    AuditionUpdated, PriceDeposited, PriceDistributed, SeasonCreated, SeasonDeleted, SeasonUpdated,
-};
+use contract_::audition::types::season_and_audition::Genre;
 use core::num::traits::Zero;
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,
 };
-use starknet::{ContractAddress, get_block_timestamp};
+use starknet::ContractAddress;
 use crate::test_utils::{
-    NON_OWNER, OWNER, USER, create_default_audition, create_default_season,
+    OWNER, USER, create_default_audition, create_default_season,
     deploy_contract as deploy_season_and_audition_contract, deploy_mock_erc20_contract,
 };
 
@@ -68,7 +63,7 @@ fn setup_staking_audition() -> (
         .create_season(
             default_season.name, default_season.start_timestamp, default_season.end_timestamp,
         );
-    let default_audition = create_default_audition(audition_id, season_id);
+    create_default_audition(audition_id, season_id);
     season_and_audition.create_audition('Summer Hits', Genre::Pop, 1675123200);
     stop_cheat_caller_address(season_and_audition.contract_address);
 

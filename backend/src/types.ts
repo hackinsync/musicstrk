@@ -60,6 +60,11 @@ export interface Vote {
   score?: number
   personalityScale: PersonalityScale
   createdAt?: Date
+  comment?: string;
+  voterRole?: "judge" | "fan";
+  criteria?: {
+    [key: string]: number;
+  };
 }
 
 export interface VotePayload {

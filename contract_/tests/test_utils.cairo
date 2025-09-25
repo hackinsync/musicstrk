@@ -8,11 +8,12 @@ use contract_::audition::interfaces::istake_to_vote::{
 use contract_::audition::types::season_and_audition::{
     Appeal, Audition, Evaluation, Genre, Season, Vote,
 };
+use contract_::erc20::MusicStrk;
 use core::array::ArrayTrait;
 use openzeppelin::access::ownable::interface::IOwnableDispatcher;
-use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin::token::erc20::interface::IERC20Dispatcher;
 use snforge_std::{ContractClassTrait, DeclareResultTrait, declare};
-use starknet::ContractAddress;
+use starknet::{ClassHash, ContractAddress};
 
 // Test account -> Owner
 pub fn OWNER() -> ContractAddress {
@@ -79,6 +80,39 @@ pub fn deploy_staking_contract() -> IStakeToVoteDispatcher {
     IStakeToVoteDispatcher { contract_address: staking_address }
 }
 
+pub fn performer() -> ContractAddress {
+    'performerid'.try_into().unwrap()
+}
+
+pub fn performer2() -> ContractAddress {
+    'performerid2'.try_into().unwrap()
+}
+
+pub fn performer3() -> ContractAddress {
+    'performerid3'.try_into().unwrap()
+}
+
+// Address constants for testing
+pub fn artist_1() -> ContractAddress {
+    'artist_1'.try_into().unwrap()
+}
+
+pub fn artist_2() -> ContractAddress {
+    'artist_2'.try_into().unwrap()
+}
+
+pub fn non_auth() -> ContractAddress {
+    'non-auth'.try_into().unwrap()
+}
+
+pub fn owner() -> ContractAddress {
+    'owner'.try_into().unwrap()
+}
+
+// Constants
+pub fn MUSICSTRK_HASH() -> ClassHash {
+    MusicStrk::TEST_CLASS_HASH.try_into().unwrap()
+}
 // Helper function to deploy the contract
 pub fn deploy_contract() -> (
     ISeasonAndAuditionDispatcher, IOwnableDispatcher, ISeasonAndAuditionSafeDispatcher,
