@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -76,8 +75,8 @@ const pastAuditions = [
 ];
 
 export default function AuditionPage() {
-  const [ongoing, setOngoing] = useState(ongoingAuditions);
-  const [past, setPast] = useState(pastAuditions);
+  const ongoing = ongoingAuditions;
+  const past = pastAuditions;
 
   // In a real app, fetch from API
   // useEffect(() => {
@@ -134,7 +133,7 @@ export default function AuditionPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-400 mb-4 italic">
-                      "{audition.preface}"
+                      &quot;{audition.preface}&quot;
                     </p>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
@@ -188,7 +187,7 @@ export default function AuditionPage() {
                         <h3 className="text-2xl font-bold text-[#FF3D71] mb-2">{audition.title}</h3>
                         <p className="text-gray-300 mb-2">{audition.description}</p>
                         <p className="text-sm text-gray-400 italic">
-                          "{audition.preface}"
+                          &quot;{audition.preface}&quot;
                         </p>
                       </div>
                       <Badge variant="outline" className="border-[#FFE700] text-[#FFE700]">
