@@ -5,8 +5,9 @@ use contract_::audition::season_and_audition::SeasonAndAudition;
 use contract_::audition::types::season_and_audition::Genre;
 use contract_::events::{
     AuditionCalculationCompleted, AuditionCreated, AuditionEnded, AuditionPaused, AuditionResumed,
-    AuditionUpdated, JudgeAdded, JudgeRemoved, PriceDeposited, PriceDistributed, ResultSubmitted,
-    SeasonCreated, SeasonUpdated,
+    AuditionUpdated, DisputeRaised, DisputeResolved, FundsEscrowed, JudgeAdded, JudgeRemoved,
+    PaymentSplitDistributed, PlatformFeeCollected, PriceDeposited, PriceDistributed,
+    RefundProcessed, ResultSubmitted, SeasonCreated, SeasonUpdated,
 };
 use openzeppelin::token::erc20::interface::IERC20DispatcherTrait;
 use snforge_std::{
@@ -3287,4 +3288,67 @@ fn test_register_performer_generates_correct_performer_id() {
         contract.get_performer_address(audition_id, performer_id3) == performer3,
         'performer address should match',
     );
+}
+
+// Payment infrastructure tests
+#[test]
+fn test_deposit_to_escrow() {
+    let (contract, _, erc20_address) = deploy_contract();
+    let audition_id = 1;
+    
+    // Create season and audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    default_contract_create_audition(contract);
+    stop_cheat_caller_address(contract.contract_address);
+    
+    // Setup user with tokens
+    let user = USER1();
+    start_cheat_caller_address(erc20_address, user);
+    let erc20 = IERC20Dispatcher { contract_address: erc20_address };
+    erc20.approve(contract.contract_address, 1000);
+    stop_cheat_caller_address(erc20_address);
+    
+    // Deposit to escrow
+    start_cheat_caller_address(contract.contract_address, user);
+    contract.deposit_to_escrow(audition_id, erc20_address, 500);
+    stop_cheat_caller_address(contract.contract_address);
+    
+    // Check escrow balance
+    let balance = contract.get_escrow_balance(audition_id, erc20_address);
+    assert(balance == 500, 'Escrow balance incorrect');
+}
+
+#[test]
+fn test_set_and_get_platform_fee() {
+    let (contract, _, _) = deploy_contract();
+    
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.set_platform_fee(1000); // 10%
+    let fee = contract.get_platform_fee();
+    assert(fee == 1000, 'Platform fee not set correctly');
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_raise_and_resolve_dispute() {
+    let (contract, _, _) = deploy_contract();
+    let audition_id = 1;
+    
+    // Create season and audition
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    default_contract_create_season(contract);
+    default_contract_create_audition(contract);
+    stop_cheat_caller_address(contract.contract_address);
+    
+    // Raise dispute
+    let user = USER1();
+    start_cheat_caller_address(contract.contract_address, user);
+    contract.raise_dispute(audition_id, 'Payment issue');
+    stop_cheat_caller_address(contract.contract_address);
+    
+    // Resolve dispute
+    start_cheat_caller_address(contract.contract_address, OWNER());
+    contract.resolve_dispute(audition_id, 'Resolved');
+    stop_cheat_caller_address(contract.contract_address);
 }

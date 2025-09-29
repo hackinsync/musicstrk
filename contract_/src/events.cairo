@@ -472,3 +472,82 @@ pub struct StakingConfigUpdated {
     pub config: contract_::audition::types::stake_to_vote::StakingConfig,
     pub timestamp: u64,
 }
+
+// Payment infrastructure events
+#[derive(Drop, starknet::Event)]
+pub struct FundsEscrowed {
+    #[key]
+    pub audition_id: u256,
+    pub user: ContractAddress,
+    pub token: ContractAddress,
+    pub amount: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct FundsReleased {
+    #[key]
+    pub audition_id: u256,
+    pub recipient: ContractAddress,
+    pub token: ContractAddress,
+    pub amount: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct RefundProcessed {
+    #[key]
+    pub audition_id: u256,
+    pub user: ContractAddress,
+    pub token: ContractAddress,
+    pub amount: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PlatformFeeCollected {
+    #[key]
+    pub token: ContractAddress,
+    pub amount: u256,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PaymentSplitDistributed {
+    #[key]
+    pub audition_id: u256,
+    pub recipients: Span<ContractAddress>,
+    pub amounts: Span<u256>,
+    pub token: ContractAddress,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DisputeRaised {
+    #[key]
+    pub audition_id: u256,
+    pub raiser: ContractAddress,
+    pub reason: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DisputeResolved {
+    #[key]
+    pub audition_id: u256,
+    pub resolver: ContractAddress,
+    pub decision: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PaymentRecorded {
+    #[key]
+    pub audition_id: u256,
+    pub from: ContractAddress,
+    pub to: ContractAddress,
+    pub token: ContractAddress,
+    pub amount: u256,
+    pub action_type: felt252,
+    pub timestamp: u64,
+}

@@ -232,4 +232,48 @@ pub trait ISeasonAndAudition<TContractState> {
     fn get_performer_address(
         self: @TContractState, audition_id: u256, performer_id: u256,
     ) -> ContractAddress;
+
+    // Payment infrastructure functions
+    /// @notice Deposits funds into escrow for an audition
+    fn deposit_to_escrow(
+        ref self: TContractState, audition_id: u256, token: ContractAddress, amount: u256,
+    );
+
+    /// @notice Releases escrowed funds to recipients
+    fn release_escrow_funds(
+        ref self: TContractState, audition_id: u256, recipients: Array<ContractAddress>, amounts: Array<u256>, token: ContractAddress,
+    );
+
+    /// @notice Processes refund for cancelled audition
+    fn process_refund(ref self: TContractState, audition_id: u256, user: ContractAddress, token: ContractAddress);
+
+    /// @notice Sets platform fee percentage
+    fn set_platform_fee(ref self: TContractState, percentage: u256);
+
+    /// @notice Gets platform fee percentage
+    fn get_platform_fee(self: @TContractState) -> u256;
+
+    /// @notice Sets participant shares for payment splitting
+    fn set_participant_shares(ref self: TContractState, audition_id: u256, participants: Array<ContractAddress>, shares: Array<u256>);
+
+    /// @notice Distributes payments with platform fee deduction
+    fn distribute_with_fee(ref self: TContractState, audition_id: u256, token: ContractAddress, total_amount: u256);
+
+    /// @notice Raises a payment dispute
+    fn raise_dispute(ref self: TContractState, audition_id: u256, reason: felt252);
+
+    /// @notice Resolves a payment dispute
+    fn resolve_dispute(ref self: TContractState, audition_id: u256, decision: felt252);
+
+    /// @notice Gets payment history for an audition
+    fn get_payment_history(self: @TContractState, audition_id: u256) -> Array<(ContractAddress, u256, u64, felt252)>;
+
+    /// @notice Gets escrow balance for an audition and token
+    fn get_escrow_balance(self: @TContractState, audition_id: u256, token: ContractAddress) -> u256;
+
+    /// @notice Gets total platform fees collected for a token
+    fn get_platform_fees(self: @TContractState, token: ContractAddress) -> u256;
+
+    /// @notice Withdraws collected platform fees
+    fn withdraw_platform_fees(ref self: TContractState, token: ContractAddress, amount: u256);
 }
