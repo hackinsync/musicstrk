@@ -241,11 +241,17 @@ pub trait ISeasonAndAudition<TContractState> {
 
     /// @notice Releases escrowed funds to recipients
     fn release_escrow_funds(
-        ref self: TContractState, audition_id: u256, recipients: Array<ContractAddress>, amounts: Array<u256>, token: ContractAddress,
+        ref self: TContractState,
+        audition_id: u256,
+        recipients: Array<ContractAddress>,
+        amounts: Array<u256>,
+        token: ContractAddress,
     );
 
     /// @notice Processes refund for cancelled audition
-    fn process_refund(ref self: TContractState, audition_id: u256, user: ContractAddress, token: ContractAddress);
+    fn process_refund(
+        ref self: TContractState, audition_id: u256, user: ContractAddress, token: ContractAddress,
+    );
 
     /// @notice Sets platform fee percentage
     fn set_platform_fee(ref self: TContractState, percentage: u256);
@@ -254,10 +260,17 @@ pub trait ISeasonAndAudition<TContractState> {
     fn get_platform_fee(self: @TContractState) -> u256;
 
     /// @notice Sets participant shares for payment splitting
-    fn set_participant_shares(ref self: TContractState, audition_id: u256, participants: Array<ContractAddress>, shares: Array<u256>);
+    fn set_participant_shares(
+        ref self: TContractState,
+        audition_id: u256,
+        participants: Array<ContractAddress>,
+        shares: Array<u256>,
+    );
 
     /// @notice Distributes payments with platform fee deduction
-    fn distribute_with_fee(ref self: TContractState, audition_id: u256, token: ContractAddress, total_amount: u256);
+    fn distribute_with_fee(
+        ref self: TContractState, audition_id: u256, token: ContractAddress, total_amount: u256,
+    );
 
     /// @notice Raises a payment dispute
     fn raise_dispute(ref self: TContractState, audition_id: u256, reason: felt252);
@@ -266,7 +279,9 @@ pub trait ISeasonAndAudition<TContractState> {
     fn resolve_dispute(ref self: TContractState, audition_id: u256, decision: felt252);
 
     /// @notice Gets payment history for an audition
-    fn get_payment_history(self: @TContractState, audition_id: u256) -> Array<(ContractAddress, u256, u64, felt252)>;
+    fn get_payment_history(
+        self: @TContractState, audition_id: u256,
+    ) -> Array<(ContractAddress, u256, u64, felt252)>;
 
     /// @notice Gets escrow balance for an audition and token
     fn get_escrow_balance(self: @TContractState, audition_id: u256, token: ContractAddress) -> u256;

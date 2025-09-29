@@ -3295,25 +3295,25 @@ fn test_register_performer_generates_correct_performer_id() {
 fn test_deposit_to_escrow() {
     let (contract, _, erc20_address) = deploy_contract();
     let audition_id = 1;
-    
+
     // Create season and audition
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     default_contract_create_audition(contract);
     stop_cheat_caller_address(contract.contract_address);
-    
+
     // Setup user with tokens
     let user = USER1();
     start_cheat_caller_address(erc20_address, user);
     let erc20 = IERC20Dispatcher { contract_address: erc20_address };
     erc20.approve(contract.contract_address, 1000);
     stop_cheat_caller_address(erc20_address);
-    
+
     // Deposit to escrow
     start_cheat_caller_address(contract.contract_address, user);
     contract.deposit_to_escrow(audition_id, erc20_address, 500);
     stop_cheat_caller_address(contract.contract_address);
-    
+
     // Check escrow balance
     let balance = contract.get_escrow_balance(audition_id, erc20_address);
     assert(balance == 500, 'Escrow balance incorrect');
@@ -3322,7 +3322,7 @@ fn test_deposit_to_escrow() {
 #[test]
 fn test_set_and_get_platform_fee() {
     let (contract, _, _) = deploy_contract();
-    
+
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.set_platform_fee(1000); // 10%
     let fee = contract.get_platform_fee();
@@ -3334,19 +3334,19 @@ fn test_set_and_get_platform_fee() {
 fn test_raise_and_resolve_dispute() {
     let (contract, _, _) = deploy_contract();
     let audition_id = 1;
-    
+
     // Create season and audition
     start_cheat_caller_address(contract.contract_address, OWNER());
     default_contract_create_season(contract);
     default_contract_create_audition(contract);
     stop_cheat_caller_address(contract.contract_address);
-    
+
     // Raise dispute
     let user = USER1();
     start_cheat_caller_address(contract.contract_address, user);
     contract.raise_dispute(audition_id, 'Payment issue');
     stop_cheat_caller_address(contract.contract_address);
-    
+
     // Resolve dispute
     start_cheat_caller_address(contract.contract_address, OWNER());
     contract.resolve_dispute(audition_id, 'Resolved');
