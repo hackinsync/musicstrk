@@ -941,7 +941,7 @@ pub mod SeasonAndAudition {
         ) {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
-            assert(amount > 0, 'Amount must be greater than zero');
+            assert(amount > 0, 'Amount must be > 0');
             let caller = get_caller_address();
             let dispatcher = IERC20Dispatcher { contract_address: token };
             assert(dispatcher.balance_of(caller) >= amount, 'Insufficient balance');
@@ -987,7 +987,7 @@ pub mod SeasonAndAudition {
             assert(!self.global_paused.read(), 'Contract is paused');
             assert(self.audition_exists(audition_id), 'Audition does not exist');
             assert(!self.dispute_status.read(audition_id), 'Audition in dispute');
-            assert(recipients.len() == amounts.len(), 'Recipients and amounts length mismatch');
+            assert(recipients.len() == amounts.len(), 'Mismatched lengths');
 
             let mut total_release = 0;
             let mut i = 0;
@@ -1009,7 +1009,6 @@ pub mod SeasonAndAudition {
             self.platform_fees_collected.write(token, current_fees + platform_fee);
 
             // Release funds proportionally
-            let mut remaining = net_release;
             i = 0;
             while i < recipients.len() {
                 let recipient = *recipients.at(i);
@@ -1110,9 +1109,10 @@ pub mod SeasonAndAudition {
             }
             assert(total_shares == 10000, 'Shares must total 100%'); // Assuming basis points
 
-            // Clear existing shares by creating new empty vec
-            let mut new_vec = VecTrait::new();
-            self.participant_shares.write(audition_id, new_vec);
+            // Clear existing shares by replacing with empty vec
+            // Note: In Cairo, we can't directly clear a Vec, so we create a new empty one
+            let empty_vec = VecTrait::new();
+            self.participant_shares.entry(audition_id).write(empty_vec);
 
             // Set new shares
             let mut vec = self.participant_shares.entry(audition_id);
@@ -1221,14 +1221,13 @@ pub mod SeasonAndAudition {
             self: @ContractState, audition_id: u256,
         ) -> Array<(ContractAddress, u256, u64, felt252)> {
             let mut history = ArrayTrait::new();
-            let history_len = VecTrait::len(@self.payment_history);
+            let history_len = self.payment_history.len();
             let mut i = 0;
             while i < history_len {
-                let entry = VecTrait::at(@self.payment_history, i);
-                let (hist_audition_id, token, amount, timestamp, action) =
-                    StoragePointerReadAccess::read(
-                    entry,
-                );
+                let (hist_audition_id, token, amount, timestamp, action) = self
+                    .payment_history
+                    .at(i)
+                    .read();
                 if hist_audition_id == audition_id {
                     history.append((token, amount, timestamp, action));
                 }
@@ -1252,7 +1251,7 @@ pub mod SeasonAndAudition {
             let collected = self.platform_fees_collected.read(token);
             assert(collected >= amount, 'Insufficient fees collected');
 
-            let owner = OwnableComponent::owner(@self);
+            let owner = self.ownable.owner();
             self._send_tokens(owner, amount, token);
             self.platform_fees_collected.write(token, collected - amount);
         }
