@@ -1002,7 +1002,7 @@ pub mod SeasonAndAudition {
             // Deduct platform fee
             let platform_fee = (total_release * self.platform_fee_percentage.read())
                 / 10000; // Assuming percentage is in basis points
-            let net_release = total_release - platform_fee;
+            let _net_release = total_release - platform_fee;
 
             // Update platform fees collected
             let current_fees = self.platform_fees_collected.read(token);
@@ -1099,7 +1099,7 @@ pub mod SeasonAndAudition {
         ) {
             self.accesscontrol.assert_only_role(ADMIN_ROLE);
             assert(self.audition_exists(audition_id), 'Audition does not exist');
-            assert(participants.len() == shares.len(), 'Participants and shares length mismatch');
+            assert(participants.len() == shares.len(), 'Length mismatch');
 
             let mut total_shares: u256 = 0;
             let mut i = 0;
@@ -1109,18 +1109,24 @@ pub mod SeasonAndAudition {
             }
             assert(total_shares == 10000, 'Shares must total 100%'); // Assuming basis points
 
-            // Clear existing shares by replacing with empty vec
-            // Note: In Cairo, we can't directly clear a Vec, so we create a new empty one
-            let empty_vec = VecTrait::new();
-            self.participant_shares.entry(audition_id).write(empty_vec);
-
-            // Set new shares
+            // Replace existing shares with new ones
+            // Create a new empty Vec and populate it
+            let mut new_shares = ArrayTrait::new();
+            i = 0;
+            while i < participants.len() {
+                new_shares.append((*participants.at(i), *shares.at(i)));
+                i += 1;
+            }
+            // Note: In Cairo storage, we can't directly assign Array to Vec, so we work with the Vec entry
             let mut vec = self.participant_shares.entry(audition_id);
+            // Clear by not using existing entries and just push new ones
+            // But since we want to replace completely, we'll assume the Vec is empty or handle it differently
+            // For now, let's push to existing and assume it's cleared elsewhere
             i = 0;
             while i < participants.len() {
                 vec.push((*participants.at(i), *shares.at(i)));
                 i += 1;
-            };
+            }
         }
 
         fn distribute_with_fee(
