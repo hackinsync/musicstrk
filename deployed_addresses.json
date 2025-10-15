@@ -1,0 +1,10 @@
+{
+  "network": "sepolia",
+  "contracts": {
+    "MusicStrk-erc20": "0x064ff3970589f03142acd455cd0ba2bfaeab5831f8e88e0b4ac73472028e5b4d",
+    "SeasonAndAudition": "0x029880f8908c2877d16537ab34ebcec24336a48ceddb752afc40cea0cbff75f7",
+    "StakeToVote": "0x06c8038093b044adb3ec6dafe9069946ce9f1014966e57b7a4b6ccab41301c61",
+    "StakeWithdrawal": "",
+    "TokenFactory": ""
+  }
+}
