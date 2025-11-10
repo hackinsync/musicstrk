@@ -7,6 +7,7 @@ import PerformanceCriteriaChart from "@/components/analytics/PerformanceCriteria
 import PerformerLeaderboard from "@/components/analytics/PerformerLeaderboard";
 import VoterStatistics from "@/components/analytics/VoterStatistics";
 import CriteriaBreakdown from "@/components/analytics/CriteriaBreakdown";
+import { Vote } from "@/utils/types/votes";
 import { fetchVoteAnalytics, fetchCommentaryWeights } from "@/utils/fetchAnalytics";
 
 export default function AnalyticsPage() {
@@ -17,9 +18,13 @@ export default function AnalyticsPage() {
     null
   );
 
-  const [analytics, setAnalytics] = useState<any>(null);
-const [comments, setComments] = useState<any[]>([]);
-const [loading, setLoading] = useState(true);
+interface AnalyticsData {
+  performers?: Vote[];
+  // Add other properties as needed
+}
+
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
 useEffect(() => {
   if (!auditionId) return;
@@ -30,9 +35,8 @@ useEffect(() => {
     fetchVoteAnalytics(auditionId),
     fetchCommentaryWeights(auditionId),
   ])
-    .then(([analyticsData, commentsData]) => {
+    .then(([analyticsData]) => {
       setAnalytics(analyticsData);
-      setComments(commentsData);
     })
     .finally(() => setLoading(false));
 }, [auditionId]);
