@@ -472,3 +472,51 @@ pub struct StakingConfigUpdated {
     pub config: contract_::audition::types::stake_to_vote::StakingConfig,
     pub timestamp: u64,
 }
+
+// Unified voting system events
+#[derive(Drop, starknet::Event)]
+pub struct UnifiedVoteCast {
+    #[key]
+    pub audition_id: u256,
+    #[key]
+    pub artist_id: u256,
+    #[key]
+    pub voter: ContractAddress,
+    pub weight: u256,
+    pub vote_type: contract_::audition::types::season_and_audition::VoteType,
+    pub ipfs_content_hash: felt252,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct VotingConfigSet {
+    #[key]
+    pub audition_id: u256,
+    pub voting_start_time: u64,
+    pub voting_end_time: u64,
+    pub staker_base_weight: u256,
+    pub judge_base_weight: u256,
+    pub celebrity_weight_multiplier: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ArtistScoreUpdated {
+    #[key]
+    pub audition_id: u256,
+    #[key]
+    pub artist_id: u256,
+    pub total_score: u256,
+    pub judge_votes: u32,
+    pub staker_votes: u32,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct CelebrityJudgeSet {
+    #[key]
+    pub audition_id: u256,
+    #[key]
+    pub celebrity_judge: ContractAddress,
+    pub weight_multiplier: u256,
+    pub timestamp: u64,
+}

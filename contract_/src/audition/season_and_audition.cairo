@@ -2,8 +2,12 @@
 pub mod SeasonAndAudition {
     use OwnableComponent::InternalTrait;
     use contract_::audition::interfaces::iseason_and_audition::ISeasonAndAudition;
+    use contract_::audition::interfaces::istake_to_vote::{
+        IStakeToVoteDispatcher, IStakeToVoteDispatcherTrait,
+    };
     use contract_::audition::types::season_and_audition::{
-        Appeal, ArtistRegistration, Audition, Evaluation, Genre, RegistrationConfig, Season, Vote,
+        Appeal, ArtistRegistration, ArtistScore, Audition, Evaluation, Genre, RegistrationConfig,
+        Season, UnifiedVote, Vote, VoteType, VotingConfig,
     };
     use contract_::errors::errors;
     use core::num::traits::Zero;
@@ -19,12 +23,12 @@ pub mod SeasonAndAudition {
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
     use crate::events::{
         AggregateScoreCalculated, AppealResolved, AppealSubmitted, ArtistRegistered,
-        AuditionCalculationCompleted, AuditionCreated, AuditionDeleted, AuditionEnded,
-        AuditionPaused, AuditionResumed, AuditionUpdated, EvaluationSubmitted, EvaluationWeightSet,
-        JudgeAdded, JudgeRemoved, OracleAdded, OracleRemoved, PausedAll, PriceDeposited,
-        PriceDistributed, RegistrationConfigSet, ResultSubmitted, ResultsSubmitted, ResumedAll,
-        SeasonCreated, SeasonDeleted, SeasonEnded, SeasonPaused, SeasonResumed, SeasonUpdated,
-        VoteRecorded,
+        ArtistScoreUpdated, AuditionCalculationCompleted, AuditionCreated, AuditionDeleted,
+        AuditionEnded, AuditionPaused, AuditionResumed, AuditionUpdated, CelebrityJudgeSet,
+        EvaluationSubmitted, EvaluationWeightSet, JudgeAdded, JudgeRemoved, OracleAdded,
+        OracleRemoved, PausedAll, PriceDeposited, PriceDistributed, RegistrationConfigSet,
+        ResultSubmitted, ResultsSubmitted, ResumedAll, SeasonCreated, SeasonDeleted, SeasonEnded,
+        SeasonPaused, SeasonResumed, SeasonUpdated, UnifiedVoteCast, VoteRecorded, VotingConfigSet,
     };
 
     // Integrates OpenZeppelin ownership component
@@ -160,6 +164,18 @@ pub mod SeasonAndAudition {
         performer_registry: Map<(u256, u256), ContractAddress>,
         /// @notice a count of performer
         performers_count: u256,
+        /// @notice unified voting system storage
+        unified_votes: Map<(u256, u256, ContractAddress), UnifiedVote>,
+        /// @notice tracks if a voter has voted for a specific artist in an audition
+        has_voted: Map<(ContractAddress, u256, u256), bool>,
+        /// @notice voting configuration for each audition
+        voting_configs: Map<u256, VotingConfig>,
+        /// @notice artist scores for real-time updates
+        artist_scores: Map<(u256, u256), ArtistScore>,
+        /// @notice celebrity judges with special weights
+        celebrity_judges: Map<(u256, ContractAddress), u256>,
+        /// @notice staking contract address for integration
+        staking_contract: ContractAddress,
         /// @notice mapping to know weather price has been deposited for an audition
         audition_price_deposited: Map<u256, bool>,
     }
@@ -204,13 +220,20 @@ pub mod SeasonAndAudition {
         RegistrationConfigSet: RegistrationConfigSet,
         ArtistRegistered: ArtistRegistered,
         ResultSubmitted: ResultSubmitted,
+        UnifiedVoteCast: UnifiedVoteCast,
+        VotingConfigSet: VotingConfigSet,
+        ArtistScoreUpdated: ArtistScoreUpdated,
+        CelebrityJudgeSet: CelebrityJudgeSet,
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, owner: ContractAddress) {
+    fn constructor(
+        ref self: ContractState, owner: ContractAddress, staking_contract: ContractAddress,
+    ) {
         self.ownable.initializer(owner);
         self.global_paused.write(false);
         self.judging_paused.write(false);
+        self.staking_contract.write(staking_contract);
         self.accesscontrol.initializer();
         self.accesscontrol.set_role_admin(SEASON_MAINTAINER_ROLE, ADMIN_ROLE);
         self.accesscontrol.set_role_admin(AUDITION_MAINTAINER_ROLE, ADMIN_ROLE);
@@ -1270,6 +1293,158 @@ pub mod SeasonAndAudition {
         ) -> ContractAddress {
             self.performer_registry.entry((audition_id, performer_id)).read()
         }
+
+        fn cast_vote(
+            ref self: ContractState, audition_id: u256, artist_id: u256, ipfs_content_hash: felt252,
+        ) {
+            let caller = get_caller_address();
+
+            // 1. Prevent double voting
+            assert(
+                !self.has_voted.read((caller, audition_id, artist_id)),
+                'Already voted for this artist',
+            );
+
+            // 2. Verify voting is active
+            assert(self.is_voting_active(audition_id), 'Voting is not active');
+
+            // 3. Verify audition exists and is not paused
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.is_audition_paused(audition_id), 'Audition is paused');
+            assert(!self.global_paused.read(), 'Contract is paused');
+
+            // 4. Auto-detect role (judge or staker) and determine vote weight and type
+            let (vote_weight, vote_type) = self
+                ._determine_voter_role_and_weight(audition_id, caller);
+
+            // 5. Record vote and update scores
+            let unified_vote = UnifiedVote {
+                voter: caller,
+                artist_id,
+                audition_id,
+                weight: vote_weight,
+                vote_type,
+                ipfs_content_hash,
+                timestamp: get_block_timestamp(),
+            };
+
+            self.unified_votes.write((audition_id, artist_id, caller), unified_vote);
+
+            // 6. Mark as voted
+            self.has_voted.write((caller, audition_id, artist_id), true);
+
+            // 7. Update real-time scores
+            self._update_artist_score(audition_id, artist_id, vote_weight, vote_type);
+
+            // 8. Emit voting event
+            self
+                .emit(
+                    Event::UnifiedVoteCast(
+                        UnifiedVoteCast {
+                            audition_id,
+                            artist_id,
+                            voter: caller,
+                            weight: vote_weight,
+                            vote_type,
+                            ipfs_content_hash,
+                            timestamp: get_block_timestamp(),
+                        },
+                    ),
+                );
+        }
+
+        fn set_voting_config(ref self: ContractState, audition_id: u256, config: VotingConfig) {
+            self.ownable.assert_only_owner();
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!self.global_paused.read(), 'Contract is paused');
+
+            self.voting_configs.write(audition_id, config);
+
+            self
+                .emit(
+                    Event::VotingConfigSet(
+                        VotingConfigSet {
+                            audition_id,
+                            voting_start_time: config.voting_start_time,
+                            voting_end_time: config.voting_end_time,
+                            staker_base_weight: config.staker_base_weight,
+                            judge_base_weight: config.judge_base_weight,
+                            celebrity_weight_multiplier: config.celebrity_weight_multiplier,
+                        },
+                    ),
+                );
+        }
+
+        fn get_voting_config(self: @ContractState, audition_id: u256) -> VotingConfig {
+            let config = self.voting_configs.read(audition_id);
+            if config.staker_base_weight == 0 {
+                // Return default config
+                VotingConfig {
+                    voting_start_time: 0,
+                    voting_end_time: 0,
+                    staker_base_weight: 50, // 0.5 * 100 for precision
+                    judge_base_weight: 1000, // 10.0 * 100 for precision
+                    celebrity_weight_multiplier: 150 // 1.5x multiplier * 100 for precision
+                }
+            } else {
+                config
+            }
+        }
+
+        fn set_celebrity_judge(
+            ref self: ContractState,
+            audition_id: u256,
+            celebrity_judge: ContractAddress,
+            weight_multiplier: u256,
+        ) {
+            self.ownable.assert_only_owner();
+            assert(self.audition_exists(audition_id), 'Audition does not exist');
+            assert(!celebrity_judge.is_zero(), 'Celebrity judge cannot be zero');
+            assert(weight_multiplier > 100, 'Multiplier must be > 100'); // >1.0x
+            assert(!self.global_paused.read(), 'Contract is paused');
+
+            // Verify they are already a judge
+            self.assert_judge_found(audition_id, celebrity_judge);
+
+            self.celebrity_judges.write((audition_id, celebrity_judge), weight_multiplier);
+
+            self
+                .emit(
+                    Event::CelebrityJudgeSet(
+                        CelebrityJudgeSet {
+                            audition_id,
+                            celebrity_judge,
+                            weight_multiplier,
+                            timestamp: get_block_timestamp(),
+                        },
+                    ),
+                );
+        }
+
+        fn get_artist_score(
+            self: @ContractState, audition_id: u256, artist_id: u256,
+        ) -> ArtistScore {
+            self.artist_scores.read((audition_id, artist_id))
+        }
+
+        fn is_voting_active(self: @ContractState, audition_id: u256) -> bool {
+            let config = self.get_voting_config(audition_id);
+            let current_time = get_block_timestamp();
+
+            // If no specific voting times are set, use audition timing
+            if config.voting_start_time == 0 && config.voting_end_time == 0 {
+                return !self.is_audition_ended(audition_id)
+                    && !self.is_audition_paused(audition_id);
+            }
+
+            current_time >= config.voting_start_time && current_time <= config.voting_end_time
+        }
+
+        fn get_unified_vote(
+            self: @ContractState, audition_id: u256, artist_id: u256, voter: ContractAddress,
+        ) -> UnifiedVote {
+            self.unified_votes.read((audition_id, artist_id, voter))
+        }
     }
 
     #[generate_trait]
@@ -1488,6 +1663,101 @@ pub mod SeasonAndAudition {
             let halfway_time = audition.start_timestamp
                 + (audition.end_timestamp - audition.start_timestamp) / 2;
             assert(get_block_timestamp() < halfway_time, 'Audition has gone halfway');
+        }
+
+        /// @notice Determines the voter's role and calculates their voting weight
+        /// @param audition_id The ID of the audition
+        /// @param voter The address of the voter
+        /// @return (vote_weight, vote_type) Tuple of weight and voter type
+        fn _determine_voter_role_and_weight(
+            self: @ContractState, audition_id: u256, voter: ContractAddress,
+        ) -> (u256, VoteType) {
+            let config = self.get_voting_config(audition_id);
+
+            // Check if voter is a judge
+            let judges = self.get_judges(audition_id);
+            let mut is_judge = false;
+            for judge in judges {
+                if judge == voter {
+                    is_judge = true;
+                    break;
+                }
+            }
+
+            if is_judge {
+                // Check if they are a celebrity judge
+                let celebrity_multiplier = self.celebrity_judges.read((audition_id, voter));
+                if celebrity_multiplier > 0 {
+                    // Celebrity judge gets base weight * multiplier
+                    let celebrity_weight = config.judge_base_weight * celebrity_multiplier / 100;
+                    (celebrity_weight, VoteType::Judge)
+                } else {
+                    // Regular judge
+                    (config.judge_base_weight, VoteType::Judge)
+                }
+            } else {
+                // Check if they are an eligible staker
+                let staking_dispatcher = IStakeToVoteDispatcher {
+                    contract_address: self.staking_contract.read(),
+                };
+
+                assert(
+                    staking_dispatcher.is_eligible_voter(audition_id, voter),
+                    'Not eligible to vote',
+                );
+
+                (config.staker_base_weight, VoteType::Staker)
+            }
+        }
+
+        /// @notice Updates an artist's score in real-time
+        /// @param audition_id The ID of the audition
+        /// @param artist_id The ID of the artist
+        /// @param vote_weight The weight of the vote being added
+        /// @param vote_type The type of the vote (Judge or Staker)
+        fn _update_artist_score(
+            ref self: ContractState,
+            audition_id: u256,
+            artist_id: u256,
+            vote_weight: u256,
+            vote_type: VoteType,
+        ) {
+            let mut score = self.artist_scores.read((audition_id, artist_id));
+
+            // Initialize if this is the first vote for this artist
+            if score.artist_id == 0 {
+                score.artist_id = artist_id;
+            }
+
+            // Update total score
+            score.total_score += vote_weight;
+
+            // Update vote counts
+            match vote_type {
+                VoteType::Judge => { score.judge_votes += 1; },
+                VoteType::Staker => { score.staker_votes += 1; },
+            }
+
+            // Update timestamp
+            score.last_updated = get_block_timestamp();
+
+            // Save updated score
+            self.artist_scores.write((audition_id, artist_id), score);
+
+            // Emit score update event
+            self
+                .emit(
+                    Event::ArtistScoreUpdated(
+                        ArtistScoreUpdated {
+                            audition_id,
+                            artist_id,
+                            total_score: score.total_score,
+                            judge_votes: score.judge_votes,
+                            staker_votes: score.staker_votes,
+                            timestamp: get_block_timestamp(),
+                        },
+                    ),
+                );
         }
 
         fn get_top_winners(
